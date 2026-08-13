@@ -13,8 +13,8 @@ export const GATEWAY_ROOT_KEYS = [
   "schemaVersion",
   "state",
   "data",
-  "error",
   "meta",
+  "error",
 ] as const;
 
 export const GATEWAY_ERROR_KEYS = [
@@ -85,8 +85,8 @@ export interface GatewayResultV1<TData, TState extends string> {
   readonly schemaVersion: typeof GATEWAY_SCHEMA_VERSION;
   readonly state: TState;
   readonly data: TData | null;
-  readonly error: GatewayErrorV1 | null;
   readonly meta: GatewayMetaV1;
+  readonly error: GatewayErrorV1 | null;
 }
 
 export type PendingDomainContractV1 = Readonly<Record<string, unknown>>;
