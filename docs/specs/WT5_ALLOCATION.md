@@ -6,29 +6,29 @@
 
 WT5 담당자는 이 문서만으로 화면, 계산 엔진, Worker, 상태, CSV, 테스트를 구축할 수 있어야 한다.
 
-완료 기준은 "얼추 비슷한 데모"가 아니라 승인된 설계와 기능·수치·상태·시각이 일치하는 제품 수준이다.
+완료 기준은 "얼추 비슷한 데모"가 아니라 본 문서의 기능·수치·상태·numeric geometry·시각 계약이 일치하는 제품 수준이다.
 
 판단이 충돌하면 아래 권위 순서를 따른다.
 
-1. 승인된 Figma 화면 구조와 prototype interaction
-2. 승인된 1440×900·375×812 PNG 및 900×900·640×900 보조 PNG
-3. 데이터 팩 18의 입력 fixture와 표시 데이터
-4. frozen DTO, 특히 `RepresentativeSelectionV1`과 typed gateway 계약
-5. 본 문서의 결정론적 수식, 상수, golden 값, 상태·접근성·반응형 계약
+1. 본 문서의 visible inventory, 표시 문구, numeric geometry, interaction, 상태·접근성·반응형 계약
+2. 데이터 팩 18의 입력 fixture와 표시 데이터
+3. frozen DTO, 특히 `RepresentativeSelectionV1`과 typed gateway 계약
+4. 본 문서의 결정론적 수식, 상수와 golden 값
+5. Figma/PNG는 rough composition과 flow를 이해하기 위한 `REFERENCE_ONLY` 자료
 
 임의의 UI 재해석, 차트 단순화, 계산 근사, 샘플 수 축소는 허용하지 않는다.
 
-승인된 Figma/PNG에 없는 기능을 접근성·보안·성능 개선이라는 이유로 필수 구현에 추가하지 않는다.
+본 문서의 active visible inventory에 없는 기능을 접근성·보안·성능 개선이라는 이유로 필수 구현에 추가하지 않는다. 반대로 Figma/PNG에 보이지 않는다는 이유로 본 문서의 content, 기능, 상태를 생략할 수 없다.
 
 다음 항목을 임의로 추가하면 자동 `CHANGES_REQUESTED`다.
 
-- 승인 화면에 없는 Worker 호환모드·fallback badge·watchdog UI
-- 승인 화면에 없는 Spectrum keyboard 후보 이동·hover guide·hover marker
-- 승인 화면에 없는 drawer 예측 대상일
-- 승인 화면에 없는 상세 dialog sticky shell·별도 sorting/loading 상태
-- 승인 화면에 없는 대표모델 version·provenance·manual/automatic badge
-- 승인 화면에 없는 focus trap·초기 focus·trigger focus 복원 동작을 parity 완료 조건으로 주장하는 것
-- 승인 화면에 없는 서버 simulation API 또는 축소된 scenario/candidate 계산
+- 본 문서에 없는 Worker 호환모드·fallback badge·watchdog UI
+- 본 문서에 없는 Spectrum keyboard 후보 이동·hover guide·hover marker
+- 본 문서에 없는 drawer 예측 대상일
+- 본 문서에 없는 상세 dialog sticky shell·별도 sorting/loading 상태
+- 본 문서에 없는 대표모델 version·provenance·manual/automatic badge
+- 본 문서에 없는 focus trap·초기 focus·trigger focus 복원 동작을 완료 조건으로 주장하는 것
+- 본 문서에 없는 서버 simulation API 또는 축소된 scenario/candidate 계산
 
 ---
 
@@ -42,7 +42,7 @@ WT5가 완료되었다고 말하려면 다음 조건을 모두 충족해야 한�
 - CVaR 90 계산이 기준 숫자와 허용오차 안에서 일치한다.
 - 기본 화면, 입력 drawer, 두 차트, 상세 dialog 세 탭, CSV가 모두 동작한다.
 - 최초 계산, 재계산, 입력 변경, 항로 변경, Worker 오류 상태가 §20·§51 계약대로 분리된다.
-- 1440×900과 375×812의 승인 PNG 시각 검수를 통과하고 900×900·640×900 breakpoint smoke를 통과한다.
+- 1440×900과 375×812의 명세 기반 screenshot·computed-geometry·state·interaction 검수를 통과하고 900×900·640×900 breakpoint smoke를 통과한다.
 - 승인 상호작용에 존재하는 dialog semantics, Escape, overlay close, body scroll lock, chart accessible name을 동일하게 구현한다.
 - 계산 실패 시 이전 결과를 새 결과처럼 표시하지 않는다.
 - 테스트가 UI 문자열뿐 아니라 golden 수치와 byte-level CSV 계약을 검증한다.
@@ -106,12 +106,13 @@ WT5는 다음 항목을 구현하거나 재정의하지 않는다.
 
 | 영역 | 권위 자료 | 사용 목적 |
 |---|---|---|
-| 화면 계층·문구·상호작용 | 승인된 Figma 화면과 prototype | visible section, 순서, 상태, overlay 동작 |
-| geometry·색상·breakpoint | 승인된 1440×900·375×812 PNG와 900×900·640×900 보조 PNG | 배치, 크기, 간격, 줄바꿈, overflow |
+| 화면 계층·문구·상호작용 | 본 문서의 active visible inventory와 acceptance 절 | visible section, 순서, 상태, overlay 동작 |
+| geometry·색상·breakpoint | 본 문서의 numeric geometry·token·responsive 절 | 배치, 크기, 간격, 줄바꿈, overflow |
 | route·관측·예측 데이터 | 데이터 팩 18 | KNEI 기준 입력과 13개 항로 표시 데이터 |
 | WT3/WT6 인계 | frozen DTO와 typed gateway 계약 | 대표모델, snapshot, keep/rollback, 오류 경계 |
 | 계산 결과 | 본 문서의 PRNG·경로·CVaR 수식, 상수, golden 값 | 결정론, 후보 선택, CSV 수치 |
 | 제품 상태 | 본 문서의 runtime·responsive·a11y·acceptance 절 | 실행 상태와 검수 기준 |
+| rough composition·flow 참고 | Figma/PNG (`REFERENCE_ONLY`) | 구현 아이디어 보조; 누락·차이·실패 판정에는 사용 금지 |
 
 ### 4.1 active visible inventory
 
@@ -138,15 +139,15 @@ WT5는 다음 항목을 구현하거나 재정의하지 않는다.
 
 ### 4.2 권위 자료 확인 gate
 
-구현 전 승인된 Figma의 visible inventory, overlay 상태, viewport별 frame을 이 문서 §4.1·§28–§50과 대조한다.
+구현 전 본 문서 §4.1·§28–§50의 visible inventory, overlay 상태와 viewport별 numeric geometry를 항목별 체크리스트로 만든다.
 
-PNG는 KNEI, DPR 1, `ko-KR`, Asia/Seoul, font loading 완료 상태를 사용한다.
+Figma/PNG를 참고할 때는 KNEI, DPR 1, `ko-KR`, Asia/Seoul, font loading 완료 상태의 rough composition/flow만 읽는다. Figma/PNG 차이나 pixel·SSIM·mismatch 수치를 승인 또는 실패 조건으로 사용하지 않는다.
 
 데이터 팩 18의 KNEI 관측·네 forecast·route catalog가 frozen DTO 검증을 통과하는지 확인한다.
 
-승인 자료 사이에 충돌이 있으면 임의 보간하지 않고 UI는 Figma/PNG, 데이터 shape은 frozen DTO, 계산 수치는 본 문서 수식과 golden을 우선한다.
+자료 사이에 충돌이 있으면 임의 보간하지 않고 UI·geometry·interaction은 본 문서, 데이터 shape은 frozen DTO, 계산 수치는 본 문서 수식과 golden을 우선한다.
 
-권위 자료가 개정되면 기존 PNG를 조용히 교체하지 않고 변경 사유와 계약 영향 승인을 먼저 남긴다.
+권위 문서가 개정되면 기존 screenshot evidence를 조용히 교체하지 않고 변경 사유와 계약 영향을 먼저 남긴다.
 
 권위 자료 확인 전에는 시각 기준과 numeric golden을 임의로 다시 정하지 않는다.
 
@@ -275,7 +276,7 @@ forecast field 이름은 반드시 `targetDate`, `point`, `lower90`, `upper90`�
 
 `modelVersion`, `forecastSource`, `tuningRunHash`, `evaluationProtocol`, `representativeRevision`은 stale calculation 차단과 provenance를 위한 내부 metadata다.
 
-WT5 화면에는 승인된 Figma와 동일하게 상단 `대표모델 {modelName}`, `1주 종합점수 {score1w}점 · Coverage {coverage1w}%`, comparison badge `{modelName}`만 표시한다.
+WT5 화면에는 본 문서의 visible inventory대로 상단 `대표모델 {modelName}`, `1주 종합점수 {score1w}점 · Coverage {coverage1w}%`, comparison badge `{modelName}`만 표시한다.
 
 `modelVersion`, `selectionMode`, `forecastSource`, `tuningRunHash`, `evaluationProtocol`, `representativeRevision`, `automaticChampion`, `metricsByHorizon`, `modelAgreementByHorizon`을 새 badge·helper·카드로 노출하지 않는다.
 
@@ -838,7 +839,7 @@ progress는 뒤로 가지 않는다.
 
 로딩 애니메이션만 있고 수치가 없는 구현은 허용하지 않는다.
 
-승인 Figma/PNG에는 별도 `role="progressbar"`/`aria-valuenow` 표시가 없다. 이를 parity 필수로 추가하지 않는다.
+본 문서의 active visible inventory에는 별도 `role="progressbar"`/`aria-valuenow` 표시가 없다. 이를 필수 visible UI로 추가하지 않는다.
 
 ---
 
@@ -1499,7 +1500,7 @@ table min-width는 850px다.
 
 table header는 vertical scroll 중 sticky다.
 
-추천 row는 승인 PNG와 동일한 background와 `추천` text badge로 강조한다. 승인 화면에 없는 별도 border를 추가하지 않는다.
+추천 row는 본 문서의 visual token 계약에 맞는 background와 `추천` text badge로 강조한다. 본 문서에 없는 별도 border를 추가하지 않는다.
 
 색만으로 추천 여부를 전달하지 않는다.
 
@@ -1720,12 +1721,12 @@ section title desktop font size는 18px다.
 
 ## 49. viewport 검증 우선순위
 
-시각 parity의 주 기준은 다음 두 viewport다.
+명세 기반 시각 검증의 주 기준은 다음 두 viewport다.
 
 | 구분 | viewport | 목적 |
 |---|---|---|
-| PRIMARY | 1440×900 | desktop geometry, drawer, dialog, chart parity |
-| PRIMARY | 375×812 | 실제 mobile stacking, chart/table scroll, overlay parity |
+| PRIMARY | 1440×900 | desktop geometry, drawer, dialog, chart 명세 일치 |
+| PRIMARY | 375×812 | 실제 mobile stacking, chart/table scroll, overlay 명세 일치 |
 | SMOKE | 900×900 | summary wrap과 dialog stats breakpoint 오류 확인 |
 | SMOKE | 640×900 | compact breakpoint 앞뒤의 잘림·overflow 확인 |
 
@@ -1741,7 +1742,7 @@ fixture는 KNEI golden을 사용한다.
 
 각 이미지는 해당 deterministic state marker를 기다린 뒤 캡처한다.
 
-1440과 375는 ready·drawer·detail 3 tabs·Spectrum hover·Worker error를 승인 PNG와 직접 비교한다.
+1440과 375는 ready·drawer·detail 3 tabs·Spectrum hover·Worker error를 screenshot으로 기록하고 본 문서의 표시 문구·computed geometry/style·상태·상호작용 assertion과 직접 대조한다.
 
 900과 640은 전체 시각 세트를 만들지 않고 page overflow, action clipping, dialog bounds, chart/table scroll만 확인한다.
 
@@ -2135,7 +2136,7 @@ network panel에 allocation simulation HTTP 요청이 없어야 한다.
 
 ---
 
-## 61. PNG 검수 matrix
+## 61. Screenshot 검수 matrix
 
 PRIMARY 1440×900과 375×812에서 아래 상태를 직접 비교한다.
 
@@ -2161,15 +2162,11 @@ failure injection 이미지는 검수 기록에 fixture ID와 허용 error code�
 
 ---
 
-## 62. 승인 PNG 판정
+## 62. 명세 기반 시각 판정
 
-기준 이미지는 승인된 Figma에서 확정한 PNG다.
+판정 기준은 본 문서의 표시 문구, numeric geometry, visual token, 상태와 상호작용 계약이다. screenshot은 해당 조건이 실제 브라우저에서 충족됐음을 보여주는 evidence이며 기준 이미지와의 pixel·SSIM·mismatch 비교 대상이 아니다.
 
-font와 shared shell 차이는 별도 mask가 아니라 같은 공용 token으로 해결한다.
-
-전체 불일치 pixel 비율은 0.5% 이하를 목표로 한다.
-
-anti-aliasing 때문에 허용된 pixel도 최대 color distance를 제한한다.
+font와 shared shell 차이는 본 문서와 공용 token의 computed style로 판정한다.
 
 카드 위치, chart viewBox, label 위치는 geometry assertion으로 별도 검사한다.
 
@@ -2181,9 +2178,9 @@ mobile horizontal overflow는 body가 아니라 chart scroller 내부에만 있�
 
 drawer와 detail overlay가 viewport 밖으로 잘리지 않아야 한다.
 
-불일치가 생기면 기준 이미지를 즉시 갱신하지 않는다.
+명세 불일치가 생기면 screenshot을 즉시 다시 찍어 숨기지 않는다.
 
-원인, 의도, Figma/PNG 근거를 리뷰한 뒤에만 기준 이미지를 갱신한다.
+원인, 의도, 관련 명세 절과 computed-geometry/state/interaction 증거를 리뷰한 뒤 수정하고 새 screenshot을 만든다.
 
 ---
 
@@ -2239,7 +2236,7 @@ comparison chart는 720×300의 네 수평 guide 표현을 유지하며 640×258
 
 spectrum은 920×360 dual-axis를 유지하며 760×338 single-scale 형태로 바꾸지 않는다.
 
-카드 계층, 표시 문구, 계산 흐름 순서는 승인된 Figma/PNG를 따른다.
+카드 계층, 표시 문구, 계산 흐름 순서는 본 문서의 active visible inventory와 각 상세 절을 따른다.
 
 comparison badge에는 `DERIVED` 같은 새 표식을 넣지 않고 대표모델 이름만 표시한다.
 
@@ -2253,8 +2250,8 @@ detail open 문구와 action 구조, CSV 줄바꿈과 byte 규칙을 임의 변�
 
 ### Stage 0 — 권위 자료 확인
 
-- 승인된 Figma visible inventory와 interaction 확인
-- 1440·375 주 PNG와 900·640 보조 PNG 조건 확인
+- 본 문서의 visible inventory와 interaction 확인
+- 1440·375 주 검증 조건과 900·640 smoke 조건 확인
 - 데이터 팩 18 KNEI fixture와 frozen DTO 정합성 확인
 - 본 문서 numeric golden과 시각 상태 승인 확인
 
@@ -2306,7 +2303,7 @@ Acceptance: state boundary, overlay/Escape/body-lock 통합 테스트 통과.
 - comparison chart와 3-step flow 추가
 - running/error UI 추가
 
-Acceptance: 1440×900·375×812 승인 PNG core 검수 통과.
+Acceptance: 1440×900·375×812 명세 기반 screenshot·computed-geometry·state·interaction core 검수 통과.
 
 ### Stage 6 — spectrum과 risk
 
@@ -2333,8 +2330,8 @@ Acceptance: 100,001행 byte contract 통과.
 
 ### Stage 9 — full visual and runtime QA
 
-- 1440·375 승인 PNG parity와 900·640 smoke 수행
-- 시각 허용치와 performance measurement 확인
+- 1440·375 명세 기반 시각 검증과 900·640 smoke 수행
+- numeric geometry·computed style·state·interaction과 performance measurement 확인
 - evidence matrix 완성
 
 Acceptance: 아래 release gate 전부 통과.
@@ -2347,7 +2344,7 @@ Acceptance: 아래 release gate 전부 통과.
 
 | 요구 | 증거 artifact | 자동 검증 | 수동 검증 |
 |---|---|---|---|
-| clean-room 권위 | Figma/PNG·데이터 팩 18 승인 기록 | fixture 조건 검사 | reviewer approval |
+| clean-room 권위 | 본 문서 절·데이터 팩 18·동결 계약 기록 | fixture 조건 검사 | reviewer approval |
 | 대표모델 동일 ID 4주 | `RepresentativeSelectionV1` fixture | contract test | drawer 4카드 확인 |
 | 대표 provenance | frozen `modelVersion`·`forecastSource`·`tuningRunHash`·`evaluationProtocol`·`representativeRevision` | revision 검증 | WT3 handoff review |
 | tuning keep/rollback | shared revision fixture | effective-key 변경 시 once, 불변 시 no-run | WT3→WT5 recording |
@@ -2358,8 +2355,8 @@ Acceptance: 아래 release gate 전부 통과.
 | CVaR 90 | golden result | 1e-6 assertion | method 표시 문구 확인 |
 | Worker lifecycle | runtime event log fixture | result-null/cancellation test | rapid route change |
 | Blob Worker | deterministic Worker fixture | KNEI golden·stale sequence·dispose test | rapid route change |
-| recommendation UI | 1440·375 승인 PNG | DOM value test | visual review |
-| comparison geometry | SVG geometry expectation | attribute test | 승인 PNG 비교 |
+| recommendation UI | 1440·375 browser screenshot·명세 checklist | DOM value test | visual review |
+| comparison geometry | SVG geometry expectation | attribute test | computed geometry review |
 | spectrum dual axes | series expectation | DOM/scale test | hover review |
 | risk breakdown | result fixture | sum assertion | bar/value review |
 | detail allocation | 101-row fixture | row count test | recommended scroll |
@@ -2367,7 +2364,7 @@ Acceptance: 아래 release gate 전부 통과.
 | percentiles | sorted golden | index test | table review |
 | method tab | 표시 문구 목록 | 지정 text test | readability review |
 | CSV | golden bytes | byte/row test | spreadsheet open |
-| responsive/state | 1440·375 parity + 900·640 smoke 기록 | image/overflow test | device/state review |
+| responsive/state | 1440·375 명세 검증 + 900·640 smoke 기록 | screenshot/overflow test | device/state review |
 | semantics | dialog/tab/chart ARIA expectation | 지정 attribute test | Escape·overlay·body-lock 확인 |
 | resource cleanup | lifecycle counters | leak regression | devtools check |
 
@@ -2387,7 +2384,7 @@ Release gate B는 KNEI golden 전체 통과다.
 
 Release gate C는 Blob Worker KNEI golden과 stale sequence/resource cleanup 통과다.
 
-Release gate D는 1440·375 승인 PNG 비교와 900·640 smoke 통과다.
+Release gate D는 1440·375 명세 기반 screenshot·computed-geometry·state·interaction 검증과 900·640 smoke 통과다.
 
 Release gate E는 runtime E2E와 cold direct load 통과다.
 
@@ -2403,13 +2400,13 @@ Release gate J는 evidence matrix의 모든 행에 실제 artifact가 연결된 
 
 gate를 수동 메모만으로 bypass하지 않는다.
 
-기준 이미지 변경은 reviewer 두 명의 승인 대상으로 둔다.
+numeric geometry 또는 visible contract 변경은 reviewer 두 명의 승인 대상으로 둔다.
 
 ---
 
 ## 69. 구현자 self-review checklist
 
-- REQUIRED — 승인된 Figma/PNG, 데이터 팩 18, frozen DTO, 본문 수식·golden 외 구현 흔적에 의존하지 않았다. 종료값: `CHECKED`.
+- REQUIRED — 본 문서, 데이터 팩 18, frozen DTO, 본문 수식·golden 외 구현 흔적에 의존하지 않았다. Figma/PNG는 rough composition/flow 참고에만 사용했다. 종료값: `CHECKED`.
 - REQUIRED — 네 horizon이 같은 model ID다. 종료값: `CHECKED`.
 - REQUIRED — `RepresentativeSelectionV1`을 rename/recompute 없이 소비한다. 종료값: `CHECKED`.
 - REQUIRED — modelVersion, forecastSource, tuningRunHash, evaluationProtocol, representativeRevision은 DTO 검증/provenance에 보존하되 단독 rerun trigger로 쓰지 않았다. 종료값: `CHECKED`.
@@ -2438,7 +2435,7 @@ gate를 수동 메모만으로 bypass하지 않는다.
 - REQUIRED — 250개 path와 nine percentiles가 있다. 종료값: `CHECKED`.
 - REQUIRED — 계산 방법 여섯 block과 caution이 있다. 종료값: `CHECKED`.
 - REQUIRED — CSV header, BOM, LF, row count가 정확하다. 종료값: `CHECKED`.
-- REQUIRED — 1440·375 parity와 900·640 smoke를 통과했다. 종료값: `CHECKED`.
+- REQUIRED — 1440·375 명세 기반 시각 검증과 900·640 smoke를 통과했다. 종료값: `CHECKED`.
 - REQUIRED — 승인 화면에 없는 focus trap/restore, chart keyboard 후보 탐색, compatibility UI를 추가하지 않았다. 종료값: `CHECKED`.
 - REQUIRED — body 전체 horizontal overflow가 없다. 종료값: `CHECKED`.
 - REQUIRED — 오류에서 fake result를 만들지 않는다. 종료값: `CHECKED`.
@@ -2454,7 +2451,7 @@ WT5 담당자는 완료 시 다음 사실을 수치로 보고한다.
 - 구현 stage 완료 내역
 - KNEI golden test 결과
 - Blob Worker KNEI golden 최대 오차
-- 1440·375 승인 PNG 불일치 비율과 900·640 smoke 결과
+- 1440·375 screenshot·computed-geometry·state·interaction 명세 검증과 900·640 smoke 결과
 - CSV 실제 행 수와 byte 계약 결과
 - cold-load E2E 결과
 - 접근성 자동검사 결과

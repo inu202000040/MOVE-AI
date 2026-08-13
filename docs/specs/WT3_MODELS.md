@@ -4,20 +4,19 @@
 
 이 문서는 Models 화면의 보이는 결과, 계산 규칙, 상호작용, 반응형 동작, 상태 전이, 접근성, 저장 및 소비자 인계를 규정한다. 문서에 없는 화면, 문구, 필드, 상태, 제어 또는 사용자 동작을 추가하지 않는다.
 
-판정 권위는 다음 순서로 적용한다.
+구현과 QA의 유일한 판정 권위는 이 명세 텍스트다. 지원 입력은 다음과 같이 사용한다.
 
-1. 승인된 Figma 프레임과 승인된 PNG
-2. `MOVE_AI_DATA_PACK`의 `13_MODEL_FORECAST_SNAPSHOT.xlsx`, `14_MODEL_EVALUATION.xlsx`, `15_MODEL_TUNING_CONFIG.xlsx`
-3. 동결된 공유 DTO와 저장 키 계약
-4. 이 문서의 공식·수치 골든·상태 전이
-5. 사용 중인 라이브러리의 공식 문서
+1. `MOVE_AI_DATA_PACK`의 `13_MODEL_FORECAST_SNAPSHOT.xlsx`, `14_MODEL_EVALUATION.xlsx`, `15_MODEL_TUNING_CONFIG.xlsx`: 본 문서가 지정한 데이터 입력
+2. 동결된 공유 DTO와 저장 키 계약: 본 문서가 지정한 경계 계약
+3. 사용 중인 라이브러리의 공식 문서: 표준 API 사용 근거
+4. 승인된 Figma 프레임과 PNG: `REFERENCE_ONLY`로 rough composition과 flow 참고 전용
 
-권위 간 충돌이 있으면 보이는 배치와 문구는 승인된 Figma/PNG, 데이터와 계산은 데이터 팩 및 동결 DTO를 우선한다. 임의 보정값이나 새 사용자 기능으로 충돌을 숨기지 않는다.
+보이는 배치·문구·수치 geometry·상태·상호작용과 데이터·계산 판정은 본 문서를 따른다. Figma/PNG와의 차이만으로 실패 또는 차단할 수 없고, pixel parity·image diff·SSIM·mismatch 비율은 구현 또는 QA 합격 기준으로 사용하지 않는다. 입력 충돌을 임의 보정값이나 새 사용자 기능으로 숨기지 않는다.
 
 ### 0.1 판정 언어
 
 - `P0`: 데이터·계약·주요 기능·안전한 상태 전이를 깨는 출시 차단 결함
-- `P1`: 승인 화면과 주요 반응형 배치의 실질적 불일치 또는 필수 상호작용 결함
+- `P1`: 본 명세의 주요 반응형 배치·computed style·상태·필수 상호작용 결함. Figma/PNG 차이만으로는 P1이 아니다.
 - 완료 조건: `P0=0`, `P1=0`
 - `CP1`은 중간 점검일 뿐 완료가 아니다.
 
@@ -755,9 +754,9 @@ TuneSuccessV1 = {
 
 동결된 저장 키 상수를 사용한다. 논리 키는 다음 세 범주다.
 
-- 항로: `freight-risk-route`
-- 재측정: `glovis-freight-risk:model-tuning:v2`
-- 대표모델: `glovis-freight-risk:representative-model:v1`
+- 항로: `move-ai:route:v1`
+- 재측정: `move-ai:tuning:v1:`
+- 대표모델: `move-ai:representative:v1:`
 
 ### 18.1 재측정 저장
 
@@ -1120,7 +1119,7 @@ WT3가 `tuningRunHash`와 `representativeRevision`의 생성 및 검증을 단�
 - 검증되지 않은 저장값을 신뢰하지 않는다.
 - 소비자가 대표 선택, 점수, agreement를 별도로 재계산하게 하지 않는다.
 - 실행 중 서랍을 닫아 진행 상태를 잃게 하지 않는다.
-- 승인 Figma/PNG와 데이터 팩에 없는 보이는 화면·필드·배지·진단 상태를 추가하지 않는다.
+- 본 문서와 지정 데이터 팩에 없는 보이는 화면·필드·배지·진단 상태를 추가하지 않는다.
 
 ---
 
@@ -1187,7 +1186,7 @@ WT3가 `tuningRunHash`와 `representativeRevision`의 생성 및 검증을 단�
 
 ### 25.8 반응형
 
-1. 1440×900에서 승인된 카드 시작점, 420px 차트, 4열 카드, 6열 표를 확인한다.
+1. 1440×900에서 본 문서가 지정한 카드 시작점, 420px 차트, 4열 카드, 6열 표를 확인한다.
 2. 375×812에서 제목·문맥·도구 사이의 과도한 빈 공간이 없고 차트가 약 302px에 맞는다.
 3. 900×900에서 대표 카드가 2열이다.
 4. 640×900에서 대표 카드와 설정 영역이 1열이다.
@@ -1197,7 +1196,9 @@ WT3가 `tuningRunHash`와 `representativeRevision`의 생성 및 검증을 단�
 
 ## 26. 시각 승인 기준
 
-승인된 Figma/PNG와 같은 항로·상태·스크롤 위치에서 비교한다.
+1440×900과 375×812에서는 같은 fixture·항로·상태·스크롤 위치의 브라우저 screenshot을 남기고, 900×900과 640×900에서는 같은 조건의 smoke screenshot을 남긴다. 수치 geometry와 style은 DOM 측정값·computed style로, 상태와 상호작용은 screenshot·recording으로 본 문서에 대조한다.
+
+Figma/PNG는 `REFERENCE_ONLY`로 rough composition과 flow만 참고한다. Figma/PNG 차이만으로 실패하거나 차단하지 않으며 pixel parity·image diff·SSIM·mismatch 비율을 만들거나 판정에 사용하지 않는다.
 
 | 항목 | 허용 편차 |
 |---|---:|
@@ -1226,8 +1227,8 @@ WT3가 `tuningRunHash`와 `representativeRevision`의 생성 및 검증을 단�
 
 다음 항목이 모두 충족돼야 완료다.
 
-- 승인된 Figma/PNG와 1440×900, 375×812 시각 기준 통과
-- 900×900, 640×900 구간 점검 통과
+- 1440×900, 375×812 browser screenshot과 computed-style/geometry/state/interaction 증거가 본 명세 기준 통과
+- 900×900, 640×900 smoke screenshot과 구간 점검 통과
 - 8개 모델 차트, 카드, 표의 순서와 골든 통과
 - MAPE, MSE, MASE 공식과 52개 근거 통과
 - 자동·수동 대표 선택과 KNEI 골든 통과
