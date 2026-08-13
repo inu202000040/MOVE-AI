@@ -56,6 +56,7 @@ export function ForecastComparisonChart({
 }: ForecastComparisonChartProps) {
   const [hoveredModel, setHoveredModel] = useState<RiskModelId | null>(null);
   const [tooltip, setTooltip] = useState<TooltipV1 | null>(null);
+  const clearTooltip = () => setTooltip(null);
   const [chartWidth, setChartWidth] = useState(INITIAL_WIDTH);
   const minimumHistoryCount = Math.min(RECENT_HISTORY_POINTS, history.length);
   const [visibleHistoryCount, setVisibleHistoryCount] = useState(
@@ -167,7 +168,7 @@ export function ForecastComparisonChart({
   const tooltipMetric = tooltipModel === null || tooltip === null ? null : tooltipModel.metricsByHorizon[tooltip.horizon - 1];
 
   return (
-    <div className={styles.chartShell} onDoubleClick={() => selectRange("recent")}>
+    <div className={styles.chartShell} onDoubleClick={() => selectRange("recent")} onMouseLeave={clearTooltip} onPointerLeave={clearTooltip}>
       <div className={styles.chartRange} aria-label="차트 기간">
         <button aria-pressed={visibleHistoryCount === minimumHistoryCount} onClick={() => selectRange("recent")} type="button">최근</button>
         <button aria-pressed={visibleHistoryCount === history.length} onClick={() => selectRange("all")} type="button">전체</button>
@@ -179,6 +180,9 @@ export function ForecastComparisonChart({
       <svg
         aria-label={`${routeName} 항로 KCCI 실측과 8개 모델의 1주부터 4주 예측 비교`}
         className={styles.chart}
+        onMouseLeave={clearTooltip}
+        onPointerCancel={clearTooltip}
+        onPointerLeave={clearTooltip}
         ref={chartRef}
         role="img"
         onWheel={(event) => {
@@ -216,7 +220,7 @@ export function ForecastComparisonChart({
           const isRepresentative = representative.modelId === model.modelId;
           const isDimmed = hoveredModel !== null && hoveredModel !== model.modelId;
           return (
-            <g key={model.modelId} onMouseEnter={() => setHoveredModel(model.modelId)} onMouseLeave={() => setHoveredModel(null)}>
+            <g key={model.modelId} onMouseEnter={() => setHoveredModel(model.modelId)} onMouseLeave={() => { setHoveredModel(null); clearTooltip(); }}>
               <path
                 className={styles.modelLine}
                 d={linePath(points)}
@@ -232,10 +236,13 @@ export function ForecastComparisonChart({
                   cy={point.y}
                   fill={definition?.color}
                   key={`${model.modelId}-${index}`}
-                  onBlur={() => setHoveredModel(null)}
+                  onBlur={() => { setHoveredModel(null); clearTooltip(); }}
                   onClick={() => setTooltip({ modelId: model.modelId, horizon: index + 1, x: point.x, y: point.y })}
                   onFocus={() => setHoveredModel(model.modelId)}
                   onMouseEnter={() => setTooltip({ modelId: model.modelId, horizon: index + 1, x: point.x, y: point.y })}
+                  onMouseLeave={clearTooltip}
+                  onPointerCancel={clearTooltip}
+                  onPointerLeave={clearTooltip}
                   r={isRepresentative ? 4.8 : 3.4}
                   role="button"
                   tabIndex={0}
