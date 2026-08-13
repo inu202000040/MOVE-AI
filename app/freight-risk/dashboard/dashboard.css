@@ -107,7 +107,14 @@ button:focus-visible, select:focus-visible, a:focus-visible, svg:focus-visible {
 .data-badge.reference { color: #6d28d9; background: #f0e9ff; }
 .data-badge.loading, .data-badge.input { color: #52667a; background: #edf2f7; }
 .data-badge.unavailable { color: #9c3c3c; background: #fdeaea; }
-.market-chart-shell svg { display: block; width: 100%; max-width: 100%; }
+.market-chart-shell { position: relative; }
+.market-chart-shell svg { display: block; width: 100%; max-width: 100%; cursor: crosshair; }
+.market-point { opacity: .78; vector-effect: non-scaling-stroke; }
+.market-crosshair { opacity: .58; stroke-width: 1.25; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.market-tooltip { min-width: 190px; max-width: min(260px,calc(100% - 18px)); gap: 4px; padding: 10px 12px; }
+.market-tooltip strong { font-size: 14px; }
+.market-tooltip span, .market-tooltip b { font-size: 9px; }
+.market-tooltip b { color: #8ed8ff; }
 .market-footer strong { display: block; margin-top: 2px; color: var(--dash-navy); font-size: 14px; }
 .market-footer > span:last-child { text-align: right; }
 

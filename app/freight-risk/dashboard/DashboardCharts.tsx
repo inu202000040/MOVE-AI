@@ -233,6 +233,7 @@ export function FreightChart({
 
 export function MarketChart({ points, color, unit }: { readonly points: readonly ChartPoint[]; readonly color: string; readonly unit: string }) {
   const { ref, width } = useMeasuredWidth();
+  const [hovered, setHovered] = useState<{ readonly x: number; readonly y: number; readonly date: string; readonly value: number } | null>(null);
   const height = 208;
   const pad = { top: 24, right: 24, bottom: 52, left: 82 };
   const values = points.map((point) => point.value);
@@ -245,14 +246,27 @@ export function MarketChart({ points, color, unit }: { readonly points: readonly
   const end = time(points.at(-1)?.date ?? "2026-08-03");
   const x = (date: string) => pad.left + ((time(date) - start) / Math.max(1, end - start)) * (width - pad.right - pad.left);
   const y = (value: number) => pad.top + ((max - value) / Math.max(1, max - min)) * (height - pad.top - pad.bottom);
-  return <div className="market-chart-shell" ref={ref}><svg aria-label={`${unit} 시장 지표 차트`} height={height} preserveAspectRatio="xMidYMid meet" role="img" viewBox={`0 0 ${width} ${height}`} width={width}>
+  const markerStride = Math.max(1, Math.ceil(points.length / 24));
+  const visibleMarkers = points.filter((_, index) => index % markerStride === 0 || index === points.length - 1);
+  const onPointerMove = (event: PointerEvent<SVGSVGElement>) => {
+    if (points.length === 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = ((event.clientX - rect.left) / Math.max(1, rect.width)) * width;
+    const nearest = points.reduce((best, point) => (
+      Math.abs(x(point.date) - localX) < Math.abs(x(best.date) - localX) ? point : best
+    ), points[0]);
+    setHovered({ x: x(nearest.date), y: y(nearest.value), date: nearest.date, value: nearest.value });
+  };
+  const clearHover = () => setHovered(null);
+  return <div className="market-chart-shell" onMouseLeave={clearHover} onPointerLeave={clearHover} ref={ref}><svg aria-label={`${unit} 시장 지표 차트`} height={height} onMouseLeave={clearHover} onPointerCancel={clearHover} onPointerLeave={clearHover} onPointerMove={onPointerMove} preserveAspectRatio="xMidYMid meet" role="img" viewBox={`0 0 ${width} ${height}`} width={width}>
     {Array.from({ length: 5 }, (_, index) => { const value = min + ((max - min) * index) / 4; const yy = y(value); return <g key={value}><line className="chart-grid" x1={pad.left} x2={width - pad.right} y1={yy} y2={yy} /><text className="chart-axis" textAnchor="end" x={pad.left - 12} y={yy + 4}>{Math.round(value).toLocaleString("ko-KR")}</text></g>; })}
     {[0, 0.5, 1].map((ratio) => <text className="chart-axis" key={ratio} textAnchor={ratio === 0 ? "start" : ratio === 1 ? "end" : "middle"} x={pad.left + (width - pad.left - pad.right) * ratio} y={height - 20}>{formatDate(start + (end - start) * ratio)}</text>)}
     <text className="chart-axis-title" textAnchor="middle" transform={`rotate(-90 18 ${height / 2})`} x="18" y={height / 2}>{unit}</text>
     <text className="chart-axis-title" textAnchor="end" x={width - pad.right} y={height - 3}>날짜</text>
     <path d={linePath(points.map((point) => ({ x: x(point.date), y: y(point.value) })))} fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-    {points.map((point, index) => <circle cx={x(point.date)} cy={y(point.value)} fill={color} key={point.date} r={index === points.length - 1 ? 5.5 : 3.8} stroke="white" strokeWidth="2"><title>{`${point.date} · ${point.value.toLocaleString("ko-KR")} ${unit}`}</title></circle>)}
-  </svg></div>;
+    {visibleMarkers.map((point, index) => <circle className="market-point" cx={x(point.date)} cy={y(point.value)} fill={color} key={point.date} r={index === visibleMarkers.length - 1 ? 5.5 : 3.4} stroke="white" strokeWidth="2" />)}
+    {hovered !== null && <g pointerEvents="none"><line className="market-crosshair" stroke={color} x1={hovered.x} x2={hovered.x} y1={pad.top} y2={height - pad.bottom} /><circle cx={hovered.x} cy={hovered.y} fill="white" opacity=".34" r="10" /><circle cx={hovered.x} cy={hovered.y} fill={color} r="6" stroke="white" strokeWidth="2.5" /></g>}
+  </svg>{hovered !== null && <div className="chart-tooltip market-tooltip" style={{ left: `${Math.max(18, Math.min(82, (hovered.x / width) * 100))}%`, top: `${hovered.y < 88 ? hovered.y + 14 : hovered.y - 10}px`, transform: hovered.y < 88 ? "translate(-50%, 0)" : "translate(-50%, -100%)" }}><span>{hovered.date}</span><strong>{hovered.value.toLocaleString("ko-KR", { maximumFractionDigits: 3 })} {unit}</strong><b>가장 가까운 관측값</b></div>}</div>;
 }
 
 export interface HistoryChartEvent {
