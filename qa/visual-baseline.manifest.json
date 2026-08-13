@@ -1,0 +1,217 @@
+{
+  "schemaVersion": "move-ai/visual-baseline/v1",
+  "sourceCommit": "2c83561796b8014ea686db6e7a4c8a8ebd91eb8b",
+  "figma": {
+    "fileKey": "RvydVRm2bD59KlTzfemK7F",
+    "name": "MOVE AI Clean-room UI",
+    "status": "APPROVED_CLEAN_ROOM_V1",
+    "verifiedAt": "2026-08-13T13:16:12+09:00",
+    "verification": "Figma node screenshot metadata and committed PNG byte audit"
+  },
+  "assets": [
+    {
+      "id": "landing-ready-1440x900",
+      "path": "design/exports/landing-1440x900.png",
+      "nodeId": "7:2",
+      "width": 1440,
+      "height": 900,
+      "bytes": 61605,
+      "sha256": "4693cf741eebfe24de320f4248eee29f327438d7459cbb4cc52f5be00f9a2af5",
+      "role": "primary"
+    },
+    {
+      "id": "landing-ready-375x812",
+      "path": "design/exports/landing-375x812.png",
+      "nodeId": "7:36",
+      "width": 375,
+      "height": 812,
+      "bytes": 27294,
+      "sha256": "5b35c0403a46f1e79962cbee4573f20ebd1429890ff15005837ac71c7884ae66",
+      "role": "primary"
+    },
+    {
+      "id": "dashboard-ready-1440x900",
+      "path": "design/exports/dashboard-1440x900.png",
+      "nodeId": "8:2",
+      "width": 1440,
+      "height": 900,
+      "bytes": 147228,
+      "sha256": "5bc61ed4adb9b598be48fbf8f228b487dfb3aa0e5b86877a1c00fd9f4a26c5a5",
+      "role": "primary"
+    },
+    {
+      "id": "dashboard-ready-375x812",
+      "path": "design/exports/dashboard-375x812.png",
+      "nodeId": "8:91",
+      "width": 375,
+      "height": 812,
+      "bytes": 39452,
+      "sha256": "8e0b6840b287b7a791ef4aa16b56f3edadbd1c2464324c8be3b73a3220d7295b",
+      "role": "primary"
+    },
+    {
+      "id": "models-ready-1440x900",
+      "path": "design/exports/models-1440x900.png",
+      "nodeId": "11:2",
+      "width": 1440,
+      "height": 900,
+      "bytes": 136417,
+      "sha256": "b9420b17db20c407636bfaeb6fa0f3c394f65d267aac2a977965d97f12628019",
+      "role": "primary"
+    },
+    {
+      "id": "models-ready-375x812",
+      "path": "design/exports/models-375x812.png",
+      "nodeId": "11:96",
+      "width": 375,
+      "height": 812,
+      "bytes": 51490,
+      "sha256": "7c47a76b1f1ae5ed5f177149b99afa0aa36e8f1fe28ef9e0e010390a270eccfa",
+      "role": "primary"
+    },
+    {
+      "id": "network-ready-1440x900",
+      "path": "design/exports/network-1440x900.png",
+      "nodeId": "12:2",
+      "width": 1440,
+      "height": 900,
+      "bytes": 472709,
+      "sha256": "9e6c14eace01ceb074d0e46fb278dbca60bf32693d083215559e526fa904fa79",
+      "role": "primary"
+    },
+    {
+      "id": "network-ready-375x812",
+      "path": "design/exports/network-375x812.png",
+      "nodeId": "12:75",
+      "width": 375,
+      "height": 812,
+      "bytes": 187442,
+      "sha256": "1a34e591527fa83e9ed7088eb7853b09d360566ab62532e4ea37a0e87c9c897d",
+      "role": "primary"
+    },
+    {
+      "id": "allocation-ready-1440x900",
+      "path": "design/exports/allocation-1440x900.png",
+      "nodeId": "13:2",
+      "width": 1440,
+      "height": 900,
+      "bytes": 151927,
+      "sha256": "4f47757227072064e180838f9cc1e464c6bac61d4537a659be687ef61cc34e96",
+      "role": "primary"
+    },
+    {
+      "id": "allocation-ready-375x812",
+      "path": "design/exports/allocation-375x812.png",
+      "nodeId": "13:84",
+      "width": 375,
+      "height": 812,
+      "bytes": 43886,
+      "sha256": "dd3a7eced66e4a3e0e8c41554efd9bdb9a39c8465ef67b998d1bd694807d8ad1",
+      "role": "primary"
+    },
+    {
+      "id": "allocation-data-input-640x812",
+      "path": "design/exports/allocation-data-input-640x812.png",
+      "nodeId": "13:140",
+      "width": 640,
+      "height": 812,
+      "bytes": 105974,
+      "sha256": "ecc3fc3f40cef3031a239ab883f4088bce192b2686475422944938e16afc2907",
+      "role": "supplemental-state"
+    },
+    {
+      "id": "runtime-states-1440x900",
+      "path": "design/exports/runtime-states-1440x900.png",
+      "nodeId": "15:2",
+      "width": 1440,
+      "height": 900,
+      "bytes": 123713,
+      "sha256": "4d23f834cd79f343b5df1e6ac93026b4fb7d30f969a117a2688dbd9c435e8dc7",
+      "role": "supplemental-state"
+    },
+    {
+      "id": "network-fallback-375x812",
+      "path": "design/exports/network-fallback-375x812.png",
+      "nodeId": "15:41",
+      "width": 375,
+      "height": 812,
+      "bytes": 43056,
+      "sha256": "2b8a6b3ac0d9661a4b087005b381f45a1a8a4de1ead7316445079312216abb69",
+      "role": "supplemental-state"
+    }
+  ],
+  "viewports": [
+    { "id": "1440x900", "width": 1440, "height": 900, "level": "primary" },
+    { "id": "375x812", "width": 375, "height": 812, "level": "primary" },
+    { "id": "900x900", "width": 900, "height": 900, "level": "smoke" },
+    { "id": "640x900", "width": 640, "height": 900, "level": "smoke" }
+  ],
+  "stateGroups": [
+    { "id": "initial-loading", "interaction": "default" },
+    { "id": "ready-default", "interaction": "default" },
+    { "id": "primary-interaction", "interaction": "active" },
+    { "id": "modal-drawer-panel", "interaction": "open" },
+    { "id": "empty-unavailable", "interaction": "default" },
+    { "id": "error-retry", "interaction": "retry" }
+  ],
+  "pages": [
+    {
+      "id": "landing",
+      "worktree": "wt1",
+      "route": "KNEI",
+      "url": "/",
+      "primaryBaselines": {
+        "1440x900": "landing-ready-1440x900",
+        "375x812": "landing-ready-375x812"
+      }
+    },
+    {
+      "id": "dashboard",
+      "worktree": "wt2",
+      "route": "KNEI",
+      "url": "/freight-risk/dashboard?route=KNEI",
+      "primaryBaselines": {
+        "1440x900": "dashboard-ready-1440x900",
+        "375x812": "dashboard-ready-375x812"
+      }
+    },
+    {
+      "id": "models",
+      "worktree": "wt3",
+      "route": "KNEI",
+      "url": "/freight-risk/models?route=KNEI",
+      "primaryBaselines": {
+        "1440x900": "models-ready-1440x900",
+        "375x812": "models-ready-375x812"
+      }
+    },
+    {
+      "id": "network",
+      "worktree": "wt4",
+      "route": "KNEI",
+      "url": "/freight-risk/network?route=KNEI",
+      "primaryBaselines": {
+        "1440x900": "network-ready-1440x900",
+        "375x812": "network-ready-375x812"
+      }
+    },
+    {
+      "id": "allocation",
+      "worktree": "wt5",
+      "route": "KNEI",
+      "url": "/freight-risk/allocation?route=KNEI",
+      "primaryBaselines": {
+        "1440x900": "allocation-ready-1440x900",
+        "375x812": "allocation-ready-375x812"
+      }
+    }
+  ],
+  "evidence": {
+    "root": "evidence",
+    "imagePattern": "{route}-{state}-{viewport}-{interaction}.png",
+    "diffPattern": "{route}-{state}-{viewport}-{interaction}-diff.png",
+    "videoPattern": "{route}-{scenario}-{viewport}.webm",
+    "computedPattern": "{route}-{state}-{viewport}.json",
+    "statusBeforeCapture": "PENDING_CANDIDATE"
+  }
+}
