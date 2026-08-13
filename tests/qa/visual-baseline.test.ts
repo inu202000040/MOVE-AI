@@ -12,7 +12,7 @@ type Asset = {
   height: number;
   bytes: number;
   sha256: string;
-  role: "primary" | "supplemental-state";
+  role: "reference-ready" | "reference-state";
 };
 
 type Viewport = {
@@ -32,15 +32,31 @@ type Page = {
   worktree: string;
   route: string;
   url: string;
-  primaryBaselines: Record<string, string>;
+  compositionReferences: Record<string, string>;
 };
 
 type Manifest = {
   schemaVersion: string;
-  sourceCommit: string;
+  figmaSourceCommit: string;
+  policyCommit: string;
+  authority: {
+    visualPassAuthority: string;
+    browserEvidenceRequired: boolean;
+    figmaMismatchAloneIsFinding: boolean;
+    figmaRevisionBlocksBuilders: boolean;
+    implementationSpecs: {
+      status: string;
+      soleAuthority: boolean;
+    };
+    evaluationDimensions: string[];
+  };
   figma: {
     fileKey: string;
     status: string;
+    use: string;
+    pixelParityAuthority: boolean;
+    mismatchAloneIsFinding: boolean;
+    blocksBuilders: boolean;
   };
   assets: Asset[];
   viewports: Viewport[];
@@ -52,6 +68,8 @@ type Manifest = {
     diffPattern: string;
     videoPattern: string;
     computedPattern: string;
+    figmaReferenceRequiredForPass: boolean;
+    pixelDiffRequiredForPass: boolean;
     statusBeforeCapture: string;
   };
 };
@@ -59,6 +77,7 @@ type Manifest = {
 const repositoryRoot = process.cwd();
 const manifestPath = path.join(repositoryRoot, "qa", "visual-baseline.manifest.json");
 const baselineDocumentPath = path.join(repositoryRoot, "docs", "03_FIGMA_DESIGN_BASELINE.md");
+const matrixDocumentPath = path.join(repositoryRoot, "docs", "qa", "VISUAL_QA_MATRIX.md");
 
 async function loadManifest(): Promise<Manifest> {
   return JSON.parse(await readFile(manifestPath, "utf8")) as Manifest;
@@ -78,16 +97,61 @@ function substitute(pattern: string, values: Record<string, string>): string {
   });
 }
 
-test("approved Figma PNG bytes, hashes, dimensions, and frame IDs are frozen", async () => {
+test("docs/specs authority and Figma reference-only policy are machine-enforced", async () => {
+  const manifest = await loadManifest();
+  const matrixDocument = await readFile(matrixDocumentPath, "utf8");
+
+  assert.equal(manifest.schemaVersion, "move-ai/visual-qa/v2");
+  assert.equal(manifest.figmaSourceCommit, "2c83561796b8014ea686db6e7a4c8a8ebd91eb8b");
+  assert.equal(manifest.policyCommit, "66cc07ebfed57619f2125ba6dcd31a54c5938024");
+  assert.equal(manifest.authority.visualPassAuthority, "docs/specs");
+  assert.equal(manifest.authority.browserEvidenceRequired, true);
+  assert.equal(manifest.authority.figmaMismatchAloneIsFinding, false);
+  assert.equal(manifest.authority.figmaRevisionBlocksBuilders, false);
+  assert.deepEqual(manifest.authority.implementationSpecs, {
+    status: "REMOVED_BY_POLICY",
+    soleAuthority: false,
+  });
+  assert.deepEqual(manifest.authority.evaluationDimensions, [
+    "structure",
+    "information-density",
+    "required-ui",
+    "states",
+    "interactions",
+    "responsiveness",
+    "concept-tokens",
+  ]);
+  assert.equal(manifest.figma.status, "REFERENCE_ONLY");
+  assert.equal(manifest.figma.use, "rough-composition-flow-only");
+  assert.equal(manifest.figma.pixelParityAuthority, false);
+  assert.equal(manifest.figma.mismatchAloneIsFinding, false);
+  assert.equal(manifest.figma.blocksBuilders, false);
+  assert.equal(manifest.evidence.figmaReferenceRequiredForPass, false);
+  assert.equal(manifest.evidence.pixelDiffRequiredForPass, false);
+
+  for (const requiredText of [
+    "normative visual and UX contract",
+    "REFERENCE_ONLY",
+    "A mismatch with Figma alone is never a finding",
+    "exact required cards, charts, KPIs",
+    "1440x900 and 375x812 primary review",
+    "900x900 and 640x900 breakpoint/overflow smoke",
+    "#f1f2f9",
+    "#001290",
+    "#15269d",
+    "#3fa1eb",
+  ]) {
+    assert.ok(matrixDocument.includes(requiredText), `matrix missing policy text: ${requiredText}`);
+  }
+});
+
+test("reference-only Figma PNG bytes, hashes, dimensions, and frame IDs stay frozen", async () => {
   const manifest = await loadManifest();
   const baselineDocument = await readFile(baselineDocumentPath, "utf8");
   const assetIds = new Set<string>();
   const nodeIds = new Set<string>();
 
-  assert.equal(manifest.schemaVersion, "move-ai/visual-baseline/v1");
-  assert.equal(manifest.sourceCommit, "2c83561796b8014ea686db6e7a4c8a8ebd91eb8b");
   assert.equal(manifest.figma.fileKey, "RvydVRm2bD59KlTzfemK7F");
-  assert.equal(manifest.figma.status, "APPROVED_CLEAN_ROOM_V1");
   assert.equal(manifest.assets.length, 13);
 
   for (const asset of manifest.assets) {
@@ -132,9 +196,9 @@ test("primary and smoke viewport policy expands to exactly 120 pending cells", a
     assert.match(page.worktree, /^wt[1-5]$/);
     assert.match(page.route, /^[A-Z0-9]+$/);
     assert.ok(page.url.startsWith("/"));
-    assert.deepEqual(Object.keys(page.primaryBaselines).sort(), ["1440x900", "375x812"].sort());
-    for (const assetId of Object.values(page.primaryBaselines)) {
-      assert.ok(assetIds.has(assetId), `${page.id} references missing baseline ${assetId}`);
+    assert.deepEqual(Object.keys(page.compositionReferences).sort(), ["1440x900", "375x812"].sort());
+    for (const assetId of Object.values(page.compositionReferences)) {
+      assert.ok(assetIds.has(assetId), `${page.id} references missing composition image ${assetId}`);
     }
   }
 });
@@ -169,15 +233,15 @@ test("evidence names are deterministic and confined to the owning WT", async () 
   }
 });
 
-test("supplemental state baselines remain explicit and primary exports stay complete", async () => {
+test("reference state images remain explicit and page-ready references stay complete", async () => {
   const manifest = await loadManifest();
-  const supplemental = manifest.assets.filter(({ role }) => role === "supplemental-state").map(({ id }) => id).sort();
-  assert.deepEqual(supplemental, [
+  const stateReferences = manifest.assets.filter(({ role }) => role === "reference-state").map(({ id }) => id).sort();
+  assert.deepEqual(stateReferences, [
     "allocation-data-input-640x812",
     "network-fallback-375x812",
     "runtime-states-1440x900",
   ]);
-  assert.equal(manifest.assets.filter(({ role }) => role === "primary").length, 10);
+  assert.equal(manifest.assets.filter(({ role }) => role === "reference-ready").length, 10);
   assert.equal(manifest.assets.some(({ width, height }) => width === 900 && height === 900), false);
   assert.equal(manifest.assets.some(({ width, height }) => width === 640 && height === 900), false);
 });

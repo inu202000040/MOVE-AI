@@ -1,10 +1,34 @@
 {
-  "schemaVersion": "move-ai/visual-baseline/v1",
-  "sourceCommit": "2c83561796b8014ea686db6e7a4c8a8ebd91eb8b",
+  "schemaVersion": "move-ai/visual-qa/v2",
+  "figmaSourceCommit": "2c83561796b8014ea686db6e7a4c8a8ebd91eb8b",
+  "policyCommit": "66cc07ebfed57619f2125ba6dcd31a54c5938024",
+  "authority": {
+    "visualPassAuthority": "docs/specs",
+    "browserEvidenceRequired": true,
+    "figmaMismatchAloneIsFinding": false,
+    "figmaRevisionBlocksBuilders": false,
+    "implementationSpecs": {
+      "status": "REMOVED_BY_POLICY",
+      "soleAuthority": false
+    },
+    "evaluationDimensions": [
+      "structure",
+      "information-density",
+      "required-ui",
+      "states",
+      "interactions",
+      "responsiveness",
+      "concept-tokens"
+    ]
+  },
   "figma": {
     "fileKey": "RvydVRm2bD59KlTzfemK7F",
     "name": "MOVE AI Clean-room UI",
-    "status": "APPROVED_CLEAN_ROOM_V1",
+    "status": "REFERENCE_ONLY",
+    "use": "rough-composition-flow-only",
+    "pixelParityAuthority": false,
+    "mismatchAloneIsFinding": false,
+    "blocksBuilders": false,
     "verifiedAt": "2026-08-13T13:16:12+09:00",
     "verification": "Figma node screenshot metadata and committed PNG byte audit"
   },
@@ -17,7 +41,7 @@
       "height": 900,
       "bytes": 61605,
       "sha256": "4693cf741eebfe24de320f4248eee29f327438d7459cbb4cc52f5be00f9a2af5",
-      "role": "primary"
+      "role": "reference-ready"
     },
     {
       "id": "landing-ready-375x812",
@@ -27,7 +51,7 @@
       "height": 812,
       "bytes": 27294,
       "sha256": "5b35c0403a46f1e79962cbee4573f20ebd1429890ff15005837ac71c7884ae66",
-      "role": "primary"
+      "role": "reference-ready"
     },
     {
       "id": "dashboard-ready-1440x900",
@@ -37,7 +61,7 @@
       "height": 900,
       "bytes": 147228,
       "sha256": "5bc61ed4adb9b598be48fbf8f228b487dfb3aa0e5b86877a1c00fd9f4a26c5a5",
-      "role": "primary"
+      "role": "reference-ready"
     },
     {
       "id": "dashboard-ready-375x812",
@@ -47,7 +71,7 @@
       "height": 812,
       "bytes": 39452,
       "sha256": "8e0b6840b287b7a791ef4aa16b56f3edadbd1c2464324c8be3b73a3220d7295b",
-      "role": "primary"
+      "role": "reference-ready"
     },
     {
       "id": "models-ready-1440x900",
@@ -57,7 +81,7 @@
       "height": 900,
       "bytes": 136417,
       "sha256": "b9420b17db20c407636bfaeb6fa0f3c394f65d267aac2a977965d97f12628019",
-      "role": "primary"
+      "role": "reference-ready"
     },
     {
       "id": "models-ready-375x812",
@@ -67,7 +91,7 @@
       "height": 812,
       "bytes": 51490,
       "sha256": "7c47a76b1f1ae5ed5f177149b99afa0aa36e8f1fe28ef9e0e010390a270eccfa",
-      "role": "primary"
+      "role": "reference-ready"
     },
     {
       "id": "network-ready-1440x900",
@@ -77,7 +101,7 @@
       "height": 900,
       "bytes": 472709,
       "sha256": "9e6c14eace01ceb074d0e46fb278dbca60bf32693d083215559e526fa904fa79",
-      "role": "primary"
+      "role": "reference-ready"
     },
     {
       "id": "network-ready-375x812",
@@ -87,7 +111,7 @@
       "height": 812,
       "bytes": 187442,
       "sha256": "1a34e591527fa83e9ed7088eb7853b09d360566ab62532e4ea37a0e87c9c897d",
-      "role": "primary"
+      "role": "reference-ready"
     },
     {
       "id": "allocation-ready-1440x900",
@@ -97,7 +121,7 @@
       "height": 900,
       "bytes": 151927,
       "sha256": "4f47757227072064e180838f9cc1e464c6bac61d4537a659be687ef61cc34e96",
-      "role": "primary"
+      "role": "reference-ready"
     },
     {
       "id": "allocation-ready-375x812",
@@ -107,7 +131,7 @@
       "height": 812,
       "bytes": 43886,
       "sha256": "dd3a7eced66e4a3e0e8c41554efd9bdb9a39c8465ef67b998d1bd694807d8ad1",
-      "role": "primary"
+      "role": "reference-ready"
     },
     {
       "id": "allocation-data-input-640x812",
@@ -117,7 +141,7 @@
       "height": 812,
       "bytes": 105974,
       "sha256": "ecc3fc3f40cef3031a239ab883f4088bce192b2686475422944938e16afc2907",
-      "role": "supplemental-state"
+      "role": "reference-state"
     },
     {
       "id": "runtime-states-1440x900",
@@ -127,7 +151,7 @@
       "height": 900,
       "bytes": 123713,
       "sha256": "4d23f834cd79f343b5df1e6ac93026b4fb7d30f969a117a2688dbd9c435e8dc7",
-      "role": "supplemental-state"
+      "role": "reference-state"
     },
     {
       "id": "network-fallback-375x812",
@@ -137,7 +161,7 @@
       "height": 812,
       "bytes": 43056,
       "sha256": "2b8a6b3ac0d9661a4b087005b381f45a1a8a4de1ead7316445079312216abb69",
-      "role": "supplemental-state"
+      "role": "reference-state"
     }
   ],
   "viewports": [
@@ -160,7 +184,7 @@
       "worktree": "wt1",
       "route": "KNEI",
       "url": "/",
-      "primaryBaselines": {
+      "compositionReferences": {
         "1440x900": "landing-ready-1440x900",
         "375x812": "landing-ready-375x812"
       }
@@ -170,7 +194,7 @@
       "worktree": "wt2",
       "route": "KNEI",
       "url": "/freight-risk/dashboard?route=KNEI",
-      "primaryBaselines": {
+      "compositionReferences": {
         "1440x900": "dashboard-ready-1440x900",
         "375x812": "dashboard-ready-375x812"
       }
@@ -180,7 +204,7 @@
       "worktree": "wt3",
       "route": "KNEI",
       "url": "/freight-risk/models?route=KNEI",
-      "primaryBaselines": {
+      "compositionReferences": {
         "1440x900": "models-ready-1440x900",
         "375x812": "models-ready-375x812"
       }
@@ -190,7 +214,7 @@
       "worktree": "wt4",
       "route": "KNEI",
       "url": "/freight-risk/network?route=KNEI",
-      "primaryBaselines": {
+      "compositionReferences": {
         "1440x900": "network-ready-1440x900",
         "375x812": "network-ready-375x812"
       }
@@ -200,7 +224,7 @@
       "worktree": "wt5",
       "route": "KNEI",
       "url": "/freight-risk/allocation?route=KNEI",
-      "primaryBaselines": {
+      "compositionReferences": {
         "1440x900": "allocation-ready-1440x900",
         "375x812": "allocation-ready-375x812"
       }
@@ -212,6 +236,8 @@
     "diffPattern": "{route}-{state}-{viewport}-{interaction}-diff.png",
     "videoPattern": "{route}-{scenario}-{viewport}.webm",
     "computedPattern": "{route}-{state}-{viewport}.json",
+    "figmaReferenceRequiredForPass": false,
+    "pixelDiffRequiredForPass": false,
     "statusBeforeCapture": "PENDING_CANDIDATE"
   }
 }
