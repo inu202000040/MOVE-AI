@@ -1,87 +1,107 @@
-import { isRouteId, type RouteId } from "../../contracts";
-import { produceModelsCore, type ProducedModelsCoreV1 } from "./core/producer";
-import { validateRepresentativeSelection } from "./core/representative";
+import type { RouteId } from "../../contracts";
+
 import { isModelsStorageEventForRoute } from "./core/producer";
 import type { StorageLikeV1 } from "./core/storage";
-import type { ModelsSnapshotRouteV1 } from "./snapshot-adapter";
+import type { RepresentativeSelectionV1 } from "./core/types";
+import {
+  getModelsProducedCoreInternal,
+  isModelsRepresentativeEventDetailInternal,
+  MODELS_REPRESENTATIVE_EVENT_INTERNAL,
+  type ModelsRepresentativeEventTargetInternalV1,
+} from "./representative-internal";
 
-export const MODELS_REPRESENTATIVE_PUBLICATION_EVENT = "move-ai:models-representative-change" as const;
-
-export type ModelsRepresentativePublicationReasonV1 =
+export type ModelsRepresentativeChangeReasonV1 =
   | "manual"
   | "automatic"
   | "keep"
   | "rollback"
   | "storage";
 
-export interface ModelsRepresentativePublicationV1 {
+export interface ModelsRepresentativeReadyUpdateV1 {
+  readonly state: "READY";
   readonly route: RouteId;
-  readonly reason: Exclude<ModelsRepresentativePublicationReasonV1, "storage">;
+  readonly reason: ModelsRepresentativeChangeReasonV1;
+  readonly representative: RepresentativeSelectionV1;
 }
 
-export interface ModelsRepresentativeEventTargetV1 {
-  addEventListener(type: string, listener: EventListener): void;
-  removeEventListener(type: string, listener: EventListener): void;
-  dispatchEvent(event: Event): boolean;
+export interface ModelsRepresentativeUnavailableUpdateV1 {
+  readonly state: "UNAVAILABLE";
+  readonly route: RouteId;
+  readonly reason: ModelsRepresentativeChangeReasonV1;
+  readonly error: {
+    readonly code: "MODELS_REPRESENTATIVE_UNAVAILABLE";
+    readonly message: string;
+    readonly retryable: false;
+  };
 }
 
-function isPublication(value: unknown): value is ModelsRepresentativePublicationV1 {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const record = value as Readonly<Record<string, unknown>>;
-  const keys = Object.keys(record).toSorted();
-  return keys.length === 2
-    && keys[0] === "reason"
-    && keys[1] === "route"
-    && isRouteId(record.route)
-    && ["manual", "automatic", "keep", "rollback"].includes(String(record.reason));
-}
+export type ModelsRepresentativeUpdateV1 =
+  | ModelsRepresentativeReadyUpdateV1
+  | ModelsRepresentativeUnavailableUpdateV1;
 
-export function readValidatedModelsRepresentative(
-  routeSnapshot: ModelsSnapshotRouteV1,
+export type ModelsRepresentativeEventTargetV1 = ModelsRepresentativeEventTargetInternalV1;
+
+export type { RepresentativeSelectionV1, StorageLikeV1 };
+
+export function getModelsRepresentative(
+  route: RouteId,
   storage: StorageLikeV1,
-): ProducedModelsCoreV1 {
-  const produced = produceModelsCore({
-    route: routeSnapshot.route,
-    currentObservation: routeSnapshot.currentObservation,
-    baselineModels: routeSnapshot.models,
-    storage,
-  });
-  if (!validateRepresentativeSelection(produced.representative)) {
-    throw new TypeError("Models representative publication failed validation");
+): RepresentativeSelectionV1 {
+  return getModelsProducedCoreInternal(route, storage).representative;
+}
+
+function unavailableUpdate(
+  route: RouteId,
+  reason: ModelsRepresentativeChangeReasonV1,
+): ModelsRepresentativeUnavailableUpdateV1 {
+  return {
+    state: "UNAVAILABLE",
+    route,
+    reason,
+    error: {
+      code: "MODELS_REPRESENTATIVE_UNAVAILABLE",
+      message: "The validated Models representative is unavailable.",
+      retryable: false,
+    },
+  };
+}
+
+function resolveUpdate(
+  route: RouteId,
+  storage: StorageLikeV1,
+  reason: ModelsRepresentativeChangeReasonV1,
+  forcedUnavailable = false,
+): ModelsRepresentativeUpdateV1 {
+  try {
+    const representative = getModelsRepresentative(route, storage);
+    if (forcedUnavailable) return unavailableUpdate(route, reason);
+    return { state: "READY", route, reason, representative };
+  } catch {
+    return unavailableUpdate(route, reason);
   }
-  return produced;
 }
 
-export function publishModelsRepresentativeChange(
+export function subscribeModelsRepresentative(
   target: ModelsRepresentativeEventTargetV1,
   route: RouteId,
-  reason: Exclude<ModelsRepresentativePublicationReasonV1, "storage">,
-): void {
-  target.dispatchEvent(new CustomEvent<ModelsRepresentativePublicationV1>(
-    MODELS_REPRESENTATIVE_PUBLICATION_EVENT,
-    { detail: { route, reason } },
-  ));
-}
-
-export function subscribeModelsRepresentativeChanges(
-  target: ModelsRepresentativeEventTargetV1,
-  route: RouteId,
-  listener: (reason: ModelsRepresentativePublicationReasonV1) => void,
+  storage: StorageLikeV1,
+  listener: (update: ModelsRepresentativeUpdateV1) => void,
 ): () => void {
   const onPublication: EventListener = (event) => {
-    const detail = (event as CustomEvent<unknown>).detail;
-    if (isPublication(detail) && detail.route === route) listener(detail.reason);
+    const detail = (event as Event & { readonly detail?: unknown }).detail;
+    if (!isModelsRepresentativeEventDetailInternal(detail) || detail.route !== route) return;
+    listener(resolveUpdate(route, storage, detail.reason, detail.outcome === "unavailable"));
   };
   const onStorage: EventListener = (event) => {
     const key = (event as Event & { readonly key?: unknown }).key;
     if ((key === null || typeof key === "string") && isModelsStorageEventForRoute(key, route)) {
-      listener("storage");
+      listener(resolveUpdate(route, storage, "storage"));
     }
   };
-  target.addEventListener(MODELS_REPRESENTATIVE_PUBLICATION_EVENT, onPublication);
+  target.addEventListener(MODELS_REPRESENTATIVE_EVENT_INTERNAL, onPublication);
   target.addEventListener("storage", onStorage);
   return () => {
-    target.removeEventListener(MODELS_REPRESENTATIVE_PUBLICATION_EVENT, onPublication);
+    target.removeEventListener(MODELS_REPRESENTATIVE_EVENT_INTERNAL, onPublication);
     target.removeEventListener("storage", onStorage);
   };
 }

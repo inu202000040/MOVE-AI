@@ -9,14 +9,9 @@ import { EvidenceDialog, type EvidenceMetricV1 } from "./EvidenceDialog";
 import { TuningComparisonDialog } from "./TuningComparisonDialog";
 import { TuningDrawer } from "./TuningDrawer";
 import { scoreModelsForHorizon } from "./core/metrics";
-import {
-  keepCandidateAndPersist,
-  produceModelsCore,
-  rollbackCandidateWithoutStorageWrite,
-} from "./core/producer";
+import { produceModelsCore } from "./core/producer";
 import { MODEL_REGISTRY } from "./core/registry";
 import { buildRepresentativeSelection } from "./core/representative";
-import { clearManualRepresentative, writeManualRepresentative } from "./core/storage";
 import type { TuningSessionStateV1 } from "./core/tuning";
 import type {
   EightTuple,
@@ -28,10 +23,15 @@ import type {
 } from "./core/types";
 import type { ModelsSnapshotCatalogV1, ModelsSnapshotRouteV1 } from "./snapshot-adapter";
 import {
-  publishModelsRepresentativeChange,
-  readValidatedModelsRepresentative,
-  subscribeModelsRepresentativeChanges,
+  subscribeModelsRepresentative,
 } from "./representative-consumer";
+import { getModelsProducedCoreInternal } from "./representative-internal";
+import {
+  keepModelsTuningCandidateInternal,
+  restoreAutomaticModelsRepresentativeInternal,
+  rollbackModelsTuningCandidateInternal,
+  setManualModelsRepresentativeInternal,
+} from "./representative-mutations";
 import { unavailableModelsTuningGateway, type ModelsTuningGatewayV1 } from "./tuning-gateway";
 import {
   displayModelVersion,
@@ -96,19 +96,16 @@ export default function ModelsClient({ catalog, tuningGateway = unavailableModel
   const [acceptedModeByModel, setAcceptedModeByModel] = useState<Readonly<Partial<Record<RiskModelId, DataModeV1>>>>({});
   const [comparison, setComparison] = useState<ComparisonStateV1 | null>(null);
 
-  const refreshFromStorage = useCallback((manualModelIdOverride?: RiskModelId | null) => {
+  const refreshFromStorage = useCallback((validatedRepresentative?: RepresentativeSelectionV1) => {
     try {
-      const produced = manualModelIdOverride === undefined
-        ? readValidatedModelsRepresentative(routeData, window.localStorage)
-        : produceModelsCore({
-          route: routeId,
-          currentObservation: routeData.currentObservation,
-          baselineModels: routeData.models,
-          storage: window.localStorage,
-          manualModelIdOverride,
-        });
+      const produced = getModelsProducedCoreInternal(routeId, window.localStorage);
+      if (validatedRepresentative !== undefined
+        && produced.representative.representativeRevision
+          !== validatedRepresentative.representativeRevision) {
+        throw new TypeError("Models representative changed during hydration");
+      }
       setModels(produced.mergedModels);
-      setRepresentative(produced.representative);
+      setRepresentative(validatedRepresentative ?? produced.representative);
       setAcceptedByModel(produced.storageSnapshot.tuningByModel);
       setStorageWarning(null);
     } catch {
@@ -128,7 +125,16 @@ export default function ModelsClient({ catalog, tuningGateway = unavailableModel
     setComparison(null);
     setAcceptedModeByModel({});
     refreshFromStorage();
-    return subscribeModelsRepresentativeChanges(window, routeId, () => refreshFromStorage());
+    return subscribeModelsRepresentative(window, routeId, window.localStorage, (update) => {
+      if (update.state === "READY") {
+        refreshFromStorage(update.representative);
+      } else {
+        setModels(routeData.models);
+        setRepresentative(initialRepresentative(routeData));
+        setAcceptedByModel({});
+        setStorageWarning("저장된 모델 설정을 검증할 수 없어 승인 기준 결과를 유지합니다.");
+      }
+    });
   }, [refreshFromStorage, routeId]);
 
   const rows = useMemo(
@@ -144,11 +150,15 @@ export default function ModelsClient({ catalog, tuningGateway = unavailableModel
   );
 
   const selectRepresentative = (modelId: RiskModelId) => {
-    try {
-      writeManualRepresentative(window.localStorage, routeId, modelId);
+    const update = setManualModelsRepresentativeInternal(
+      window,
+      routeId,
+      window.localStorage,
+      modelId,
+    );
+    if (update.state === "READY") {
       setStorageWarning(null);
-      publishModelsRepresentativeChange(window, routeId, "manual");
-    } catch {
+    } else {
       setStorageWarning("대표모델을 이 브라우저에 저장하지 못했습니다. 현재 탭에서는 선택을 유지합니다.");
       setRepresentative(buildRepresentativeSelection({
         route: routeId,
@@ -160,14 +170,21 @@ export default function ModelsClient({ catalog, tuningGateway = unavailableModel
   };
 
   const restoreAutomatic = () => {
-    try {
-      clearManualRepresentative(window.localStorage, routeId);
+    const update = restoreAutomaticModelsRepresentativeInternal(
+      window,
+      routeId,
+      window.localStorage,
+    );
+    if (update.state === "READY") {
       setStorageWarning(null);
-      publishModelsRepresentativeChange(window, routeId, "automatic");
-    } catch {
+    } else {
       setStorageWarning("대표모델 저장을 갱신하지 못했습니다. 현재 탭에서는 자동 선택을 적용합니다.");
+      setRepresentative(buildRepresentativeSelection({
+        route: routeId,
+        currentObservation: routeData.currentObservation,
+        models,
+      }));
     }
-    refreshFromStorage(null);
   };
 
   const toggleLegend = (modelId: RiskModelId) => {
@@ -226,23 +243,31 @@ export default function ModelsClient({ catalog, tuningGateway = unavailableModel
 
   const keepComparisonCandidate = () => {
     if (comparison === null || comparison.session.candidate === null) return;
-    const result = keepCandidateAndPersist(window.localStorage, comparison.route, comparison.session);
+    const result = keepModelsTuningCandidateInternal(
+      window,
+      comparison.route,
+      window.localStorage,
+      comparison.session,
+    );
     const accepted = result.state.accepted;
     if (accepted !== null) {
       setAcceptedByModel((current) => ({ ...current, [accepted.result.modelId]: accepted }));
       setAcceptedModeByModel((current) => ({ ...current, [accepted.result.modelId]: comparison.dataMode }));
     }
-    if (result.persisted) publishModelsRepresentativeChange(window, comparison.route, "keep");
     setModels(comparison.afterModels);
     setRepresentative(comparison.afterRepresentative);
-    setStorageWarning(result.warning);
+    setStorageWarning(result.persisted ? null : "재학습 결과를 이 브라우저에 저장하지 못했습니다.");
     finishComparison();
   };
 
   const rollbackComparisonCandidate = () => {
     if (comparison === null) return;
-    rollbackCandidateWithoutStorageWrite(comparison.session);
-    publishModelsRepresentativeChange(window, comparison.route, "rollback");
+    rollbackModelsTuningCandidateInternal(
+      window,
+      comparison.route,
+      window.localStorage,
+      comparison.session,
+    );
     setModels(comparison.beforeModels);
     setRepresentative(comparison.beforeRepresentative);
     setSelectedModels(comparison.beforeSelectedModels);
