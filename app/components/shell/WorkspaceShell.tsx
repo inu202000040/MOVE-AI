@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "vinext/shims/link";
+import { usePathname } from "vinext/shims/navigation";
 import {
   useEffect,
-  useLayoutEffect,
   useReducer,
   useRef,
   useState,
@@ -19,13 +20,105 @@ import {
   INITIAL_MOBILE_DRAWER_STATE,
   reduceMobileDrawer,
 } from "./mobile-drawer-state";
-import { SHARED_PAGE_METADATA } from "./metadata";
+import {
+  SHARED_PAGE_METADATA,
+  type WorkspacePageMetadata,
+} from "./metadata";
 import {
   WORKSPACE_PAGE_IDS,
   buildWorkspaceHref,
   type WorkspacePageId,
 } from "./route-state";
 import { useFreightRiskRoute } from "./use-freight-risk-route";
+
+type ShellIconName = "ship" | WorkspacePageMetadata["icon"];
+
+function ShellIcon({ name }: Readonly<{ name: ShellIconName }>) {
+  const common = {
+    "aria-hidden": true,
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 2,
+    viewBox: "0 0 24 24",
+  };
+
+  if (name === "layout-dashboard") {
+    return (
+      <svg {...common}>
+        <rect height="9" rx="1" width="7" x="3" y="3" />
+        <rect height="5" rx="1" width="7" x="14" y="3" />
+        <rect height="9" rx="1" width="7" x="14" y="12" />
+        <rect height="5" rx="1" width="7" x="3" y="16" />
+      </svg>
+    );
+  }
+  if (name === "bar-chart-3") {
+    return (
+      <svg {...common}>
+        <path d="M3 3v18h18" />
+        <path d="M18 17V9" />
+        <path d="M13 17V5" />
+        <path d="M8 17v-3" />
+      </svg>
+    );
+  }
+  if (name === "globe-2") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M2 12h20" />
+        <path d="M12 2a15.3 15.3 0 0 1 0 20" />
+        <path d="M12 2a15.3 15.3 0 0 0 0 20" />
+      </svg>
+    );
+  }
+  if (name === "gauge") {
+    return (
+      <svg {...common}>
+        <path d="m12 14 4-4" />
+        <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M12 3v18" />
+      <path d="M5 8h14l2 9H3l2-9Z" />
+      <path d="M7 21c1.2-1 2.5-1.5 4-1.5s2.8.5 4 1.5" />
+    </svg>
+  );
+}
+
+function MenuIcon({ open }: Readonly<{ open: boolean }>) {
+  const common = {
+    "aria-hidden": true,
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 2,
+    viewBox: "0 0 24 24",
+  };
+
+  if (open) {
+    return (
+      <svg {...common}>
+        <rect height="18" rx="2" width="18" x="3" y="3" />
+        <path d="M9 3v18" />
+        <path d="m16 15-3-3 3-3" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </svg>
+  );
+}
 
 export interface WorkspaceShellProps {
   readonly children: ReactNode;
@@ -46,21 +139,14 @@ export function WorkspaceShell({
   topbarActions,
 }: WorkspaceShellProps) {
   const { routeId, changeRoute } = useFreightRiskRoute();
-  const [currentPageId, setCurrentPageId] = useState<WorkspacePageId>(
-    suppliedPageId ?? "dashboard",
-  );
+  const pathname = usePathname();
+  const currentPageId = suppliedPageId ?? pageIdFromPathname(pathname);
   const [drawer, dispatchDrawer] = useReducer(
     reduceMobileDrawer,
     INITIAL_MOBILE_DRAWER_STATE,
   );
   const [mobileViewport, setMobileViewport] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
-
-  useLayoutEffect(() => {
-    if (!suppliedPageId) {
-      setCurrentPageId(pageIdFromPathname(window.location.pathname));
-    }
-  }, [suppliedPageId]);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 900px)");
@@ -75,7 +161,28 @@ export function WorkspaceShell({
 
   useEffect(() => {
     if (!drawer.open || !mobileViewport) return;
-    return lockBodyScroll(document.body);
+    const body = document.body;
+    const hadStyleAttribute = body.hasAttribute("style");
+    const release = lockBodyScroll(body);
+    return () => {
+      release();
+      if (!hadStyleAttribute) {
+        const removeEmptyStyleAttribute = () => {
+          if (body.hasAttribute("style") && body.style.length === 0) {
+            body.removeAttribute("style");
+          }
+        };
+        const observer = new MutationObserver(removeEmptyStyleAttribute);
+        observer.observe(body, { attributes: true, attributeFilter: ["style"] });
+        window.requestAnimationFrame(() => {
+          removeEmptyStyleAttribute();
+        });
+        window.setTimeout(() => {
+          removeEmptyStyleAttribute();
+          observer.disconnect();
+        }, 1_500);
+      }
+    };
   }, [drawer.open, mobileViewport]);
 
   useEffect(() => {
@@ -108,31 +215,34 @@ export function WorkspaceShell({
         data-open={drawer.open}
         id="workspace-sidebar"
       >
-        <a
+        <Link
           className="workspace-brand"
           href={buildWorkspaceHref("dashboard", routeId)}
-          onClick={() => dispatchDrawer({ type: "NAVIGATE" })}
+          onNavigate={() => dispatchDrawer({ type: "NAVIGATE" })}
         >
-          <span className="workspace-brand-mark" aria-hidden="true">M</span>
-          <span className="workspace-brand-copy">MOVE AI</span>
-        </a>
+          <span className="workspace-brand-mark"><ShellIcon name="ship" /></span>
+          <span className="workspace-brand-copy">
+            <strong>해상운임 예측·운임 의사결정 플랫폼</strong>
+            <small>MARITIME FREIGHT FORECASTING &amp; RATE DECISION PLATFORM</small>
+          </span>
+        </Link>
         <nav aria-label="워크스페이스" className="workspace-navigation">
           {WORKSPACE_PAGE_IDS.map((pageId) => {
             const item = SHARED_PAGE_METADATA[pageId];
             const active = pageId === currentPageId;
             return (
-              <a
+              <Link
                 aria-current={active ? "page" : undefined}
                 className="workspace-navigation-item"
                 href={buildWorkspaceHref(pageId, routeId)}
                 key={pageId}
-                onClick={() => dispatchDrawer({ type: "NAVIGATE" })}
+                onNavigate={() => dispatchDrawer({ type: "NAVIGATE" })}
               >
                 <span className="workspace-navigation-mark" aria-hidden="true">
-                  {item.mark}
+                  <ShellIcon name={item.icon} />
                 </span>
                 <span className="workspace-navigation-label">{item.navLabel}</span>
-              </a>
+              </Link>
             );
           })}
         </nav>
@@ -150,11 +260,12 @@ export function WorkspaceShell({
               ref={menuButtonRef}
               type="button"
             >
-              메뉴
+              <MenuIcon open={drawer.open} />
             </button>
             <div className="workspace-header-copy">
-              <h1>{metadata.shortTitle}</h1>
-              <p>{metadata.shortDescription}</p>
+              <span>{metadata.eyebrow}</span>
+              <h1>{metadata.title}</h1>
+              <p>{metadata.description}</p>
             </div>
           </div>
           <div className="workspace-header-actions">
