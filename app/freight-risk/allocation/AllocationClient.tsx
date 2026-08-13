@@ -22,6 +22,7 @@ import {
 } from "./representative";
 import { CvarRunCoordinator } from "./runtime";
 import {
+  createBrowserModelsAllocationRepresentativeSource,
   createGatewayBackedAllocationRepresentativeSource,
   readAllocationRepresentative,
   type AllocationRepresentativeSource,
@@ -238,14 +239,20 @@ export function AllocationClient({
 }) {
   const { routeId, changeRoute } = useFreightRiskRoute();
   const [, publishSourceChange] = useReducer((revision: number) => revision + 1, 0);
+  const [modelsSource, setModelsSource] = useState<AllocationRepresentativeSource>(
+    UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE,
+  );
+  useEffect(() => {
+    setModelsSource(createBrowserModelsAllocationRepresentativeSource());
+  }, []);
   const defaultSource = useMemo(
     () => createGatewayBackedAllocationRepresentativeSource(
       snapshotResult === undefined
         ? createSameOriginDataGatewayV1()
         : createSameOriginDataGatewayV1(globalThis.fetch, () => snapshotResult),
-      UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE,
+      modelsSource,
     ),
-    [snapshotResult],
+    [modelsSource, snapshotResult],
   );
   const activeSource = source ?? defaultSource;
 

@@ -18,6 +18,10 @@ import {
   readAllocationRepresentative,
 } from "../../app/freight-risk/allocation";
 import { KNEI_REPRESENTATIVE_SELECTION } from "../../app/freight-risk/allocation/fixture";
+import {
+  getModelsRepresentative,
+  type StorageLikeV1,
+} from "../../app/freight-risk/models/representative-consumer";
 import { createValidatedAllocationSourceHarness } from "./fixtures/validated-source";
 
 const gatewayMeta = {
@@ -62,6 +66,24 @@ const readySnapshot: PendingGatewayResultV1 = {
   meta: gatewayMeta,
   error: null,
 };
+
+test("consumes the exact WT3 representative public seam without rounding loss", () => {
+  const values = new Map<string, string>();
+  const storage: StorageLikeV1 = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => { values.set(key, value); },
+    removeItem: (key) => { values.delete(key); },
+  };
+  const representative = getModelsRepresentative("KNEI", storage);
+  const decoded = readAllocationRepresentative(
+    { read: () => representative, subscribe: () => () => undefined },
+    "KNEI",
+  );
+
+  assert.equal(decoded.modelId, "sarimax");
+  assert.equal(decoded.coverage1w, 88.46153846153847);
+  assert.equal(decoded.metricsByHorizon[0].coverage.pct, 88.46153846153847);
+});
 
 test("fails closed unless an injected source publishes the validated shared route", () => {
   const harness = createValidatedAllocationSourceHarness();

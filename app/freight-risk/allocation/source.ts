@@ -1,8 +1,13 @@
 import {
   GATEWAY_SCHEMA_VERSION,
+  ROUTE_IDS,
   type DataGatewayV1,
   type RouteId,
 } from "../../contracts";
+import {
+  getModelsRepresentative,
+  subscribeModelsRepresentative,
+} from "../models/representative-consumer";
 
 import {
   adaptRepresentativeSelection,
@@ -93,3 +98,30 @@ export const UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE: AllocationRepresentat
     read: () => null,
     subscribe: () => () => undefined,
   });
+
+export function createBrowserModelsAllocationRepresentativeSource(): AllocationRepresentativeSource {
+  if (typeof window === "undefined") {
+    return UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE;
+  }
+
+  let storage: Storage;
+  try {
+    storage = window.localStorage;
+  } catch {
+    return UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE;
+  }
+
+  return Object.freeze({
+    read(routeId: RouteId): unknown {
+      return getModelsRepresentative(routeId, storage);
+    },
+    subscribe(listener: () => void): () => void {
+      const unsubscribes = ROUTE_IDS.map((routeId) =>
+        subscribeModelsRepresentative(window, routeId, storage, listener),
+      );
+      return () => {
+        for (const unsubscribe of unsubscribes) unsubscribe();
+      };
+    },
+  });
+}

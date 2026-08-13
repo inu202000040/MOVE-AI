@@ -346,8 +346,12 @@ function isCoverage(value: unknown): value is RepresentativeCoverageV1 {
   ) {
     return false;
   }
-  const expectedPercent = Math.round((value.hits / value.total) * 1_000) / 10;
-  return value.pct === expectedPercent;
+  const expectedPercent = (value.hits / value.total) * 100;
+  const roundedPercent = Math.round(expectedPercent * 10) / 10;
+  return (
+    Math.abs(value.pct - expectedPercent) <= 1e-9 ||
+    value.pct === roundedPercent
+  );
 }
 
 function isMetrics(
