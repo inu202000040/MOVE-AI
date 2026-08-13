@@ -57,6 +57,10 @@ export function ForecastComparisonChart({
   const [hoveredModel, setHoveredModel] = useState<RiskModelId | null>(null);
   const [tooltip, setTooltip] = useState<TooltipV1 | null>(null);
   const clearTooltip = () => setTooltip(null);
+  const clearChartHover = () => {
+    setHoveredModel(null);
+    setTooltip(null);
+  };
   const [chartWidth, setChartWidth] = useState(INITIAL_WIDTH);
   const minimumHistoryCount = Math.min(RECENT_HISTORY_POINTS, history.length);
   const [visibleHistoryCount, setVisibleHistoryCount] = useState(
@@ -184,7 +188,7 @@ export function ForecastComparisonChart({
   };
 
   return (
-    <div className={styles.chartShell} onDoubleClick={() => selectRange("recent")} onMouseLeave={clearTooltip} onPointerLeave={clearTooltip}>
+    <div className={styles.chartShell} onDoubleClick={() => selectRange("recent")} onMouseLeave={clearChartHover} onPointerLeave={clearChartHover}>
       <div className={styles.chartRange} aria-label="차트 기간">
         <button aria-pressed={visibleHistoryCount === minimumHistoryCount} onClick={() => selectRange("recent")} type="button">최근</button>
         <button aria-pressed={visibleHistoryCount === history.length} onClick={() => selectRange("all")} type="button">전체</button>
@@ -196,9 +200,7 @@ export function ForecastComparisonChart({
       <svg
         aria-label={`${routeName} 항로 KCCI 실측과 8개 모델의 1주부터 4주 예측 비교`}
         className={styles.chart}
-        onMouseLeave={clearTooltip}
-        onPointerCancel={clearTooltip}
-        onPointerLeave={clearTooltip}
+        onPointerCancel={clearChartHover}
         ref={chartRef}
         role="img"
         onWheel={(event) => {
@@ -239,12 +241,11 @@ export function ForecastComparisonChart({
             <g
               className={styles.modelSeries}
               key={model.modelId}
-              onPointerCancel={() => { setHoveredModel(null); clearTooltip(); }}
+              onPointerCancel={clearChartHover}
               onPointerEnter={(event) => {
                 setHoveredModel(model.modelId);
                 showNearestForecast(model.modelId, points, event.clientX);
               }}
-              onPointerLeave={() => { setHoveredModel(null); clearTooltip(); }}
               onPointerMove={(event) => showNearestForecast(model.modelId, points, event.clientX)}
               style={{ opacity: isDimmed ? 0.12 : 1 }}
             >
@@ -272,7 +273,7 @@ export function ForecastComparisonChart({
                     setHoveredModel(model.modelId);
                     setTooltip({ modelId: model.modelId, horizon: index + 1, x: point.x, y: point.y });
                   }}
-                  onPointerCancel={clearTooltip}
+                  onPointerCancel={clearChartHover}
                   r={isRepresentative ? 4.8 : 3.4}
                   role="button"
                   tabIndex={0}
@@ -285,7 +286,7 @@ export function ForecastComparisonChart({
         <text className={styles.chartAxis} textAnchor="middle" x={geometry.forecastX[0]} y={HEIGHT - 14}>{formatDate(geometry.current.date)}</text>
         <text className={styles.chartAxis} textAnchor="end" x={chartWidth - geometry.plotRight} y={HEIGHT - 14}>{formatDate(models[0].forecasts[3].targetDate)}</text>
         {tooltip !== null && tooltipForecast !== null && tooltipMetric !== null ? (
-          <foreignObject height="152" width={Math.min(220, chartWidth - 16)} x={Math.min(chartWidth - Math.min(220, chartWidth - 16) - 8, Math.max(8, tooltip.x - 105))} y={Math.min(HEIGHT - 162, Math.max(8, tooltip.y - 150))}>
+          <foreignObject height="152" pointerEvents="none" width={Math.min(220, chartWidth - 16)} x={Math.min(chartWidth - Math.min(220, chartWidth - 16) - 8, Math.max(8, tooltip.x - 105))} y={Math.min(HEIGHT - 162, Math.max(8, tooltip.y - 150))}>
             <div className={styles.chartTooltip}>
               <strong>{tooltipModel?.modelName} {tooltip.horizon}주 예측</strong>
               <span>{formatDate(tooltipForecast.targetDate)}</span>

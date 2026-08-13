@@ -94,7 +94,7 @@
 .modelLineHitArea { fill: none; stroke: transparent; stroke-linecap: round; stroke-linejoin: round; stroke-width: 18px; cursor: crosshair; pointer-events: stroke; vector-effect: non-scaling-stroke; }
 .modelLine { fill: none; stroke-linecap: round; stroke-linejoin: round; transition: stroke-width 140ms ease; pointer-events: none; vector-effect: non-scaling-stroke; }
 .chartPoint { stroke: white; stroke-width: 1.4px; cursor: pointer; vector-effect: non-scaling-stroke; }
-.chartTooltip { padding: 10px; display: grid; gap: 4px; border: 1px solid #3fa1eb; border-radius: 9px; background: #001290; color: white; font-size: 9px; box-shadow: 0 8px 22px rgba(0,18,144,.32); }
+.chartTooltip { padding: 10px; display: grid; gap: 4px; border: 1px solid #3fa1eb; border-radius: 9px; background: #001290; color: white; font-size: 9px; box-shadow: 0 8px 22px rgba(0,18,144,.32); pointer-events: none; }
 .chartTooltip strong { font-size: 11px; }
 .chartTooltip > span { color: #aad9ff; }
 .chartTooltip dl { margin: 2px 0; display: grid; gap: 2px; }
