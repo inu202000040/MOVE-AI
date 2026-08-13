@@ -6,6 +6,8 @@ import {
   GATEWAY_META_KEYS,
   GATEWAY_ROOT_KEYS,
   GATEWAY_SCHEMA_VERSION,
+  type GatewayMetaV1,
+  type PendingGatewayResultV1,
 } from "../../contracts";
 
 import type { TuneRequestV1 } from "./core/types";
@@ -47,7 +49,7 @@ function nullableString(value: unknown, label: string): string | null {
   return value;
 }
 
-function validateMeta(value: unknown): void {
+function validateMeta(value: unknown): GatewayMetaV1 {
   const meta = record(value, "gateway.meta");
   exactKeys(meta, GATEWAY_META_KEYS, "gateway.meta");
   if (typeof meta.mode !== "string" || !(DATA_MODES as readonly string[]).includes(meta.mode)) {
@@ -77,6 +79,7 @@ function validateMeta(value: unknown): void {
   if (meta.mode === "cached" && cache.hit !== true) {
     fail("INVALID_ENVELOPE", "cached gateway mode requires a cache hit");
   }
+  return meta as unknown as GatewayMetaV1;
 }
 
 function validateError(value: unknown): void {
@@ -97,7 +100,12 @@ function validateError(value: unknown): void {
   }
 }
 
-export function decodeTuningGatewayResult(value: unknown): unknown {
+export interface DecodedTuningGatewayResultV1 {
+  readonly data: unknown;
+  readonly meta: GatewayMetaV1;
+}
+
+export function decodeTuningGatewayResult(value: unknown): DecodedTuningGatewayResultV1 {
   const root = record(value, "gateway");
   exactKeys(root, GATEWAY_ROOT_KEYS, "gateway");
   if (root.schemaVersion !== GATEWAY_SCHEMA_VERSION) {
@@ -106,52 +114,67 @@ export function decodeTuningGatewayResult(value: unknown): unknown {
   if (root.state !== "READY" && root.state !== "UNAVAILABLE") {
     return fail("INVALID_ENVELOPE", "tuning gateway state is invalid");
   }
-  validateMeta(root.meta);
+  const meta = validateMeta(root.meta);
   if (root.state === "UNAVAILABLE") {
     if (root.data !== null || root.error === null || (root.meta as UnknownRecord).mode !== "unavailable") {
       return fail("INVALID_ENVELOPE", "unavailable tuning envelope is inconsistent");
     }
     validateError(root.error);
-    return fail("UNAVAILABLE", "재측정 엔진에 연결할 수 없습니다. 기존 결과는 유지됩니다.");
+    return fail("UNAVAILABLE", "재측정 엔진을 사용할 수 없습니다. 기존 결과는 유지됩니다.");
   }
   if (root.data === null || root.error !== null || (root.meta as UnknownRecord).mode === "unavailable") {
     return fail("INVALID_ENVELOPE", "ready tuning envelope is inconsistent");
   }
-  return root.data;
+  return { data: root.data, meta };
 }
 
-type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-
-async function fetchTuningEnvelope(
-  fetcher: FetchLike,
-  signal: AbortSignal,
-  init?: RequestInit,
-): Promise<unknown> {
-  let response: Response;
-  try {
-    response = await fetcher("/api/freight-risk/tune", { ...init, cache: "no-store", signal });
-  } catch {
-    return fail("UNAVAILABLE", "재측정 엔진에 연결할 수 없습니다. 기존 결과는 유지됩니다.");
-  }
-
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    return fail("INVALID_ENVELOPE", "재측정 결과를 검증하지 못했습니다. 기존 결과는 유지됩니다.");
-  }
-  return decodeTuningGatewayResult(body);
+export interface ModelsTuningGatewayV1 {
+  tuningHealth(signal?: AbortSignal): Promise<unknown>;
+  tuningRun(request: TuneRequestV1, signal?: AbortSignal): Promise<unknown>;
 }
+
+function unavailableEnvelope(): PendingGatewayResultV1 {
+  return {
+    schemaVersion: GATEWAY_SCHEMA_VERSION,
+    state: "UNAVAILABLE",
+    data: null,
+    meta: {
+      mode: "unavailable",
+      source: "tuning-engine",
+      sourceUrl: null,
+      asOf: null,
+      fetchedAt: new Date().toISOString(),
+      unit: null,
+      isEstimate: false,
+      attribution: "MOVE AI",
+      warnings: [],
+      provider: null,
+      cache: { hit: false, stale: false, ageSeconds: null },
+    },
+    error: {
+      code: "NOT_IMPLEMENTED",
+      message: "재측정 엔진을 사용할 수 없습니다.",
+      retryable: true,
+      upstreamStatus: null,
+      details: { reasonCode: "TUNING_GATEWAY_UNAVAILABLE" },
+    },
+  };
+}
+
+export const unavailableModelsTuningGateway: ModelsTuningGatewayV1 = {
+  async tuningHealth() {
+    return unavailableEnvelope();
+  },
+  async tuningRun() {
+    return unavailableEnvelope();
+  },
+};
 
 export async function runTuningGateway(
   request: TuneRequestV1,
   signal: AbortSignal,
-  fetcher: FetchLike = fetch,
-): Promise<unknown> {
-  await fetchTuningEnvelope(fetcher, signal);
-  return fetchTuningEnvelope(fetcher, signal, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
-  });
+  gateway: ModelsTuningGatewayV1,
+): Promise<DecodedTuningGatewayResultV1> {
+  decodeTuningGatewayResult(await gateway.tuningHealth(signal));
+  return decodeTuningGatewayResult(await gateway.tuningRun(request, signal));
 }

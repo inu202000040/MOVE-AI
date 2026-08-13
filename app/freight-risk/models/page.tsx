@@ -1,5 +1,11 @@
 import ModelsClient from "./ModelsClient";
+import { ModelsDataState } from "./ModelsDataState";
+import { loadApprovedModelsCatalog } from "./reference-catalog";
 
 export default function ModelsPage() {
-  return <ModelsClient />;
+  try {
+    return <ModelsClient catalog={loadApprovedModelsCatalog()} />;
+  } catch {
+    return <ModelsDataState kind="error" />;
+  }
 }

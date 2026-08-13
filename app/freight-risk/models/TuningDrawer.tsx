@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import type { DataModeV1, RouteId } from "../../contracts";
 import { MODEL_REGISTRY, isRiskModelId } from "./core/registry";
 import {
   MODEL_PARAMETER_SPECS,
@@ -20,8 +21,8 @@ import {
   type TuningSessionStateV1,
 } from "./core/tuning";
 import type { HashedTuneResultV1, RiskModelId, TrainingWindowV1, TuneParameterValueV1, TuneRequestV1 } from "./core/types";
-import type { HistoricalPointV1 } from "./reference-knei";
-import { runTuningGateway } from "./tuning-gateway";
+import type { HistoricalPointV1 } from "./models-data-types";
+import { runTuningGateway, type ModelsTuningGatewayV1 } from "./tuning-gateway";
 import styles from "./models.module.css";
 
 interface NumberSpecV1 {
@@ -45,9 +46,11 @@ interface TuningDrawerProps {
   readonly initialModelId: unknown;
   readonly history: readonly HistoricalPointV1[];
   readonly acceptedByModel: Readonly<Partial<Record<RiskModelId, HashedTuneResultV1>>>;
+  readonly routeCode: RouteId;
+  readonly routeName: string;
   readonly onClose: () => void;
-  readonly onSuccess: (state: TuningSessionStateV1) => void;
-  readonly runner?: (request: TuneRequestV1, signal: AbortSignal) => Promise<unknown>;
+  readonly onSuccess: (state: TuningSessionStateV1, mode: DataModeV1) => void;
+  readonly gateway: ModelsTuningGatewayV1;
 }
 
 const PRESET_LABELS: Readonly<Record<TuningPresetIdV1, string>> = {
@@ -66,7 +69,7 @@ function humanizeParameter(key: string): string {
   return key.replaceAll("_", " ");
 }
 
-export function normalizedTuningModelId(value: unknown): RiskModelId {
+function normalizedTuningModelId(value: unknown): RiskModelId {
   return isRiskModelId(value) ? value : "sarimax";
 }
 
@@ -75,9 +78,11 @@ export function TuningDrawer({
   initialModelId,
   history,
   acceptedByModel,
+  routeCode,
+  routeName,
   onClose,
   onSuccess,
-  runner = runTuningGateway,
+  gateway,
 }: TuningDrawerProps) {
   const safeInitialModelId = normalizedTuningModelId(initialModelId);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -159,7 +164,7 @@ export function TuningDrawer({
     try {
       validateParameters(modelId, parameters);
       request = createTuneRequest({
-        routeCode: "KNEI",
+        routeCode,
         modelId,
         dates: history.map(({ date }) => date),
         values: history.map(({ value }) => value),
@@ -180,11 +185,11 @@ export function TuningDrawer({
     setSession(running);
     setError(null);
     try {
-      const value = await runner(request, controller.signal);
-      const next = resolveTuningRun(running, runId, value);
+      const result = await runTuningGateway(request, controller.signal, gateway);
+      const next = resolveTuningRun(running, runId, result.data);
       setSession(next);
       if (next.status === "success") {
-        onSuccess(next);
+        onSuccess(next, result.meta.mode);
       } else if (next.status === "error") {
         setError("재측정 결과를 검증하지 못했습니다. 기존 결과는 유지됩니다.");
       }
@@ -204,7 +209,7 @@ export function TuningDrawer({
           <div>
             <p className={styles.liveEyebrow}>LIVE</p>
             <h2 id="tuning-title">고급설정</h2>
-            <p>유럽 · Python 예측엔진</p>
+            <p>{routeName} · Python 예측엔진</p>
           </div>
           <button aria-label="고급설정 서랍 닫기" className={styles.iconButton} disabled={status === "running"} onClick={onClose} type="button">×</button>
         </header>

@@ -36,7 +36,7 @@ const META: GatewayMetaV1 = {
   cache: { hit: false, stale: false, ageSeconds: null },
 };
 
-function ready(data: unknown) {
+function ready(data: Readonly<Record<string, unknown>>) {
   return { schemaVersion: GATEWAY_SCHEMA_VERSION, state: "READY", data, meta: META, error: null };
 }
 
@@ -58,9 +58,10 @@ function unavailable() {
 
 test("accepts only a complete READY tuning gateway envelope", async () => {
   const result = makeTuneSuccess();
-  assert.equal(decodeTuningGatewayResult(ready(result)), result);
+  const envelopeData = { ...result };
+  assert.equal(decodeTuningGatewayResult(ready(envelopeData)).data, envelopeData);
   assert.throws(
-    () => decodeTuningGatewayResult({ ...ready(result), extra: true }),
+    () => decodeTuningGatewayResult({ ...ready(envelopeData), extra: true }),
     (error) => error instanceof TuningGatewayError && error.code === "INVALID_ENVELOPE",
   );
   assert.throws(
@@ -76,13 +77,67 @@ test("accepts only a complete READY tuning gateway envelope", async () => {
     trainingWindow: "expanding",
     parameters: parametersForPreset("sarimax", "engine_default"),
   });
-  let postedBody = "";
-  const decoded = await runTuningGateway(request, new AbortController().signal, async (_input, init) => {
-    postedBody = String(init?.body);
-    return Response.json(ready(result));
+  let healthCalls = 0;
+  let receivedRequest: typeof request | null = null;
+  const decoded = await runTuningGateway(request, new AbortController().signal, {
+    async tuningHealth() {
+      healthCalls += 1;
+      return ready({ status: "ok" });
+    },
+    async tuningRun(value) {
+      receivedRequest = value;
+      return ready({ ...result });
+    },
   });
-  assert.deepEqual(decoded, result);
-  assert.deepEqual(JSON.parse(postedBody), request);
+  assert.deepEqual(decoded.data, result);
+  assert.equal(decoded.meta.mode, "live");
+  assert.equal(healthCalls, 1);
+  assert.deepEqual(receivedRequest, request);
+});
+
+test("rejects inconsistent tuning state, meta, cache, mode, and error envelopes", () => {
+  const data = { ...makeTuneSuccess() };
+  const baseReady = ready(data);
+  const baseUnavailable = unavailable();
+  const invalid = [
+    { ...baseReady, state: "SUCCESS" },
+    { ...baseReady, meta: { ...META, extra: true } },
+    { ...baseReady, meta: { ...META, mode: "cached", cache: { hit: false, stale: false, ageSeconds: 0 } } },
+    { ...baseReady, meta: { ...META, mode: "unavailable" } },
+    { ...baseReady, error: baseUnavailable.error },
+    { ...baseUnavailable, meta: META },
+    { ...baseUnavailable, error: { ...baseUnavailable.error, stack: "secret" } },
+    { ...baseUnavailable, error: { ...baseUnavailable.error, details: { reasonCode: "OFFLINE", rawBody: "secret" } } },
+  ];
+  for (const envelope of invalid) {
+    assert.throws(
+      () => decodeTuningGatewayResult(envelope),
+      (error) => error instanceof TuningGatewayError && error.code === "INVALID_ENVELOPE",
+    );
+  }
+});
+
+test("stops at truthful UNAVAILABLE health and never invokes tuningRun", async () => {
+  const request = createTuneRequest({
+    routeCode: "KNEI",
+    modelId: "sarimax",
+    dates: makeObservationDates(),
+    values: Array.from({ length: 187 }, (_, index) => 4_000 + index),
+    trainingWindow: "expanding",
+    parameters: parametersForPreset("sarimax", "engine_default"),
+  });
+  let runCalls = 0;
+  await assert.rejects(
+    runTuningGateway(request, new AbortController().signal, {
+      async tuningHealth() { return unavailable(); },
+      async tuningRun() {
+        runCalls += 1;
+        return ready({ ...makeTuneSuccess() });
+      },
+    }),
+    (error) => error instanceof TuningGatewayError && error.code === "UNAVAILABLE",
+  );
+  assert.equal(runCalls, 0);
 });
 
 test("builds the exact seven-row before/after comparison without accepting the candidate", () => {

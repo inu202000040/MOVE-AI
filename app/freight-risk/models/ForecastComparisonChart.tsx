@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { MODEL_REGISTRY } from "./core/registry";
 import type { EightTuple, ModelProjectionV1, RepresentativeSelectionV1, RiskModelId } from "./core/types";
-import type { HistoricalPointV1 } from "./reference-knei";
+import type { HistoricalPointV1 } from "./models-data-types";
 import styles from "./models.module.css";
 
 type RangeMode = "recent" | "all";
@@ -19,6 +19,7 @@ interface TooltipV1 {
 interface ForecastComparisonChartProps {
   readonly history: readonly HistoricalPointV1[];
   readonly models: EightTuple<ModelProjectionV1>;
+  readonly routeName: string;
   readonly representative: RepresentativeSelectionV1;
   readonly selectedModels: ReadonlySet<RiskModelId>;
   readonly rangeMode: RangeMode;
@@ -45,6 +46,7 @@ function linePath(points: readonly { x: number; y: number }[]): string {
 export function ForecastComparisonChart({
   history,
   models,
+  routeName,
   representative,
   selectedModels,
   rangeMode,
@@ -140,7 +142,7 @@ export function ForecastComparisonChart({
         <span>Home 최근 · End 전체</span>
       </div>
       <svg
-        aria-label="유럽 항로 KCCI 실측과 8개 모델의 1주부터 4주 예측 비교"
+        aria-label={`${routeName} 항로 KCCI 실측과 8개 모델의 1주부터 4주 예측 비교`}
         className={styles.chart}
         ref={chartRef}
         role="img"

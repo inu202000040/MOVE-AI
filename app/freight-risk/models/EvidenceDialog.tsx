@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import type { HorizonWeeks, ModelProjectionV1 } from "./core/types";
-import type { EvaluationEvidenceV1 } from "./reference-knei";
+import type { EvaluationEvidenceV1 } from "./models-data-types";
 import styles from "./models.module.css";
 
 export type EvidenceMetricV1 = "MAPE" | "MSE" | "MASE";

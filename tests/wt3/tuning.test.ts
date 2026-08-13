@@ -98,6 +98,25 @@ test("validates the complete four-horizon tuning result and 52 records per horiz
     ],
   };
   assert.throws(() => decodeTuneSuccess(inverted), /interval is inverted/u);
+
+  const metricTamper = {
+    ...valid,
+    metricsByHorizon: [
+      { ...valid.metricsByHorizon[0], mapePct: 999 },
+      ...valid.metricsByHorizon.slice(1),
+    ],
+  };
+  assert.throws(() => decodeTuneSuccess(metricTamper), /metrics do not match/u);
+
+  const { date, ...firstForecast } = valid.forecasts[0];
+  const legacyDateField = {
+    ...valid,
+    forecasts: [
+      { ...firstForecast, targetDate: date },
+      ...valid.forecasts.slice(1),
+    ],
+  };
+  assert.throws(() => decodeTuneSuccess(legacyDateField), /invalid field set/u);
 });
 
 test("keeps baseline during running/error, ignores late runs, and supports keep/rollback", () => {

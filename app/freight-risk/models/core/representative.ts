@@ -416,7 +416,14 @@ export function validateRepresentativeSelection(value: unknown): value is Repres
   }
   if (value.score1w !== (value.metricsByHorizon[0] as Record<string, unknown>).totalScore
     || value.coverage1w !== ((value.metricsByHorizon[0] as Record<string, unknown>).coverage as Record<string, unknown>).pct
-    || (value.selectionMode === "automatic" && value.modelId !== champion.modelId)) {
+    || (value.selectionMode === "automatic" && (value.modelId !== champion.modelId || value.score1w !== champion.score1w))) {
+    return false;
+  }
+  const championMember = (value.modelAgreementByHorizon[0] as Record<string, unknown>).members;
+  if (!Array.isArray(championMember)) return false;
+  const rankedMember = championMember.find((member) => isPlainRecord(member) && member.modelId === champion.modelId);
+  if (!isPlainRecord(rankedMember) || rankedMember.modelName !== champion.modelName
+    || rankedMember.modelVersion !== champion.modelVersion) {
     return false;
   }
   const { representativeRevision, ...semantic } = value;

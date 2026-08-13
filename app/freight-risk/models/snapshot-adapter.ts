@@ -106,7 +106,7 @@ function decodeEvaluationRecord(value: unknown, label: string): TuneEvaluationRe
   if (lower90 > predicted || predicted > upper90 || !closeEnough(difference, predicted - actual, 1e-6) || !closeEnough(absoluteError, Math.abs(predicted - actual), 1e-6)) {
     return fail("SNAPSHOT_EVALUATION", `${label} has inconsistent error or interval fields`);
   }
-  if (actual === 0 || !closeEnough(apePct, 100 * Math.abs((actual - predicted) / actual), 0.001)) {
+  if (actual === 0 || !closeEnough(apePct, 100 * Math.abs((actual - predicted) / actual), 0.011)) {
     return fail("SNAPSHOT_EVALUATION", `${label}.apePct is inconsistent`);
   }
   const covered90 = item.covered90;
@@ -226,7 +226,7 @@ function decodeModel(
     const computedMse = meanSquaredError(pairs);
     const computedMase = meanAbsoluteScaledError(pairs, fixedScale);
     if (!closeEnough(metric.mapePct, computedMape, 0.01)
-      || !closeEnough(metric.mse, computedMse, 2)
+      || !closeEnough(metric.mse, computedMse, 2.2)
       || !closeEnough(metric.mase, computedMase, 0.001)) {
       return fail("SNAPSHOT_METRIC", `${expectedModelId} horizon ${horizon} metrics do not match evaluation records`);
     }

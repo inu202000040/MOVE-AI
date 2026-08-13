@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useFreightRiskRoute } from "../../components/shell";
+import { ROUTE_IDS, ROUTE_LABELS, type DataModeV1, type RouteId } from "../../contracts";
 import { ForecastComparisonChart } from "./ForecastComparisonChart";
 import { EvidenceDialog, type EvidenceMetricV1 } from "./EvidenceDialog";
 import { TuningComparisonDialog } from "./TuningComparisonDialog";
 import { TuningDrawer } from "./TuningDrawer";
 import { scoreModelsForHorizon } from "./core/metrics";
 import {
-  isModelsStorageEventForRoute,
   keepCandidateAndPersist,
   produceModelsCore,
   rollbackCandidateWithoutStorageWrite,
@@ -25,7 +26,13 @@ import type {
   RepresentativeSelectionV1,
   RiskModelId,
 } from "./core/types";
-import { KNEI_BASELINE_MODELS, KNEI_HISTORY, kneiEvaluationEvidence } from "./reference-knei";
+import type { ModelsSnapshotCatalogV1, ModelsSnapshotRouteV1 } from "./snapshot-adapter";
+import {
+  publishModelsRepresentativeChange,
+  readValidatedModelsRepresentative,
+  subscribeModelsRepresentativeChanges,
+} from "./representative-consumer";
+import { unavailableModelsTuningGateway, type ModelsTuningGatewayV1 } from "./tuning-gateway";
 import {
   displayModelVersion,
   modelBadge,
@@ -42,16 +49,16 @@ interface EvidenceStateV1 {
 }
 
 interface ComparisonStateV1 {
+  readonly route: RouteId;
   readonly session: TuningSessionStateV1;
   readonly beforeModels: EightTuple<ModelProjectionV1>;
   readonly afterModels: EightTuple<ModelProjectionV1>;
   readonly beforeRepresentative: RepresentativeSelectionV1;
   readonly afterRepresentative: RepresentativeSelectionV1;
+  readonly dataMode: DataModeV1;
   readonly beforeSelectedModels: ReadonlySet<RiskModelId>;
   readonly beforeRangeMode: "recent" | "all";
 }
-
-const CURRENT_OBSERVATION = { date: "2026-08-03", value: 4884, unit: "USD/FEU" } as const;
 
 function formatMoney(value: number, digits = 0): string {
   return new Intl.NumberFormat("ko-KR", {
@@ -60,56 +67,69 @@ function formatMoney(value: number, digits = 0): string {
   }).format(value);
 }
 
-function initialRepresentative(): RepresentativeSelectionV1 {
+function initialRepresentative(routeData: ModelsSnapshotRouteV1): RepresentativeSelectionV1 {
   return buildRepresentativeSelection({
-    route: "KNEI",
-    currentObservation: CURRENT_OBSERVATION,
-    models: KNEI_BASELINE_MODELS,
+    route: routeData.route,
+    currentObservation: routeData.currentObservation,
+    models: routeData.models,
   });
 }
 
-export default function ModelsClient() {
+export interface ModelsClientProps {
+  readonly catalog: ModelsSnapshotCatalogV1;
+  readonly tuningGateway?: ModelsTuningGatewayV1;
+}
+
+export default function ModelsClient({ catalog, tuningGateway = unavailableModelsTuningGateway }: ModelsClientProps) {
+  const { routeId, changeRoute } = useFreightRiskRoute();
+  const routeData = catalog[routeId];
   const [horizon, setHorizon] = useState<HorizonWeeks>(1);
   const [rangeMode, setRangeMode] = useState<"recent" | "all">("recent");
   const [selectedModels, setSelectedModels] = useState<ReadonlySet<RiskModelId>>(() => new Set());
-  const [models, setModels] = useState(KNEI_BASELINE_MODELS);
-  const [representative, setRepresentative] = useState(initialRepresentative);
+  const [models, setModels] = useState(routeData.models);
+  const [representative, setRepresentative] = useState(() => initialRepresentative(routeData));
   const [evidence, setEvidence] = useState<EvidenceStateV1 | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerTrigger, setDrawerTrigger] = useState<HTMLElement | null>(null);
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const [acceptedByModel, setAcceptedByModel] = useState<Readonly<Partial<Record<RiskModelId, HashedTuneResultV1>>>>({});
+  const [acceptedModeByModel, setAcceptedModeByModel] = useState<Readonly<Partial<Record<RiskModelId, DataModeV1>>>>({});
   const [comparison, setComparison] = useState<ComparisonStateV1 | null>(null);
 
   const refreshFromStorage = useCallback((manualModelIdOverride?: RiskModelId | null) => {
     try {
-      const produced = produceModelsCore({
-        route: "KNEI",
-        currentObservation: CURRENT_OBSERVATION,
-        baselineModels: KNEI_BASELINE_MODELS,
-        storage: window.localStorage,
-        manualModelIdOverride,
-      });
+      const produced = manualModelIdOverride === undefined
+        ? readValidatedModelsRepresentative(routeData, window.localStorage)
+        : produceModelsCore({
+          route: routeId,
+          currentObservation: routeData.currentObservation,
+          baselineModels: routeData.models,
+          storage: window.localStorage,
+          manualModelIdOverride,
+        });
       setModels(produced.mergedModels);
       setRepresentative(produced.representative);
       setAcceptedByModel(produced.storageSnapshot.tuningByModel);
       setStorageWarning(null);
     } catch {
-      setModels(KNEI_BASELINE_MODELS);
-      setRepresentative(initialRepresentative());
+      setModels(routeData.models);
+      setRepresentative(initialRepresentative(routeData));
       setAcceptedByModel({});
       setStorageWarning("저장된 모델 설정을 불러오지 못했습니다. 내장 기준 결과를 유지합니다.");
     }
-  }, []);
+  }, [routeData, routeId]);
 
   useEffect(() => {
+    setHorizon(1);
+    setRangeMode("recent");
+    setSelectedModels(new Set());
+    setEvidence(null);
+    setDrawerOpen(false);
+    setComparison(null);
+    setAcceptedModeByModel({});
     refreshFromStorage();
-    const onStorage = (event: StorageEvent) => {
-      if (isModelsStorageEventForRoute(event.key, "KNEI")) refreshFromStorage();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [refreshFromStorage]);
+    return subscribeModelsRepresentativeChanges(window, routeId, () => refreshFromStorage());
+  }, [refreshFromStorage, routeId]);
 
   const rows = useMemo(
     () => performanceRows(models, horizon, representative),
@@ -125,14 +145,14 @@ export default function ModelsClient() {
 
   const selectRepresentative = (modelId: RiskModelId) => {
     try {
-      writeManualRepresentative(window.localStorage, "KNEI", modelId);
+      writeManualRepresentative(window.localStorage, routeId, modelId);
       setStorageWarning(null);
-      refreshFromStorage(modelId);
+      publishModelsRepresentativeChange(window, routeId, "manual");
     } catch {
       setStorageWarning("대표모델을 이 브라우저에 저장하지 못했습니다. 현재 탭에서는 선택을 유지합니다.");
       setRepresentative(buildRepresentativeSelection({
-        route: "KNEI",
-        currentObservation: CURRENT_OBSERVATION,
+        route: routeId,
+        currentObservation: routeData.currentObservation,
         models,
         manualModelId: modelId,
       }));
@@ -141,8 +161,9 @@ export default function ModelsClient() {
 
   const restoreAutomatic = () => {
     try {
-      clearManualRepresentative(window.localStorage, "KNEI");
+      clearManualRepresentative(window.localStorage, routeId);
       setStorageWarning(null);
+      publishModelsRepresentativeChange(window, routeId, "automatic");
     } catch {
       setStorageWarning("대표모델 저장을 갱신하지 못했습니다. 현재 탭에서는 자동 선택을 적용합니다.");
     }
@@ -169,16 +190,16 @@ export default function ModelsClient() {
     requestAnimationFrame(() => drawerTrigger?.focus());
   };
 
-  const previewTuningCandidate = (session: TuningSessionStateV1) => {
+  const previewTuningCandidate = (session: TuningSessionStateV1, dataMode: DataModeV1) => {
     if (session.status !== "success" || session.candidate === null) return;
     const beforeModels = models;
     const beforeRepresentative = representative;
     const beforeSelectedModels = new Set(selectedModels);
     const beforeRangeMode = rangeMode;
     const produced = produceModelsCore({
-      route: "KNEI",
-      currentObservation: CURRENT_OBSERVATION,
-      baselineModels: KNEI_BASELINE_MODELS,
+      route: routeId,
+      currentObservation: routeData.currentObservation,
+      baselineModels: routeData.models,
       storage: window.localStorage,
       sessionTuningByModel: { [session.candidate.result.modelId]: session.candidate },
     });
@@ -186,11 +207,13 @@ export default function ModelsClient() {
     setRepresentative(produced.representative);
     setDrawerOpen(false);
     setComparison({
+      route: routeId,
       session,
       beforeModels,
       afterModels: produced.mergedModels,
       beforeRepresentative,
       afterRepresentative: produced.representative,
+      dataMode,
       beforeSelectedModels,
       beforeRangeMode,
     });
@@ -203,11 +226,13 @@ export default function ModelsClient() {
 
   const keepComparisonCandidate = () => {
     if (comparison === null || comparison.session.candidate === null) return;
-    const result = keepCandidateAndPersist(window.localStorage, "KNEI", comparison.session);
+    const result = keepCandidateAndPersist(window.localStorage, comparison.route, comparison.session);
     const accepted = result.state.accepted;
     if (accepted !== null) {
       setAcceptedByModel((current) => ({ ...current, [accepted.result.modelId]: accepted }));
+      setAcceptedModeByModel((current) => ({ ...current, [accepted.result.modelId]: comparison.dataMode }));
     }
+    if (result.persisted) publishModelsRepresentativeChange(window, comparison.route, "keep");
     setModels(comparison.afterModels);
     setRepresentative(comparison.afterRepresentative);
     setStorageWarning(result.warning);
@@ -217,6 +242,7 @@ export default function ModelsClient() {
   const rollbackComparisonCandidate = () => {
     if (comparison === null) return;
     rollbackCandidateWithoutStorageWrite(comparison.session);
+    publishModelsRepresentativeChange(window, comparison.route, "rollback");
     setModels(comparison.beforeModels);
     setRepresentative(comparison.beforeRepresentative);
     setSelectedModels(comparison.beforeSelectedModels);
@@ -234,7 +260,7 @@ export default function ModelsClient() {
         </div>
         <div className={styles.dataBasis}>
           <span>데이터 기준</span>
-          <strong>2026.08.03</strong>
+              <strong>{routeData.currentObservation.date.replaceAll("-", ".")}</strong>
         </div>
       </header>
 
@@ -253,14 +279,14 @@ export default function ModelsClient() {
 
           <div className={styles.contextBar}>
             <div className={styles.contextCopy}>
-              <strong>유럽 · 직전 4주 + 향후 1~4주 · 전체 이력 탐색</strong>
+              <strong>{routeData.routeName} · 직전 4주 + 향후 1~4주 · 전체 이력 탐색</strong>
               <span>{representative.selectionMode === "manual" ? "사용자 대표" : "자동 대표"} {representative.modelName} · 1주 기준</span>
             </div>
             <div className={styles.tools}>
               <label className={styles.routeControl}>
                 <span>조회 항로</span>
-                <select aria-label="조회 항로" defaultValue="KNEI">
-                  <option value="KNEI">KNEI · 유럽</option>
+                <select aria-label="조회 항로" onChange={(event) => changeRoute(event.target.value)} value={routeId}>
+                  {ROUTE_IDS.map((route) => <option key={route} value={route}>{route} · {ROUTE_LABELS[route]}</option>)}
                 </select>
               </label>
               <div className={styles.horizonTabs} aria-label="성능 시차">
@@ -282,7 +308,7 @@ export default function ModelsClient() {
                   <span className={styles.legendColor} style={{ backgroundColor: definition.color }} />
                   <span><strong>{definition.name}</strong><small>{definition.family}</small></span>
                   {representative.modelId === definition.id ? <em>대표</em> : null}
-                  {model?.forecastSource === "tuned" && acceptedByModel[definition.id]?.tuningRunHash === model.tuningRunHash ? <em>LIVE</em> : null}
+                  {model?.forecastSource === "tuned" && acceptedByModel[definition.id]?.tuningRunHash === model.tuningRunHash && acceptedModeByModel[definition.id] === "live" ? <em>LIVE</em> : null}
                 </button>
               );
             })}
@@ -290,11 +316,12 @@ export default function ModelsClient() {
           </div>
 
           <ForecastComparisonChart
-            history={KNEI_HISTORY}
+            history={routeData.history}
             models={models}
             onRangeModeChange={setRangeMode}
             rangeMode={rangeMode}
             representative={representative}
+            routeName={routeData.routeName}
             selectedModels={selectedModels}
           />
 
@@ -317,7 +344,7 @@ export default function ModelsClient() {
               const metric = scoredForCards.get(model.modelId);
               const badge = modelBadge(model.modelId, representative);
               const isRepresentative = representative.modelId === model.modelId;
-              const change = modelChangePct(forecast.point, CURRENT_OBSERVATION.value);
+              const change = modelChangePct(forecast.point, routeData.currentObservation.value);
               return (
                 <button
                   aria-pressed={isRepresentative}
@@ -383,16 +410,17 @@ export default function ModelsClient() {
           ? comparison.session.candidate
           : acceptedByModel[evidence.modelId];
         const records = candidate?.result.evaluationByHorizon[horizon - 1].records
-          ?? kneiEvaluationEvidence(evidence.modelId)[horizon - 1];
+          ?? routeData.evaluationByModel[evidence.modelId][horizon - 1];
         return <EvidenceDialog horizon={horizon} metricName={evidence.metric} model={model} onClose={closeEvidence} records={records} />;
       })() : null}
-      <TuningDrawer acceptedByModel={acceptedByModel} history={KNEI_HISTORY} initialModelId={selectedModels.size === 1 ? [...selectedModels][0] : representative.modelId} onClose={closeDrawer} onSuccess={previewTuningCandidate} open={drawerOpen} />
+      <TuningDrawer acceptedByModel={acceptedByModel} gateway={tuningGateway} history={routeData.history} initialModelId={selectedModels.size === 1 ? [...selectedModels][0] : representative.modelId} onClose={closeDrawer} onSuccess={previewTuningCandidate} open={drawerOpen} routeCode={routeId} routeName={routeData.routeName} />
       {comparison !== null ? (
         <TuningComparisonDialog
           afterModels={comparison.afterModels}
           beforeModels={comparison.beforeModels}
           onKeep={keepComparisonCandidate}
           onRollback={rollbackComparisonCandidate}
+          routeName={routeData.routeName}
           state={comparison.session}
         />
       ) : null}

@@ -1,4 +1,5 @@
 import { MODEL_REGISTRY } from "./core/registry";
+import type { EvaluationEvidenceV1, HistoricalPointV1 } from "./models-data-types";
 import type {
   EightTuple,
   FourTuple,
@@ -16,23 +17,7 @@ import { SARIMAX_REFERENCE_RAW } from "./reference-data/sarimax";
 import { TIMESFM_REFERENCE_RAW } from "./reference-data/timesfm";
 import { XGBOOST_REFERENCE_RAW } from "./reference-data/xgboost";
 
-export interface HistoricalPointV1 {
-  readonly date: string;
-  readonly value: number;
-}
-
-export interface EvaluationEvidenceV1 {
-  readonly forecastOrigin: string;
-  readonly targetDate: string;
-  readonly predicted: number;
-  readonly actual: number;
-  readonly difference: number;
-  readonly absoluteError: number;
-  readonly apePct: number;
-  readonly lower90: number;
-  readonly upper90: number;
-  readonly covered90: boolean;
-}
+export type { EvaluationEvidenceV1, HistoricalPointV1 } from "./models-data-types";
 
 type ForecastRowV1 = readonly [HorizonWeeks, string, number, number, number];
 type MetricRowV1 = readonly [HorizonWeeks, number, number, number, number, number];

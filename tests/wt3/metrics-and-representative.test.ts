@@ -105,4 +105,8 @@ test("fails representative validation after semantic tampering", () => {
     ...selection,
     modelAgreementByHorizon: [changedAgreement, ...selection.modelAgreementByHorizon.slice(1)],
   }), false);
+  assert.equal(validateRepresentativeSelection({
+    ...selection,
+    automaticChampion: { ...selection.automaticChampion, score1w: selection.automaticChampion.score1w + 1 },
+  }), false);
 });

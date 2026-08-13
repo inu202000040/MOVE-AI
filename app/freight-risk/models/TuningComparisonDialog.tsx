@@ -13,6 +13,7 @@ interface TuningComparisonDialogProps {
   readonly state: TuningSessionStateV1;
   readonly beforeModels: EightTuple<ModelProjectionV1>;
   readonly afterModels: EightTuple<ModelProjectionV1>;
+  readonly routeName: string;
   readonly onKeep: () => void;
   readonly onRollback: () => void;
 }
@@ -34,6 +35,7 @@ export function TuningComparisonDialog({
   state,
   beforeModels,
   afterModels,
+  routeName,
   onKeep,
   onRollback,
 }: TuningComparisonDialogProps) {
@@ -102,7 +104,7 @@ export function TuningComparisonDialog({
           <div>
             <p className={styles.eyebrow}>RE-MEASUREMENT RESULT</p>
             <h2 id="tuning-comparison-title">이전 결과와 재측정 결과 비교</h2>
-            <p className={styles.comparisonContext}>유럽 · {definition.name} · 실행 시간 {(view.elapsedMs / 1000).toFixed(1)}초</p>
+            <p className={styles.comparisonContext}>{routeName} · {definition.name} · 실행 시간 {(view.elapsedMs / 1000).toFixed(1)}초</p>
           </div>
           <button aria-label="비교창 닫고 결과 유지" className={styles.iconButton} onClick={keep} type="button">×</button>
         </header>
