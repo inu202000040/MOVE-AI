@@ -6,6 +6,7 @@ import { MODEL_REGISTRY } from "./core/registry";
 import type { EightTuple, ModelProjectionV1, RepresentativeSelectionV1, RiskModelId } from "./core/types";
 import type { HistoricalPointV1 } from "./models-data-types";
 import styles from "./models.module.css";
+import { zoomedHistoryWindowSize, type HistoryZoomDirectionV1 } from "./view-model";
 
 type RangeMode = "recent" | "all";
 
@@ -28,6 +29,7 @@ interface ForecastComparisonChartProps {
 
 const INITIAL_WIDTH = 1160;
 const HEIGHT = 338;
+const RECENT_HISTORY_POINTS = 4;
 const PLOT = { top: 20, bottom: 42 } as const;
 
 function formatMoney(value: number): string {
@@ -55,20 +57,50 @@ export function ForecastComparisonChart({
   const [hoveredModel, setHoveredModel] = useState<RiskModelId | null>(null);
   const [tooltip, setTooltip] = useState<TooltipV1 | null>(null);
   const [chartWidth, setChartWidth] = useState(INITIAL_WIDTH);
+  const minimumHistoryCount = Math.min(RECENT_HISTORY_POINTS, history.length);
+  const [visibleHistoryCount, setVisibleHistoryCount] = useState(
+    rangeMode === "recent" ? minimumHistoryCount : history.length,
+  );
   const chartRef = useRef<SVGSVGElement>(null);
   const shownModels = selectedModels.size === 0
     ? models
     : models.filter(({ modelId }) => selectedModels.has(modelId));
 
+  const selectRange = (mode: RangeMode) => {
+    setTooltip(null);
+    setVisibleHistoryCount(mode === "recent" ? minimumHistoryCount : history.length);
+    onRangeModeChange(mode);
+  };
+
+  const zoomHistory = (direction: HistoryZoomDirectionV1) => {
+    setTooltip(null);
+    setVisibleHistoryCount((current) => zoomedHistoryWindowSize(
+      current,
+      history.length,
+      direction,
+      minimumHistoryCount,
+    ));
+  };
+
+  useEffect(() => {
+    setVisibleHistoryCount(rangeMode === "recent" ? minimumHistoryCount : history.length);
+  }, [history.length, minimumHistoryCount, rangeMode]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setTooltip(null);
-      if (event.key === "Home") onRangeModeChange("recent");
-      if (event.key === "End") onRangeModeChange("all");
+      if (event.key === "Home") {
+        setVisibleHistoryCount(minimumHistoryCount);
+        onRangeModeChange("recent");
+      }
+      if (event.key === "End") {
+        setVisibleHistoryCount(history.length);
+        onRangeModeChange("all");
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onRangeModeChange]);
+  }, [history.length, minimumHistoryCount, onRangeModeChange]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -81,7 +113,7 @@ export function ForecastComparisonChart({
   }, []);
 
   const geometry = useMemo(() => {
-    const visibleHistory = rangeMode === "recent" ? history.slice(-4) : history;
+    const visibleHistory = history.slice(-visibleHistoryCount);
     const forecastValues = shownModels.flatMap(({ forecasts }) => forecasts.map(({ point }) => point));
     const values = [...visibleHistory.map(({ value }) => value), ...forecastValues];
     const rawMin = Math.min(...values);
@@ -101,7 +133,7 @@ export function ForecastComparisonChart({
 
     let actualPoints: readonly { x: number; y: number; date: string; value: number }[];
     let forecastX: readonly number[];
-    if (rangeMode === "recent") {
+    if (visibleHistoryCount === minimumHistoryCount) {
       const actualWidth = plotWidth * 0.25;
       actualPoints = visibleHistory.map((point, index) => ({
         ...point,
@@ -128,24 +160,32 @@ export function ForecastComparisonChart({
     }
     const ticks = Array.from({ length: 7 }, (_, index) => max - (max - min) * index / 6);
     return { visibleHistory, actualPoints, modelPoints, ticks, y, current, forecastX, plotLeft, plotRight };
-  }, [chartWidth, history, models, rangeMode, shownModels]);
+  }, [chartWidth, history, minimumHistoryCount, models, shownModels, visibleHistoryCount]);
 
   const tooltipModel = tooltip === null ? null : models.find(({ modelId }) => modelId === tooltip.modelId) ?? null;
   const tooltipForecast = tooltipModel === null || tooltip === null ? null : tooltipModel.forecasts[tooltip.horizon - 1];
   const tooltipMetric = tooltipModel === null || tooltip === null ? null : tooltipModel.metricsByHorizon[tooltip.horizon - 1];
 
   return (
-    <div className={styles.chartShell} onDoubleClick={() => onRangeModeChange("recent")}>
+    <div className={styles.chartShell} onDoubleClick={() => selectRange("recent")}>
       <div className={styles.chartRange} aria-label="차트 기간">
-        <button aria-pressed={rangeMode === "recent"} onClick={() => onRangeModeChange("recent")} type="button">최근</button>
-        <button aria-pressed={rangeMode === "all"} onClick={() => onRangeModeChange("all")} type="button">전체</button>
-        <span>Home 최근 · End 전체</span>
+        <button aria-pressed={visibleHistoryCount === minimumHistoryCount} onClick={() => selectRange("recent")} type="button">최근</button>
+        <button aria-pressed={visibleHistoryCount === history.length} onClick={() => selectRange("all")} type="button">전체</button>
+        <button aria-label="그래프 확대" disabled={visibleHistoryCount === minimumHistoryCount} onClick={() => zoomHistory("in")} type="button">확대 +</button>
+        <button aria-label="그래프 축소" disabled={visibleHistoryCount === history.length} onClick={() => zoomHistory("out")} type="button">축소 −</button>
+        <button aria-label="그래프 확대/축소 초기화" disabled={visibleHistoryCount === minimumHistoryCount} onClick={() => selectRange("recent")} type="button">초기화</button>
+        <output aria-live="polite">{visibleHistoryCount}주</output>
       </div>
       <svg
         aria-label={`${routeName} 항로 KCCI 실측과 8개 모델의 1주부터 4주 예측 비교`}
         className={styles.chart}
         ref={chartRef}
         role="img"
+        onWheel={(event) => {
+          if (event.deltaY === 0) return;
+          event.preventDefault();
+          zoomHistory(event.deltaY < 0 ? "in" : "out");
+        }}
         viewBox={`0 0 ${chartWidth} ${HEIGHT}`}
       >
         <defs>

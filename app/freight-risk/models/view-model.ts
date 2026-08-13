@@ -62,6 +62,23 @@ export function modelChangePct(point: number, current: number): number {
   return 100 * (point / current - 1);
 }
 
+export type HistoryZoomDirectionV1 = "in" | "out";
+
+export function zoomedHistoryWindowSize(
+  current: number,
+  total: number,
+  direction: HistoryZoomDirectionV1,
+  minimum = 4,
+): number {
+  const safeTotal = Math.max(1, Math.floor(total));
+  const safeMinimum = Math.min(safeTotal, Math.max(1, Math.floor(minimum)));
+  const safeCurrent = Math.min(safeTotal, Math.max(safeMinimum, Math.floor(current)));
+  const candidate = direction === "in"
+    ? Math.floor(safeCurrent / 1.5)
+    : Math.ceil(safeCurrent * 1.5);
+  return Math.min(safeTotal, Math.max(safeMinimum, candidate));
+}
+
 export function displayModelVersion(model: ModelProjectionV1): string {
   return model.forecastSource === "tuned"
     ? `${model.modelVersion} · 재측정`

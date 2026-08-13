@@ -7,6 +7,7 @@ import { ROUTE_IDS, ROUTE_LABELS, type DataGatewayV1, type DataModeV1, type Rout
 import { createSameOriginDataGatewayV1 } from "../../data/runtime/data-gateway.client";
 import { ForecastComparisonChart } from "./ForecastComparisonChart";
 import { EvidenceDialog, type EvidenceMetricV1 } from "./EvidenceDialog";
+import { ModelInfoTooltip } from "./ModelInfoTooltip";
 import { TuningComparisonDialog } from "./TuningComparisonDialog";
 import { TuningDrawer } from "./TuningDrawer";
 import { scoreModelsForHorizon } from "./core/metrics";
@@ -413,7 +414,7 @@ export default function ModelsClient({ catalog, dataGateway }: ModelsClientProps
                   const definition = MODEL_REGISTRY.find(({ id }) => id === row.model.modelId);
                   return (
                     <tr className={row.isRepresentative && representative.selectionMode === "manual" ? styles.manualRow : undefined} key={row.model.modelId}>
-                      <td><div className={styles.tableModel}><span style={{ backgroundColor: definition?.color }} /><div><strong>{row.rank}. {row.model.modelName}</strong><small>{displayModelVersion(row.model)}{row.isAutomaticChampion ? " · 자동 1위" : ""}{row.isRepresentative ? " · 대표" : ""}</small></div><button aria-label={`${row.model.modelName} 모델 정보`} type="button">i</button></div></td>
+                      <td><div className={styles.tableModel}><span style={{ backgroundColor: definition?.color }} /><div><strong>{row.rank}. {row.model.modelName}</strong><small>{displayModelVersion(row.model)}{row.isAutomaticChampion ? " · 자동 1위" : ""}{row.isRepresentative ? " · 대표" : ""}</small></div><ModelInfoTooltip modelId={row.model.modelId} modelName={row.model.modelName} /></div></td>
                       {(["MAPE", "MSE", "MASE"] as const).map((metricName) => (
                         <td key={metricName}><button className={styles.metricButton} onClick={(event) => setEvidence({ metric: metricName, modelId: row.model.modelId, trigger: event.currentTarget })} type="button"><strong>{metricName === "MAPE" ? `${row.metric.mapePct.toFixed(2)}%` : metricName === "MSE" ? formatMoney(row.metric.mse) : row.metric.mase.toFixed(3)}</strong><small>점수 {(metricName === "MAPE" ? row.metric.mapeScore : metricName === "MSE" ? row.metric.mseScore : row.metric.maseScore).toFixed(1)} · 근거 보기</small></button></td>
                       ))}

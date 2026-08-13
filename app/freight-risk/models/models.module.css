@@ -81,6 +81,8 @@
 .chartRange { position: absolute; z-index: 2; inset: 9px 10px auto auto; display: flex; align-items: center; gap: 4px; }
 .chartRange button { min-width: 48px; height: 25px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 9px; font-weight: 900; cursor: pointer; }
 .chartRange button[aria-pressed="true"] { background: white; color: var(--navy); box-shadow: 3px 3px 7px rgba(21,38,157,.12), -2px -2px 6px white; }
+.chartRange button:disabled { opacity: .38; cursor: not-allowed; }
+.chartRange output { min-width: 34px; color: var(--navy); font-size: 8px; font-weight: 900; text-align: center; }
 .chartRange span { margin-left: 4px; color: #85878b; font-size: 7px; }
 .chart { display: block; width: 100%; height: 100%; overflow: visible; }
 .chartGrid { stroke: rgba(99,102,106,.15); stroke-width: 1; }
@@ -120,22 +122,22 @@
 .baseStateTable { min-height: 320px; display: grid; align-content: start; gap: 1px; }
 .baseStateTable span { height: 32px; background: rgba(216,221,232,.58); }
 @keyframes state-spin { to { transform: rotate(360deg); } }
-.modelCards { margin-top: 12px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.modelCard { --model-color: #001290; min-height: 156px; padding: 13px; display: grid; align-content: start; gap: 5px; text-align: left; border: 1px solid rgba(0,18,144,.08); border-radius: 13px; background: linear-gradient(145deg, #f9fbfe, #e9edf5); box-shadow: 6px 6px 13px rgba(21,38,157,.1), -5px -5px 11px white; cursor: pointer; }
+.modelCards { margin-top: 8px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.modelCard { --model-color: #001290; min-height: 108px; padding: 8px 10px; display: grid; align-content: start; gap: 2px; text-align: left; border: 1px solid rgba(0,18,144,.08); border-radius: 11px; background: linear-gradient(145deg, #f9fbfe, #e9edf5); box-shadow: 4px 4px 9px rgba(21,38,157,.085), -3px -3px 8px white; cursor: pointer; }
 .modelCard[aria-pressed="true"] { border-color: color-mix(in srgb, var(--model-color), white 25%); box-shadow: inset 4px 4px 9px rgba(20,20,21,.08), inset -5px -5px 10px white, 0 0 0 2px color-mix(in srgb, var(--model-color), transparent 76%); }
-.modelFamily { color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .08em; }
-.modelCardTitle { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 900; }
-.modelCardTitle i { width: 9px; height: 9px; border-radius: 3px; background: var(--model-color); box-shadow: 0 2px 5px color-mix(in srgb, var(--model-color), transparent 60%); }
-.modelCardMeta { overflow: hidden; color: #777a80; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
-.modelCardValue { margin-top: 5px; display: flex; align-items: baseline; gap: 6px; }
-.modelCardValue strong { font-size: 21px; letter-spacing: -.04em; }
-.modelCardValue small { color: var(--muted); font-size: 7px; }
-.positiveChange, .negativeChange { font-size: 10px; font-weight: 900; }
+.modelFamily { color: var(--muted); font-size: 6.5px; font-weight: 800; letter-spacing: .08em; }
+.modelCardTitle { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 900; }
+.modelCardTitle i { width: 8px; height: 8px; border-radius: 3px; background: var(--model-color); box-shadow: 0 2px 5px color-mix(in srgb, var(--model-color), transparent 60%); }
+.modelCardMeta { overflow: hidden; color: #777a80; font-size: 6px; text-overflow: ellipsis; white-space: nowrap; }
+.modelCardValue { margin-top: 1px; display: flex; align-items: baseline; gap: 4px; }
+.modelCardValue strong { font-size: 17px; letter-spacing: -.04em; }
+.modelCardValue small { color: var(--muted); font-size: 6.5px; }
+.positiveChange, .negativeChange { font-size: 8px; font-weight: 900; }
 .positiveChange { color: #c2410c; }
 .negativeChange { color: #075985; }
-.positiveChange small, .negativeChange small { color: var(--muted); font-size: 7px; font-weight: 600; }
-.modelCardFooter { margin-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 7px; }
-.modelCardFooter em, .modelCardFooter b { padding: 3px 5px; border-radius: 5px; background: rgba(0,18,144,.07); color: var(--blue); font-size: 7px; font-style: normal; }
+.positiveChange small, .negativeChange small { color: var(--muted); font-size: 6.5px; font-weight: 600; }
+.modelCardFooter { margin-top: 1px; display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+.modelCardFooter em, .modelCardFooter b { padding: 2px 4px; border-radius: 5px; background: rgba(0,18,144,.07); color: var(--blue); font-size: 6.5px; font-style: normal; }
 .modelCardFooter b { background: var(--navy); color: white; }
 
 .performancePanel { padding-bottom: 18px; }
@@ -315,7 +317,7 @@
   .contextBar { margin-top: 11px; }
   .chartShell { padding-top: 38px; }
   .chartAxis { font-size: 9px; }
-  .modelCard { min-height: 145px; }
+  .modelCard { min-height: 108px; }
   .modalBackdrop { padding: 6px; }
   .evidenceDialog { width: calc(100vw - 12px); max-height: 97dvh; border-radius: 13px; }
   .comparisonDialog { width: calc(100vw - 12px); max-height: 97dvh; border-radius: 13px; }
