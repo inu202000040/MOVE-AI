@@ -91,6 +91,58 @@ export const MODEL_PARAMETER_SPECS: Readonly<Record<RiskModelId, ModelParameterS
 
 export const TRAINING_WINDOWS = ["expanding", "rolling_104", "rolling_52"] as const;
 
+export const TUNING_PRESETS = ["engine_default", "stable", "responsive"] as const;
+
+export type TuningPresetIdV1 = (typeof TUNING_PRESETS)[number];
+
+const TUNING_PRESET_OVERRIDES: Readonly<Record<
+  RiskModelId,
+  Readonly<Record<Exclude<TuningPresetIdV1, "engine_default">, Readonly<Record<string, TuneParameterValueV1>>>>
+>> = {
+  naive: { stable: {}, responsive: {} },
+  sarimax: {
+    stable: { trend: "c", maxiter: 100 },
+    responsive: { p: 2, q: 2, maxiter: 100 },
+  },
+  lightgbm: {
+    stable: { n_estimators: 180, learning_rate: 0.02, min_child_samples: 14, reg_lambda: 2 },
+    responsive: {
+      n_estimators: 120,
+      learning_rate: 0.08,
+      num_leaves: 31,
+      max_depth: 6,
+      min_child_samples: 4,
+      reg_lambda: 0.2,
+    },
+  },
+  xgboost: {
+    stable: { n_estimators: 180, learning_rate: 0.02, min_child_weight: 6, reg_lambda: 2 },
+    responsive: {
+      n_estimators: 120,
+      learning_rate: 0.08,
+      max_depth: 6,
+      min_child_weight: 1,
+      reg_lambda: 0.2,
+    },
+  },
+  random_forest: {
+    stable: { n_estimators: 240, max_depth: 7, min_samples_leaf: 5, max_features: 0.65 },
+    responsive: { n_estimators: 180, max_depth: 14, min_samples_leaf: 1, max_features: 1 },
+  },
+  prophet: {
+    stable: { changepoint_prior_scale: 0.03, seasonality_prior_scale: 15, changepoint_range: 0.8 },
+    responsive: { changepoint_prior_scale: 0.25, seasonality_prior_scale: 5, changepoint_range: 0.9 },
+  },
+  timesfm: {
+    stable: { context_length: 187 },
+    responsive: { context_length: 78 },
+  },
+  chronos: {
+    stable: { context_length: 187 },
+    responsive: { context_length: 78 },
+  },
+};
+
 const TRAINING_WINDOW_SET: ReadonlySet<string> = new Set(TRAINING_WINDOWS);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/u;
 
@@ -174,6 +226,17 @@ export function defaultParameters(modelId: RiskModelId): Readonly<Record<string,
   return Object.fromEntries(
     Object.entries(MODEL_PARAMETER_SPECS[modelId]).map(([key, spec]) => [key, spec.defaultValue]),
   );
+}
+
+export function parametersForPreset(
+  modelId: RiskModelId,
+  preset: TuningPresetIdV1,
+): Readonly<Record<string, TuneParameterValueV1>> {
+  const parameters = preset === "engine_default"
+    ? defaultParameters(modelId)
+    : { ...defaultParameters(modelId), ...TUNING_PRESET_OVERRIDES[modelId][preset] };
+  validateParameters(modelId, parameters);
+  return parameters;
 }
 
 export function validateParameters(
