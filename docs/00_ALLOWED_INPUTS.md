@@ -1,6 +1,7 @@
 # 00. Allowed Inputs Manifest
 
-상태: `CP0_DRAFT`  
+상태: `CP0_DRAFT`
+
 기준일: `2026-08-13 Asia/Seoul`
 
 이 문서는 최종 구현이 사용할 수 있는 입력을 명시한다. 목록에 없는 애플리케이션 코드·스타일·테스트·생성 산출물은 사용하지 않는다.
@@ -41,7 +42,8 @@
 
 ## 3. 승인된 데이터 입력
 
-데이터 패키지 식별자: `MOVE_AI_DATA_PACK/APP_USED_DATA`  
+데이터 패키지 식별자: `MOVE_AI_DATA_PACK/APP_USED_DATA`
+
 브라우저가 XLSX를 직접 읽는 것은 금지한다. WT6 생성기가 원천을 검증하고 canonical JSON과 manifest를 만든다.
 
 | ID | 파일 | Bytes | SHA-256 | 주요 소비자 |
@@ -97,4 +99,3 @@
 - WT1~WT6 계약이 WT8 교차검사 PASS
 - 데이터 SHA-256 검증 PASS
 - `02_FROZEN_CONTRACTS_DRAFT.md`의 미결정 항목 0개
-

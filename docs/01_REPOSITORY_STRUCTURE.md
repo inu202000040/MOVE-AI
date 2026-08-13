@@ -100,4 +100,3 @@ WT10 scaffold/contracts
 - `review-fixes`: P0/P1 delta만 수정
 
 커밋 수가 적거나 많다는 사실은 독립 구현 증거가 아니다. 각 commit은 실제 작성 범위와 입력 manifest에 일치해야 한다.
-

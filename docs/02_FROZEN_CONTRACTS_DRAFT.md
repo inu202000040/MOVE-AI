@@ -1,7 +1,9 @@
 # 02. Frozen Contracts Draft
 
-상태: `CP0_DRAFT`  
-동결 목표: 구현 시작 후 `10~15분` 이내  
+상태: `CP0_DRAFT`
+
+동결 목표: 구현 시작 후 `10~15분` 이내
+
 권위 입력: 승인된 Figma·PNG, clean-room WT 명세, `MOVE_AI_DATA_PACK/APP_USED_DATA`
 
 이 문서는 신규 구현의 공통 seam을 동결한다. 이전 애플리케이션의 타입·함수·storage key를 호환성 목적으로 복사하지 않는다.
@@ -242,4 +244,3 @@ CVaR는 불리한 10%의 경제적 후회비용 평균이다. 총비용 percenti
 - WT1~WT6 clean-room 문서의 최종 hash
 
 이 목록이 0개가 되기 전 애플리케이션 코드를 작성하지 않는다.
-
