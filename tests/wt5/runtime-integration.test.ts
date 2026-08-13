@@ -203,8 +203,8 @@ test("keeps production ownership and visible inventory boundaries explicit", () 
   );
 
   assert.match(allocationClient, /useFreightRiskRoute\(\)/u);
-  assert.match(allocationClient, /createSameOriginDataGatewayV1\(\)/u);
-  assert.match(allocationClient, /source \?\? defaultSource/u);
+  assert.match(allocationClient, /source = UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE/u);
+  assert.doesNotMatch(allocationClient, /data\/runtime\/data-gateway|createSameOriginDataGatewayV1/u);
   assert.doesNotMatch(allocationClient, /localStorage|history\.replaceState|CustomEvent/u);
   assert.doesNotMatch(allocationPage, /KNEI_REPRESENTATIVE_SELECTION|\.\/fixture/u);
   assert.doesNotMatch(allocationPage, /source=/u);
