@@ -90,7 +90,9 @@
 .forecastDivider { stroke: rgba(63,161,235,.55); stroke-width: 1.2; }
 .chartZoneLabel { fill: var(--blue); font-size: 9px; font-weight: 900; letter-spacing: .14em; }
 .actualLine { fill: none; stroke: #2f2f36; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.6; vector-effect: non-scaling-stroke; }
-.modelLine { fill: none; stroke-linecap: round; stroke-linejoin: round; transition: opacity 140ms ease, stroke-width 140ms ease; vector-effect: non-scaling-stroke; }
+.modelSeries { transition: opacity 140ms ease; }
+.modelLineHitArea { fill: none; stroke: transparent; stroke-linecap: round; stroke-linejoin: round; stroke-width: 18px; cursor: crosshair; pointer-events: stroke; vector-effect: non-scaling-stroke; }
+.modelLine { fill: none; stroke-linecap: round; stroke-linejoin: round; transition: stroke-width 140ms ease; pointer-events: none; vector-effect: non-scaling-stroke; }
 .chartPoint { stroke: white; stroke-width: 1.4px; cursor: pointer; vector-effect: non-scaling-stroke; }
 .chartTooltip { padding: 10px; display: grid; gap: 4px; border: 1px solid #3fa1eb; border-radius: 9px; background: #001290; color: white; font-size: 9px; box-shadow: 0 8px 22px rgba(0,18,144,.32); }
 .chartTooltip strong { font-size: 11px; }

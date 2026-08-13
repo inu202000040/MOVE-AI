@@ -166,6 +166,22 @@ export function ForecastComparisonChart({
   const tooltipModel = tooltip === null ? null : models.find(({ modelId }) => modelId === tooltip.modelId) ?? null;
   const tooltipForecast = tooltipModel === null || tooltip === null ? null : tooltipModel.forecasts[tooltip.horizon - 1];
   const tooltipMetric = tooltipModel === null || tooltip === null ? null : tooltipModel.metricsByHorizon[tooltip.horizon - 1];
+  const showNearestForecast = (
+    modelId: RiskModelId,
+    points: readonly { readonly x: number; readonly y: number; readonly point: number }[],
+    clientX: number,
+  ) => {
+    const chart = chartRef.current;
+    const forecastPoints = points.slice(1);
+    if (chart === null || forecastPoints.length === 0) return;
+    const bounds = chart.getBoundingClientRect();
+    const localX = (clientX - bounds.left) / Math.max(1, bounds.width) * chartWidth;
+    const nearestIndex = forecastPoints.reduce((bestIndex, point, index) => (
+      Math.abs(point.x - localX) < Math.abs(forecastPoints[bestIndex].x - localX) ? index : bestIndex
+    ), 0);
+    const nearest = forecastPoints[nearestIndex];
+    setTooltip({ modelId, horizon: nearestIndex + 1, x: nearest.x, y: nearest.y });
+  };
 
   return (
     <div className={styles.chartShell} onDoubleClick={() => selectRange("recent")} onMouseLeave={clearTooltip} onPointerLeave={clearTooltip}>
@@ -220,11 +236,25 @@ export function ForecastComparisonChart({
           const isRepresentative = representative.modelId === model.modelId;
           const isDimmed = hoveredModel !== null && hoveredModel !== model.modelId;
           return (
-            <g key={model.modelId} onMouseEnter={() => setHoveredModel(model.modelId)} onMouseLeave={() => { setHoveredModel(null); clearTooltip(); }}>
+            <g
+              className={styles.modelSeries}
+              key={model.modelId}
+              onPointerCancel={() => { setHoveredModel(null); clearTooltip(); }}
+              onPointerEnter={(event) => {
+                setHoveredModel(model.modelId);
+                showNearestForecast(model.modelId, points, event.clientX);
+              }}
+              onPointerLeave={() => { setHoveredModel(null); clearTooltip(); }}
+              onPointerMove={(event) => showNearestForecast(model.modelId, points, event.clientX)}
+              style={{ opacity: isDimmed ? 0.12 : 1 }}
+            >
+              <path
+                className={styles.modelLineHitArea}
+                d={linePath(points)}
+              />
               <path
                 className={styles.modelLine}
                 d={linePath(points)}
-                opacity={isDimmed ? 0.13 : 1}
                 stroke={definition?.color}
                 strokeWidth={hoveredModel === model.modelId ? 5.4 : isRepresentative ? 4.8 : 2.7}
               />
@@ -238,11 +268,11 @@ export function ForecastComparisonChart({
                   key={`${model.modelId}-${index}`}
                   onBlur={() => { setHoveredModel(null); clearTooltip(); }}
                   onClick={() => setTooltip({ modelId: model.modelId, horizon: index + 1, x: point.x, y: point.y })}
-                  onFocus={() => setHoveredModel(model.modelId)}
-                  onMouseEnter={() => setTooltip({ modelId: model.modelId, horizon: index + 1, x: point.x, y: point.y })}
-                  onMouseLeave={clearTooltip}
+                  onFocus={() => {
+                    setHoveredModel(model.modelId);
+                    setTooltip({ modelId: model.modelId, horizon: index + 1, x: point.x, y: point.y });
+                  }}
                   onPointerCancel={clearTooltip}
-                  onPointerLeave={clearTooltip}
                   r={isRepresentative ? 4.8 : 3.4}
                   role="button"
                   tabIndex={0}
