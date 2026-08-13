@@ -1,8 +1,8 @@
-# 02. Frozen Contracts Draft
+# 02. Frozen Contracts
 
-상태: `CP0_DRAFT`
+상태: `CP0_CORE_FROZEN`
 
-동결 목표: 구현 시작 후 `10~15분` 이내
+동결 시각: `2026-08-13 Asia/Seoul`
 
 권위 입력: 승인된 Figma·PNG, clean-room WT 명세, `MOVE_AI_DATA_PACK/APP_USED_DATA`
 
@@ -235,12 +235,12 @@ CVaR는 불리한 10%의 경제적 후회비용 평균이다. 총비용 percenti
 - fixture의 과거 `asOf`를 현재 날짜로 바꾸지 않는다.
 - `isEstimate`와 source attribution을 UI에 보존한다.
 
-## 13. 동결 전 미결정 항목
+## 13. 동결값과 남은 release 입력
 
-- Figma 파일 ID·버전·실제 PNG 목록과 SHA-256
-- Landing 영상·poster·logo의 소유권과 hash
-- 최종 framework/package exact versions
-- public API route path의 최종 naming
-- WT1~WT6 clean-room 문서의 최종 hash
+- Figma: `MOVE AI Clean-room UI`, file key `RvydVRm2bD59KlTzfemK7F`; frame ID와 PNG bytes/SHA-256은 `03_FIGMA_DESIGN_BASELINE.md`가 소유한다.
+- runtime: Node `>=22.13.0`, React/React DOM/RSC `19.2.8`, vinext `1.0.0-beta.5`, Vite `8.2.1`, TypeScript `6.0.3`; exact transitive graph는 `package-lock.json`이 소유한다.
+- public API paths: `/api/freight-risk/market`, `/api/freight-risk/news`, `/api/freight-risk/insight`, `/api/freight-risk/tune`, `/api/globe-port-traffic`, `/api/globe-chokepoint-traffic`, `/api/globe-weather`.
+- WT1~WT6 명세의 exact SHA-256은 `00_ALLOWED_INPUTS.md`가 소유하며 변경 시 WT7·WT8 PASS가 무효다.
+- Landing 영상·poster·logo는 아직 승인 원본이 없으므로 WT1이 명시적 placeholder를 유지한다. 이 항목은 비시각 core와 다른 페이지 구현을 막지 않지만, WT1 PAGE_COMPLETE와 최종 release는 막는다.
 
-이 목록이 0개가 되기 전 애플리케이션 코드를 작성하지 않는다.
+위 동결값을 깨는 변경은 Master 승인 없이 금지한다. additive optional field도 owner와 소비자 test가 함께 있어야 한다.

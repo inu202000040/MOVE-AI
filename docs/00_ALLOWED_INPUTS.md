@@ -98,10 +98,12 @@ WT7 clean-room provenance/visual-input 검사와 WT8 cross-contract/data-lineage
 
 ## 6. 시작 게이트
 
-다음이 모두 충족되어야 애플리케이션 구현을 시작한다.
+다음 core 시작 게이트는 모두 충족됐다.
 
 - Figma 원본과 PNG export가 실제 파일/버전으로 등록됨
 - WT1~WT6 clean-room MD가 WT7 금지참조 검사 PASS
 - WT1~WT6 계약이 WT8 교차검사 PASS
 - 데이터 SHA-256 검증 PASS
-- `02_FROZEN_CONTRACTS_DRAFT.md`의 미결정 항목 0개
+- `02_FROZEN_CONTRACTS_DRAFT.md`의 core 계약 동결
+
+따라서 WT1~WT6의 독립 구현을 시작할 수 있다. 단, 승인 원본이 없는 Landing 영상·poster·logo는 새로 만들거나 대체했다고 속이지 않고 placeholder로 유지하며, 해당 자산 등록 전에는 WT1 PAGE_COMPLETE와 최종 release를 선언하지 않는다.
