@@ -1,6 +1,6 @@
 # MOVE-AI Worktree별 독립 구현 패킷
 
-이 디렉터리는 승인된 디자인 자료·기술명세·데이터팩만으로 빈 저장소에서 MOVE-AI를 독립 구현할 때 사용하는 작업 단위별 계약 모음이다. 목표는 기능만 흉내 낸 화면이 아니라, 동결된 정보 구조·표시 문구·수치·상호작용·시각 밀도를 충족하는 신규 구축이다.
+이 디렉터리는 승인된 기술명세·데이터팩·소유 자산만으로 빈 저장소에서 MOVE-AI를 독립 구현할 때 사용하는 작업 단위별 계약 모음이다. 목표는 기능만 흉내 낸 화면이 아니라, 동결된 정보 구조·표시 문구·수치·상호작용·시각 밀도를 충족하는 신규 구축이다.
 
 이 문서는 실행 코드를 제공하지 않는다. 구현자는 모든 TS·TSX·CSS·HTML·테스트·생성 스크립트를 새로 작성해야 하며, 다른 애플리케이션 저장소나 배포물의 소스·번들·DOM·스타일을 구현 입력으로 사용해서는 안 된다.
 
@@ -9,7 +9,8 @@
 허용 입력은 다음으로 제한한다.
 
 - 이 디렉터리의 승인된 WT 명세와 공통 계약표
-- 승인된 Figma·PNG·영상·로고와 그 권리·해시 manifest
+- `REFERENCE_ONLY`로 등록된 승인 Figma·PNG와 그 권리·해시 manifest. rough composition과 flow 참고에만 사용한다.
+- 승인된 소유 영상·로고와 그 권리·해시 manifest
 - `MOVE_AI_DATA_PACK`의 승인된 데이터 파일과 API 문서
 - 공식 제3자 패키지·API 문서와 해당 라이선스
 - 문서에 명시된 수식·의사코드·golden 입력/출력
@@ -25,7 +26,9 @@
 - 기존 snapshot·catalog·fixture를 복사하고 출처 표기만 바꾸는 행위
 - 허용 입력 밖의 결과를 독립 구현이라고 기록하는 행위
 
-표시 문구의 정확한 재현은 코드 복사를 뜻하지 않는다. 문구·수치·geometry는 이 명세와 승인된 디자인 자료에서 읽고, 구현 코드는 독립적으로 작성한다.
+표시 문구의 정확한 재현은 코드 복사를 뜻하지 않는다. 문구·수치·geometry는 이 명세 텍스트에서 읽고, 구현 코드는 독립적으로 작성한다.
+
+구현과 QA의 유일한 판정 권위는 이 명세 텍스트다. Figma와 PNG는 `REFERENCE_ONLY`이며 rough composition과 flow만 참고한다. Figma/PNG와의 차이만으로 실패 또는 차단할 수 없고, pixel parity·image diff·SSIM·mismatch 비율은 구현 또는 QA 합격 기준으로 사용하지 않는다.
 
 ### 전역 document-root 계약
 
@@ -51,11 +54,11 @@ Master는 페이지 구현을 대신하지 않는다. Master는 exact SHA, 증�
 
 서로 다른 허용 입력이 충돌할 때 다음 순서를 적용한다.
 
-1. 사용자가 승인한 최신 기능·디자인 결정
-2. 이 디렉터리의 WT별 명세와 동결 계약
-3. 승인된 Figma·PNG·영상·문구 inventory
-4. `MOVE_AI_DATA_PACK`과 공식 데이터 원천 문서
-5. 공식 제3자 패키지·API 문서
+1. 사용자가 승인해 이 디렉터리에 반영한 최신 WT별 명세와 동결 계약
+2. `MOVE_AI_DATA_PACK`과 공식 데이터 원천 문서
+3. 승인된 소유 영상·로고·문구 inventory
+4. 공식 제3자 패키지·API 문서
+5. `REFERENCE_ONLY` 승인 Figma·PNG. rough composition과 flow 참고 전용이며 판정 권위가 아니다.
 
 허용 입력 사이의 충돌은 Master가 결정하고 결정 ledger에 남긴다. 승인 없이 화면·계약을 축약하거나, 허용 입력 밖의 구현을 근거로 새 요구를 만들지 않는다.
 
@@ -78,13 +81,13 @@ manifest에 없는 파일은 구현 입력으로 사용할 수 없다. snapshot�
 
 각 WT 문서는 빈 저장소에서 시작하는 담당자에게 다음을 순서대로 답해야 한다.
 
-1. 작업을 시작하기 전에 어떤 승인 디자인·데이터·자산을 확보해야 하는가.
+1. 작업을 시작하기 전에 어떤 명세·데이터·소유 자산을 확보해야 하는가.
 2. 어떤 공통 계약이 먼저 freeze되어야 하는가.
 3. 첫 commit에서 어떤 최소 구조를 만들어야 하는가.
 4. 기능보다 먼저 고정해야 하는 시각 geometry와 정보구조는 무엇인가.
 5. 어떤 fixture로 ready/loading/empty/error 상태를 재현하는가.
 6. 어떤 순서로 기능·data·interaction을 추가하는가.
-7. 동결 디자인·계약과 달라지기 쉬운 지점과 금지되는 임의 해석은 무엇인가.
+7. 동결 명세·계약과 달라지기 쉬운 지점과 금지되는 임의 해석은 무엇인가.
 8. 어떤 증거가 있어야 다음 commit과 병합으로 넘어갈 수 있는가.
 9. 외부 API·GPU·Worker가 실패해도 데모가 어떻게 계속 사용 가능한가.
 10. 무엇이 남아 있으면 절대로 `완료`라고 말하면 안 되는가.
@@ -93,15 +96,17 @@ manifest에 없는 파일은 구현 입력으로 사용할 수 없다. snapshot�
 
 정밀 구현은 아래 네 계층을 모두 만족해야 한다.
 
-### 3.1 시각 일치
+### 3.1 명세 기반 시각 일치
 
 - section 순서, 카드 개수와 배치가 같다.
 - 기준 viewport에서 header·sidebar·content inset이 같다.
 - 주요 heading, label, helper, badge의 computed font size·weight·line-height가 같다.
 - 색상, gradient, border, radius, shadow, surface depth가 같다.
 - chart plot 영역, axis, tick, legend, tooltip, empty overlay가 같은 위치와 밀도를 가진다.
-- loading·ready·empty·error·cached·REFERENCE 상태 각각이 동결 디자인과 같은 시각 위계를 가진다.
-- hover·focus·selected·disabled·pressed 상태를 캡처로 비교한다.
+- loading·ready·empty·error·cached·REFERENCE 상태 각각이 명세가 정한 시각 위계를 가진다.
+- hover·focus·selected·disabled·pressed 상태를 브라우저 screenshot과 computed style로 확인한다.
+
+시각 판정은 이 명세의 표시 문구·UI inventory·수치 geometry·computed style·상태·상호작용을 실제 브라우저 screenshot, 측정값, 녹화로 증명한다.
 
 ### 3.2 기능 일치
 
@@ -141,26 +146,26 @@ manifest에 없는 파일은 구현 입력으로 사용할 수 없다. snapshot�
 - Node 정규식 테스트가 통과함
 - 오류 카드가 표시됨
 
-이 항목들은 필요한 하위 검증일 뿐이다. 실제 브라우저에서 기준 화면과 비교하지 않았다면 시각·상호작용 PASS를 줄 수 없다.
+이 항목들은 필요한 하위 검증일 뿐이다. 실제 브라우저에서 명세의 표시 문구·수치 geometry·computed style·상태·상호작용을 증명하지 않았다면 시각·상호작용 PASS를 줄 수 없다.
 
 ## 5. 작업 시작 전 필수 기준 자산
 
 각 WT는 구현 전에 다음 자료를 확보한다.
 
-1. 승인된 1440×900 ready 디자인
-2. 승인된 375×812 ready 디자인
-3. 900×900 breakpoint smoke 기준
-4. 640×900 breakpoint smoke 기준
-5. loading 화면
-6. empty 또는 unavailable 화면
-7. error와 retry 화면
-8. 주요 modal/drawer open 화면
-9. hover·focus·selected 화면
+1. 1440×900 ready 브라우저 screenshot 계획
+2. 375×812 ready 브라우저 screenshot 계획
+3. 900×900 breakpoint smoke screenshot 계획
+4. 640×900 breakpoint smoke screenshot 계획
+5. loading 상태 screenshot 계획
+6. empty 또는 unavailable 상태 screenshot 계획
+7. error와 retry 상태 screenshot 계획
+8. 주요 modal/drawer open 상태 screenshot 계획
+9. hover·focus·selected 상태 screenshot 계획
 10. 10~20초 상호작용 녹화
 11. 동일 화면을 만드는 fixture와 입력값
 12. 디자인 토큰·geometry·typography 수치표
 
-승인 자료가 없는 상태에서 임의 디자인을 시작하지 않는다. 승인 입력을 얻지 못한 상태는 `BLOCKED_INPUT`, 구현하지 못한 상태는 `INCOMPLETE`, 외부환경에 따라 달라지는 상태는 `DEPLOYMENT_DEPENDENT`로 기록한다.
+명세에 필요한 데이터·소유 자산이 없는 상태에서 임의 구현을 시작하지 않는다. 필수 입력을 얻지 못한 상태는 `BLOCKED_INPUT`, 구현하지 못한 상태는 `INCOMPLETE`, 외부환경에 따라 달라지는 상태는 `DEPLOYMENT_DEPENDENT`로 기록한다. `REFERENCE_ONLY` Figma/PNG의 부재나 차이만으로 `BLOCKED_INPUT`을 선언하지 않는다.
 
 ## 6. 화면 캡처 파일 규칙
 
@@ -190,17 +195,17 @@ KNEI-error-375x812-retry.png
 KMDI-ready-900x900-dialog-open.png
 ```
 
-## 7. 시각 비교 게이트
+## 7. 명세 기반 시각 증거 게이트
 
 각 화면 셀은 다음 세 자료를 가져야 한다.
 
 | 증거 | 필수 내용 |
 |---|---|
-| Baseline | 승인된 디자인의 동일 viewport·동일 fixture·동일 state |
-| Candidate | 신규 구현의 동일 조건 |
-| Diff | overlay 또는 perceptual diff와 차이 설명 |
+| 명세 기대값 | 해당 표시 문구·UI inventory·수치 geometry·computed style·state·interaction 조항 |
+| 브라우저 screenshot | 신규 구현의 동일 viewport·fixture·state와 스크롤 위치 |
+| 런타임 증거 | geometry/computed-style 측정값과 필요한 interaction recording |
 
-자동 diff 수치만으로 승인하지 않는다. 차이가 적더라도 의미 있는 정보가 빠졌거나 state가 다르면 실패다. 반대로 anti-aliasing, 플랫폼 글꼴 rasterization처럼 의미 없는 차이는 근거를 기록하고 허용할 수 있다.
+표시 문구·UI inventory·수치 geometry·computed style·state·interaction 중 명세 위반이 있으면 실패다. Figma/PNG는 baseline 또는 diff 대상으로 사용하지 않으며 그 차이만으로 실패하거나 차단하지 않는다. pixel parity·overlay/perceptual diff·SSIM·mismatch 비율은 판정에 사용하지 않는다.
 
 ### 7.1 기본 viewport 매트릭스
 
@@ -261,7 +266,7 @@ KMDI-ready-900x900-dialog-open.png
 4. `core`: 핵심 기능과 상태 전이
 5. `data`: gateway·storage·page handoff
 6. `states`: loading/empty/error/cached/fallback
-7. `parity`: screenshot diff 기반 수정
+7. `visual-qa`: 명세·수치 geometry·computed style·state·interaction의 브라우저 증거 기반 수정
 8. `a11y`: keyboard/focus/reduced-motion
 9. `qa`: 브라우저 매트릭스와 회귀 테스트
 10. `review-fixes`: 교차검수 P0/P1 일괄 수정
@@ -290,9 +295,9 @@ timezone: Asia/Seoul
 modified files summary:
 untracked files summary:
 changed files:
-baseline design screenshots:
-candidate screenshots:
-diff artifacts:
+spec authority sections:
+browser screenshots:
+computed-style/geometry/state reports:
 interaction recordings:
 functional scenarios passed:
 responsive cells: 24/24 CHECKED
@@ -311,9 +316,9 @@ known gaps:
 
 다음이 모두 참일 때만 해당 WT를 완료로 판정한다.
 
-- baseline/candidate/diff가 모든 필수 셀에 존재한다.
+- 명세 기대값, 브라우저 screenshot, 런타임 증거가 모든 필수 셀에 존재한다.
 - 1440·375의 모든 필수 상태가 `CHECKED`이고 900·640 breakpoint smoke가 통과한다.
-- 동결 디자인·명세와 다른 문구·정보 순서·핵심 geometry가 없다.
+- 동결 명세와 다른 문구·정보 순서·핵심 geometry가 없다.
 - 기능 시나리오가 같은 상태 전이를 만든다.
 - golden fixture 수치가 허용오차 안에서 같다.
 - 오류별 문구와 fallback이 실제 원인에 맞다.
@@ -322,7 +327,7 @@ known gaps:
 - P0/P1이 0이다.
 - 승인되지 않은 P2가 없다.
 - `DEPLOYMENT_DEPENDENT`, 미검증, 코드-only 항목이 없다.
-- 사용자 또는 지정 Visual QA가 승인 디자인과의 나란히 비교를 승인했다.
+- 사용자 또는 지정 Visual QA가 명세 기반 브라우저 증거를 승인했다.
 
 ## 14. 자동 실패 조건
 
