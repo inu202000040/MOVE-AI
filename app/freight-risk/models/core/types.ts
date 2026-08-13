@@ -76,7 +76,7 @@ export interface ModelProjectionV1 {
 
 export interface TuneForecastV1 {
   readonly horizon: HorizonWeeks;
-  readonly targetDate: string;
+  readonly date: string;
   readonly value: number;
   readonly lower90: number;
   readonly upper90: number;

@@ -1,4 +1,5 @@
 export * from "./canonical";
+export * from "./comparison";
 export * from "./metrics";
 export * from "./producer";
 export * from "./registry";

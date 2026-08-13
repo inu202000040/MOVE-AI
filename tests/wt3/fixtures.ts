@@ -82,15 +82,15 @@ export function makeBaselineModels(): EightTuple<ModelProjectionV1> {
 }
 
 function isoDateFromOffset(offsetWeeks: number): string {
-  const date = new Date("2024-01-01T00:00:00Z");
+  const date = new Date("2024-01-08T00:00:00Z");
   date.setUTCDate(date.getUTCDate() + offsetWeeks * 7);
   return date.toISOString().slice(0, 10);
 }
 
 export function makeTuneSuccess(modelId: RiskModelId = "sarimax"): TuneSuccessV1 {
-  const forecasts = TARGET_DATES.map((targetDate, index): TuneForecastV1 => ({
+  const forecasts = TARGET_DATES.map((date, index): TuneForecastV1 => ({
     horizon: (index + 1) as 1 | 2 | 3 | 4,
-    targetDate,
+    date,
     value: 100 + index,
     lower90: 90 + index,
     upper90: 110 + index,

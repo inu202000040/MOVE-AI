@@ -121,7 +121,7 @@ export function mergeAcceptedTune(
   }
   const forecasts = tuple4(result.forecasts.map((forecast): ForecastPointV1 => ({
     horizonWeeks: forecast.horizon,
-    targetDate: forecast.targetDate,
+    targetDate: forecast.date,
     point: forecast.value,
     lower90: forecast.lower90,
     upper90: forecast.upper90,

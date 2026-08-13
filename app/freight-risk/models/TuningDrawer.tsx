@@ -3,19 +3,25 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { MODEL_REGISTRY } from "./core/registry";
+import { MODEL_REGISTRY, isRiskModelId } from "./core/registry";
 import {
   MODEL_PARAMETER_SPECS,
   TRAINING_WINDOWS,
   TUNING_PRESETS,
   createTuneRequest,
+  createTuningSession,
   defaultParameters,
   parametersForPreset,
+  rejectTuningRun,
+  resolveTuningRun,
+  startTuningRun,
   validateParameters,
   type TuningPresetIdV1,
+  type TuningSessionStateV1,
 } from "./core/tuning";
-import type { RiskModelId, TrainingWindowV1, TuneParameterValueV1 } from "./core/types";
+import type { HashedTuneResultV1, RiskModelId, TrainingWindowV1, TuneParameterValueV1, TuneRequestV1 } from "./core/types";
 import type { HistoricalPointV1 } from "./reference-knei";
+import { runTuningGateway } from "./tuning-gateway";
 import styles from "./models.module.css";
 
 interface NumberSpecV1 {
@@ -36,9 +42,12 @@ type ParameterSpecV1 = NumberSpecV1 | StringSpecV1;
 
 interface TuningDrawerProps {
   readonly open: boolean;
-  readonly initialModelId: RiskModelId;
+  readonly initialModelId: unknown;
   readonly history: readonly HistoricalPointV1[];
+  readonly acceptedByModel: Readonly<Partial<Record<RiskModelId, HashedTuneResultV1>>>;
   readonly onClose: () => void;
+  readonly onSuccess: (state: TuningSessionStateV1) => void;
+  readonly runner?: (request: TuneRequestV1, signal: AbortSignal) => Promise<unknown>;
 }
 
 const PRESET_LABELS: Readonly<Record<TuningPresetIdV1, string>> = {
@@ -57,23 +66,41 @@ function humanizeParameter(key: string): string {
   return key.replaceAll("_", " ");
 }
 
-export function TuningDrawer({ open, initialModelId, history, onClose }: TuningDrawerProps) {
+export function normalizedTuningModelId(value: unknown): RiskModelId {
+  return isRiskModelId(value) ? value : "sarimax";
+}
+
+export function TuningDrawer({
+  open,
+  initialModelId,
+  history,
+  acceptedByModel,
+  onClose,
+  onSuccess,
+  runner = runTuningGateway,
+}: TuningDrawerProps) {
+  const safeInitialModelId = normalizedTuningModelId(initialModelId);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [modelId, setModelId] = useState<RiskModelId>(initialModelId);
+  const runSequenceRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const [modelId, setModelId] = useState<RiskModelId>(safeInitialModelId);
   const [preset, setPreset] = useState<TuningPresetIdV1 | "custom">("engine_default");
   const [trainingWindow, setTrainingWindow] = useState<TrainingWindowV1>("expanding");
-  const [parameters, setParameters] = useState<Readonly<Record<string, TuneParameterValueV1>>>(() => defaultParameters(initialModelId));
-  const [status, setStatus] = useState<"idle" | "running" | "success" | "error">("idle");
+  const [parameters, setParameters] = useState<Readonly<Record<string, TuneParameterValueV1>>>(() => defaultParameters(safeInitialModelId));
+  const [session, setSession] = useState<TuningSessionStateV1>(() => createTuningSession(acceptedByModel[safeInitialModelId] ?? null));
   const [error, setError] = useState<string | null>(null);
+  const status = session.status;
 
   useEffect(() => {
     if (!open) return;
-    setModelId(initialModelId);
+    setModelId(safeInitialModelId);
     setPreset("engine_default");
-    setParameters(defaultParameters(initialModelId));
-    setStatus("idle");
+    setParameters(defaultParameters(safeInitialModelId));
+    setSession(createTuningSession(acceptedByModel[safeInitialModelId] ?? null));
     setError(null);
-  }, [initialModelId, open]);
+  }, [acceptedByModel, open, safeInitialModelId]);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   useEffect(() => {
     if (!open) return;
@@ -112,25 +139,26 @@ export function TuningDrawer({ open, initialModelId, history, onClose }: TuningD
     setModelId(next);
     setPreset("engine_default");
     setParameters(defaultParameters(next));
-    setStatus("idle");
+    setSession(createTuningSession(acceptedByModel[next] ?? null));
     setError(null);
   };
   const choosePreset = (next: TuningPresetIdV1) => {
     setPreset(next);
     setParameters(parametersForPreset(modelId, next));
-    setStatus("idle");
+    setSession(createTuningSession(acceptedByModel[modelId] ?? null));
     setError(null);
   };
   const changeParameter = (key: string, value: TuneParameterValueV1) => {
     setPreset("custom");
     setParameters((current) => ({ ...current, [key]: value }));
-    setStatus("idle");
+    setSession(createTuningSession(acceptedByModel[modelId] ?? null));
     setError(null);
   };
-  const submit = () => {
+  const submit = async () => {
+    let request: TuneRequestV1;
     try {
       validateParameters(modelId, parameters);
-      createTuneRequest({
+      request = createTuneRequest({
         routeCode: "KNEI",
         modelId,
         dates: history.map(({ date }) => date),
@@ -138,11 +166,34 @@ export function TuningDrawer({ open, initialModelId, history, onClose }: TuningD
         trainingWindow,
         parameters,
       });
-      setStatus("error");
-      setError("재측정 엔진에 연결할 수 없습니다. 기존 결과는 유지됩니다.");
     } catch {
-      setStatus("error");
+      setSession(createTuningSession(acceptedByModel[modelId] ?? null));
       setError("입력값이 허용 범위를 벗어났습니다. 매개변수 범위와 간격을 확인해 주세요.");
+      return;
+    }
+
+    const runId = `models-tune-${Date.now()}-${runSequenceRef.current += 1}`;
+    const running = startTuningRun(createTuningSession(acceptedByModel[modelId] ?? null), runId, request);
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+    setSession(running);
+    setError(null);
+    try {
+      const value = await runner(request, controller.signal);
+      const next = resolveTuningRun(running, runId, value);
+      setSession(next);
+      if (next.status === "success") {
+        onSuccess(next);
+      } else if (next.status === "error") {
+        setError("재측정 결과를 검증하지 못했습니다. 기존 결과는 유지됩니다.");
+      }
+    } catch {
+      const next = rejectTuningRun(running, runId, "재측정 엔진에 연결할 수 없습니다. 기존 결과는 유지됩니다.");
+      setSession(next);
+      setError(next.error);
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   };
 
@@ -217,8 +268,8 @@ export function TuningDrawer({ open, initialModelId, history, onClose }: TuningD
           {status === "error" && error !== null ? <p className={styles.inlineError} role="alert">{error}</p> : null}
         </div>
         <footer className={styles.drawerFooter}>
-          <button disabled={status === "running"} onClick={() => { setPreset("engine_default"); setParameters(defaultParameters(modelId)); setError(null); setStatus("idle"); }} type="button">기본값 복원</button>
-          <button className={styles.primaryButton} disabled={status === "running"} onClick={submit} type="button">{status === "running" ? "실제 모델 계산 중…" : "재측정하고 반영"}</button>
+          <button disabled={status === "running"} onClick={() => { setPreset("engine_default"); setParameters(defaultParameters(modelId)); setError(null); setSession(createTuningSession(acceptedByModel[modelId] ?? null)); }} type="button">기본값 복원</button>
+          <button className={styles.primaryButton} disabled={status === "running"} onClick={() => void submit()} type="button">{status === "running" ? "실제 모델 계산 중…" : "재측정하고 반영"}</button>
         </footer>
       </div>
     </div>,

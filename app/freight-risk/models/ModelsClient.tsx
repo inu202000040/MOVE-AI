@@ -4,13 +4,27 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ForecastComparisonChart } from "./ForecastComparisonChart";
 import { EvidenceDialog, type EvidenceMetricV1 } from "./EvidenceDialog";
+import { TuningComparisonDialog } from "./TuningComparisonDialog";
 import { TuningDrawer } from "./TuningDrawer";
 import { scoreModelsForHorizon } from "./core/metrics";
-import { produceModelsCore, isModelsStorageEventForRoute } from "./core/producer";
+import {
+  isModelsStorageEventForRoute,
+  keepCandidateAndPersist,
+  produceModelsCore,
+  rollbackCandidateWithoutStorageWrite,
+} from "./core/producer";
 import { MODEL_REGISTRY } from "./core/registry";
 import { buildRepresentativeSelection } from "./core/representative";
 import { clearManualRepresentative, writeManualRepresentative } from "./core/storage";
-import type { HorizonWeeks, RepresentativeSelectionV1, RiskModelId } from "./core/types";
+import type { TuningSessionStateV1 } from "./core/tuning";
+import type {
+  EightTuple,
+  HashedTuneResultV1,
+  HorizonWeeks,
+  ModelProjectionV1,
+  RepresentativeSelectionV1,
+  RiskModelId,
+} from "./core/types";
 import { KNEI_BASELINE_MODELS, KNEI_HISTORY, kneiEvaluationEvidence } from "./reference-knei";
 import {
   displayModelVersion,
@@ -25,6 +39,16 @@ interface EvidenceStateV1 {
   readonly metric: EvidenceMetricV1;
   readonly modelId: RiskModelId;
   readonly trigger: HTMLElement;
+}
+
+interface ComparisonStateV1 {
+  readonly session: TuningSessionStateV1;
+  readonly beforeModels: EightTuple<ModelProjectionV1>;
+  readonly afterModels: EightTuple<ModelProjectionV1>;
+  readonly beforeRepresentative: RepresentativeSelectionV1;
+  readonly afterRepresentative: RepresentativeSelectionV1;
+  readonly beforeSelectedModels: ReadonlySet<RiskModelId>;
+  readonly beforeRangeMode: "recent" | "all";
 }
 
 const CURRENT_OBSERVATION = { date: "2026-08-03", value: 4884, unit: "USD/FEU" } as const;
@@ -54,6 +78,8 @@ export default function ModelsClient() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerTrigger, setDrawerTrigger] = useState<HTMLElement | null>(null);
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
+  const [acceptedByModel, setAcceptedByModel] = useState<Readonly<Partial<Record<RiskModelId, HashedTuneResultV1>>>>({});
+  const [comparison, setComparison] = useState<ComparisonStateV1 | null>(null);
 
   const refreshFromStorage = useCallback((manualModelIdOverride?: RiskModelId | null) => {
     try {
@@ -66,9 +92,12 @@ export default function ModelsClient() {
       });
       setModels(produced.mergedModels);
       setRepresentative(produced.representative);
+      setAcceptedByModel(produced.storageSnapshot.tuningByModel);
+      setStorageWarning(null);
     } catch {
       setModels(KNEI_BASELINE_MODELS);
       setRepresentative(initialRepresentative());
+      setAcceptedByModel({});
       setStorageWarning("저장된 모델 설정을 불러오지 못했습니다. 내장 기준 결과를 유지합니다.");
     }
   }, []);
@@ -140,6 +169,61 @@ export default function ModelsClient() {
     requestAnimationFrame(() => drawerTrigger?.focus());
   };
 
+  const previewTuningCandidate = (session: TuningSessionStateV1) => {
+    if (session.status !== "success" || session.candidate === null) return;
+    const beforeModels = models;
+    const beforeRepresentative = representative;
+    const beforeSelectedModels = new Set(selectedModels);
+    const beforeRangeMode = rangeMode;
+    const produced = produceModelsCore({
+      route: "KNEI",
+      currentObservation: CURRENT_OBSERVATION,
+      baselineModels: KNEI_BASELINE_MODELS,
+      storage: window.localStorage,
+      sessionTuningByModel: { [session.candidate.result.modelId]: session.candidate },
+    });
+    setModels(produced.mergedModels);
+    setRepresentative(produced.representative);
+    setDrawerOpen(false);
+    setComparison({
+      session,
+      beforeModels,
+      afterModels: produced.mergedModels,
+      beforeRepresentative,
+      afterRepresentative: produced.representative,
+      beforeSelectedModels,
+      beforeRangeMode,
+    });
+  };
+
+  const finishComparison = () => {
+    setComparison(null);
+    requestAnimationFrame(() => drawerTrigger?.focus());
+  };
+
+  const keepComparisonCandidate = () => {
+    if (comparison === null || comparison.session.candidate === null) return;
+    const result = keepCandidateAndPersist(window.localStorage, "KNEI", comparison.session);
+    const accepted = result.state.accepted;
+    if (accepted !== null) {
+      setAcceptedByModel((current) => ({ ...current, [accepted.result.modelId]: accepted }));
+    }
+    setModels(comparison.afterModels);
+    setRepresentative(comparison.afterRepresentative);
+    setStorageWarning(result.warning);
+    finishComparison();
+  };
+
+  const rollbackComparisonCandidate = () => {
+    if (comparison === null) return;
+    rollbackCandidateWithoutStorageWrite(comparison.session);
+    setModels(comparison.beforeModels);
+    setRepresentative(comparison.beforeRepresentative);
+    setSelectedModels(comparison.beforeSelectedModels);
+    setRangeMode(comparison.beforeRangeMode);
+    finishComparison();
+  };
+
   return (
     <div className={styles.page} data-models-main>
       <header className={styles.pageHeader}>
@@ -198,7 +282,7 @@ export default function ModelsClient() {
                   <span className={styles.legendColor} style={{ backgroundColor: definition.color }} />
                   <span><strong>{definition.name}</strong><small>{definition.family}</small></span>
                   {representative.modelId === definition.id ? <em>대표</em> : null}
-                  {model?.forecastSource === "tuned" ? <em>LIVE</em> : null}
+                  {model?.forecastSource === "tuned" && acceptedByModel[definition.id]?.tuningRunHash === model.tuningRunHash ? <em>LIVE</em> : null}
                 </button>
               );
             })}
@@ -295,9 +379,23 @@ export default function ModelsClient() {
       {evidence !== null ? (() => {
         const model = models.find(({ modelId }) => modelId === evidence.modelId);
         if (model === undefined) return null;
-        return <EvidenceDialog horizon={horizon} metricName={evidence.metric} model={model} onClose={closeEvidence} records={kneiEvaluationEvidence(evidence.modelId)[horizon - 1]} />;
+        const candidate = comparison?.session.candidate?.result.modelId === evidence.modelId
+          ? comparison.session.candidate
+          : acceptedByModel[evidence.modelId];
+        const records = candidate?.result.evaluationByHorizon[horizon - 1].records
+          ?? kneiEvaluationEvidence(evidence.modelId)[horizon - 1];
+        return <EvidenceDialog horizon={horizon} metricName={evidence.metric} model={model} onClose={closeEvidence} records={records} />;
       })() : null}
-      <TuningDrawer history={KNEI_HISTORY} initialModelId={selectedModels.size === 1 ? [...selectedModels][0] : representative.modelId} onClose={closeDrawer} open={drawerOpen} />
+      <TuningDrawer acceptedByModel={acceptedByModel} history={KNEI_HISTORY} initialModelId={selectedModels.size === 1 ? [...selectedModels][0] : representative.modelId} onClose={closeDrawer} onSuccess={previewTuningCandidate} open={drawerOpen} />
+      {comparison !== null ? (
+        <TuningComparisonDialog
+          afterModels={comparison.afterModels}
+          beforeModels={comparison.beforeModels}
+          onKeep={keepComparisonCandidate}
+          onRollback={rollbackComparisonCandidate}
+          state={comparison.session}
+        />
+      ) : null}
     </div>
   );
 }

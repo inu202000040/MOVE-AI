@@ -61,7 +61,7 @@ test("makes tuning hash independent of object insertion order and sensitive to s
   const reordered = Object.fromEntries(Object.entries(result).reverse());
   const originalHash = computeTuningRunHash(result);
   assert.match(originalHash, /^[0-9a-f]{64}$/u);
-  assert.equal(originalHash, "c2264b376aca4c18f849273edca354a0d0f1190d9968c484d226df73f71f9964");
+  assert.equal(originalHash, "e63366c7dabca3772949f21ac4b71c0874297fec63f17db044447741b2a3985b");
   assert.equal(computeTuningRunHash(reordered as unknown as typeof result), originalHash);
   assert.notEqual(computeTuningRunHash({ ...result, elapsedMs: result.elapsedMs + 1 }), originalHash);
 });

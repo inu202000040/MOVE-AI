@@ -1,5 +1,11 @@
 import { isRouteId } from "../../../contracts";
 import { canonicalJson, computeTuningRunHash } from "./canonical";
+import {
+  fixedSeasonalNaiveScale,
+  meanAbsolutePercentageError,
+  meanAbsoluteScaledError,
+  meanSquaredError,
+} from "./metrics";
 import { isRiskModelId } from "./registry";
 import {
   HORIZONS,
@@ -318,7 +324,7 @@ export function createTuneRequest(input: TuneRequestInputV1): TuneRequestV1 {
 
 function decodeForecast(value: unknown, expectedHorizon: HorizonWeeks): TuneForecastV1 {
   const item = record(value, `forecasts[${expectedHorizon - 1}]`);
-  exactKeys(item, ["horizon", "targetDate", "value", "lower90", "upper90"], "tune forecast");
+  exactKeys(item, ["horizon", "date", "value", "lower90", "upper90"], "tune forecast");
   if (item.horizon !== expectedHorizon) {
     return fail("HORIZON_ORDER", "Tune forecasts must be ordered 1 through 4");
   }
@@ -330,7 +336,7 @@ function decodeForecast(value: unknown, expectedHorizon: HorizonWeeks): TuneFore
   }
   return {
     horizon: expectedHorizon,
-    targetDate: isoDate(item.targetDate, "forecast.targetDate"),
+    date: isoDate(item.date, "forecast.date"),
     value: point,
     lower90,
     upper90,
@@ -465,7 +471,7 @@ export function decodeTuneSuccess(value: unknown): TuneSuccessV1 {
     }
   }
   for (let index = 1; index < forecasts.length; index += 1) {
-    if (forecasts[index - 1].targetDate >= forecasts[index].targetDate) {
+    if (forecasts[index - 1].date >= forecasts[index].date) {
       return fail("FORECAST_ORDER", "Tune forecast target dates must be strictly increasing");
     }
   }
@@ -475,6 +481,14 @@ export function decodeTuneSuccess(value: unknown): TuneSuccessV1 {
     const hits = records.filter(({ covered90 }) => covered90).length;
     if (metric.sampleSize !== records.length || metric.total !== records.length || metric.hits !== hits) {
       return fail("EVALUATION_METRIC_MISMATCH", `Horizon ${horizon} metrics do not match evaluation records`);
+    }
+    const pairs = records.map(({ actual, predicted }) => ({ actual, predicted }));
+    const computedMape = meanAbsolutePercentageError(pairs);
+    const computedMse = meanSquaredError(pairs);
+    if (!closeEnough(metric.mapePct, computedMape)
+      || !closeEnough(metric.mse, computedMse)
+      || !closeEnough(metric.rmse, Math.sqrt(computedMse))) {
+      return fail("EVALUATION_METRIC_MISMATCH", `Horizon ${horizon} error metrics do not match evaluation records`);
     }
   }
   return {
@@ -506,6 +520,19 @@ export function decodeTuneSuccessForRequest(value: unknown, request: TuneRequest
   }
   if (canonicalJson(result.parameters) !== canonicalJson(request.parameters)) {
     return fail("REQUEST_RESPONSE_PARAMETERS", "Tune response parameters do not match the request");
+  }
+  const firstOrigin = result.evaluationByHorizon[0].records[0]?.forecastOrigin;
+  const firstOriginIndex = firstOrigin === undefined ? -1 : request.dates.indexOf(firstOrigin);
+  if (firstOriginIndex < 52) {
+    return fail("REQUEST_RESPONSE_EVALUATION", "Tune evaluation origins do not align with the request history");
+  }
+  const fixedScale = fixedSeasonalNaiveScale(request.values.slice(0, firstOriginIndex + 1), 52);
+  for (const horizon of HORIZONS) {
+    const records = result.evaluationByHorizon[horizon - 1].records;
+    const pairs = records.map(({ actual, predicted }) => ({ actual, predicted }));
+    if (!closeEnough(result.metricsByHorizon[horizon - 1].mase, meanAbsoluteScaledError(pairs, fixedScale))) {
+      return fail("REQUEST_RESPONSE_EVALUATION", `Horizon ${horizon} MASE does not match the fixed request scale`);
+    }
   }
   return result;
 }
