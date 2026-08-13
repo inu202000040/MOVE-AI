@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 
 import { lockBodyScroll, useFreightRiskRoute } from "../../components/shell";
 import { ROUTE_IDS, type RouteId } from "../../contracts";
+import { createSameOriginDataGatewayV1 } from "../../data/runtime/data-gateway";
 import { ComparisonChart, compactMoney, displayDate, money, SpectrumChart } from "./charts";
 import { DetailDialog } from "./DetailDialog";
 import type { CvarProgress, CvarSimulationResult, RiskWeight } from "./engine";
@@ -18,6 +19,7 @@ import {
 } from "./representative";
 import { CvarRunCoordinator } from "./runtime";
 import {
+  createGatewayBackedAllocationRepresentativeSource,
   readAllocationRepresentative,
   type AllocationRepresentativeSource,
   UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE,
@@ -225,21 +227,29 @@ function AllocationUnavailable() {
 }
 
 export function AllocationClient({
-  source = UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE,
+  source,
 }: {
   readonly source?: AllocationRepresentativeSource;
 }) {
   const { routeId, changeRoute } = useFreightRiskRoute();
   const [, publishSourceChange] = useReducer((revision: number) => revision + 1, 0);
+  const defaultSource = useMemo(
+    () => createGatewayBackedAllocationRepresentativeSource(
+      createSameOriginDataGatewayV1(),
+      UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE,
+    ),
+    [],
+  );
+  const activeSource = source ?? defaultSource;
 
   useEffect(
-    () => source.subscribe(publishSourceChange),
-    [source],
+    () => activeSource.subscribe(publishSourceChange),
+    [activeSource],
   );
 
   let selection: RepresentativeSelectionV1;
   try {
-    selection = readAllocationRepresentative(source, routeId);
+    selection = readAllocationRepresentative(activeSource, routeId);
   } catch {
     return <AllocationUnavailable />;
   }

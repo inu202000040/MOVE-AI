@@ -6,13 +6,62 @@ import {
   MOVE_AI_ROUTE_CHANGE_EVENT,
   commitRouteChange,
 } from "../../app/components/shell";
-import { STORAGE_KEYS } from "../../app/contracts";
 import {
+  GATEWAY_SCHEMA_VERSION,
+  STORAGE_KEYS,
+  type DataGatewayV1,
+  type PendingGatewayResultV1,
+} from "../../app/contracts";
+import {
+  createGatewayBackedAllocationRepresentativeSource,
   publishAllocationRoute,
   readAllocationRepresentative,
 } from "../../app/freight-risk/allocation";
 import { KNEI_REPRESENTATIVE_SELECTION } from "../../app/freight-risk/allocation/fixture";
 import { createValidatedAllocationSourceHarness } from "./fixtures/validated-source";
+
+const gatewayMeta = {
+  mode: "fixture",
+  source: "forecast-snapshot-v3",
+  sourceUrl: null,
+  asOf: "2026-08-03",
+  fetchedAt: "2026-08-13T00:00:00+09:00",
+  unit: "USD/FEU",
+  isEstimate: true,
+  attribution: "approved model workbooks",
+  warnings: [],
+  provider: null,
+  cache: { hit: true, stale: false, ageSeconds: 0 },
+} as const;
+
+function dataGateway(
+  snapshot: DataGatewayV1["snapshot"],
+): DataGatewayV1 {
+  const unsupported = async (): Promise<PendingGatewayResultV1> => {
+    throw new Error("unused gateway method");
+  };
+  return {
+    snapshot,
+    market: unsupported,
+    news: unsupported,
+    insight: unsupported,
+    tuningHealth: unsupported,
+    tuningRun: unsupported,
+    portSummary: unsupported,
+    portDetail: unsupported,
+    chokeSummary: unsupported,
+    chokeDetail: unsupported,
+    weather: unsupported,
+  };
+}
+
+const readySnapshot: PendingGatewayResultV1 = {
+  schemaVersion: GATEWAY_SCHEMA_VERSION,
+  state: "READY",
+  data: { schemaVersion: "glovis-freight-risk/v3" },
+  meta: gatewayMeta,
+  error: null,
+};
 
 test("fails closed unless an injected source publishes the validated shared route", () => {
   const harness = createValidatedAllocationSourceHarness();
@@ -39,6 +88,69 @@ test("fails closed unless an injected source publishes the validated shared rout
       "KNEI",
     ),
   );
+});
+
+test("publishes representative data only after the canonical gateway snapshot is READY", async () => {
+  const harness = createValidatedAllocationSourceHarness();
+  const source = createGatewayBackedAllocationRepresentativeSource(
+    dataGateway(async () => readySnapshot),
+    harness.source,
+  );
+  assert.throws(() => readAllocationRepresentative(source, "KNEI"));
+  let publications = 0;
+  const unsubscribe = source.subscribe(() => {
+    publications += 1;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(publications, 1);
+  assert.strictEqual(
+    readAllocationRepresentative(source, "KNEI"),
+    KNEI_REPRESENTATIVE_SELECTION,
+  );
+  unsubscribe();
+  assert.throws(() => readAllocationRepresentative(source, "KNEI"));
+});
+
+test("keeps unavailable, rejected, and late snapshot results fail-closed", async () => {
+  const harness = createValidatedAllocationSourceHarness();
+  const unavailable: PendingGatewayResultV1 = {
+    schemaVersion: GATEWAY_SCHEMA_VERSION,
+    state: "UNAVAILABLE",
+    data: null,
+    meta: { ...gatewayMeta, mode: "unavailable" },
+    error: {
+      code: "NO_DATA",
+      message: "unavailable",
+      retryable: false,
+      upstreamStatus: null,
+      details: { reasonCode: "NO_VALID_DATA" },
+    },
+  };
+  const unavailableSource = createGatewayBackedAllocationRepresentativeSource(
+    dataGateway(async () => unavailable),
+    harness.source,
+  );
+  const stopUnavailable = unavailableSource.subscribe(() => undefined);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.throws(() => readAllocationRepresentative(unavailableSource, "KNEI"));
+  stopUnavailable();
+
+  let resolveLate!: (result: PendingGatewayResultV1) => void;
+  const lateSource = createGatewayBackedAllocationRepresentativeSource(
+    dataGateway(() => new Promise((resolve) => {
+      resolveLate = resolve;
+    })),
+    harness.source,
+  );
+  let latePublications = 0;
+  const stopLate = lateSource.subscribe(() => {
+    latePublications += 1;
+  });
+  stopLate();
+  resolveLate(readySnapshot);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(latePublications, 0);
+  assert.throws(() => readAllocationRepresentative(lateSource, "KNEI"));
 });
 
 test("forwards a drawer route candidate through the complete WT1 transaction", () => {
@@ -91,7 +203,8 @@ test("keeps production ownership and visible inventory boundaries explicit", () 
   );
 
   assert.match(allocationClient, /useFreightRiskRoute\(\)/u);
-  assert.match(allocationClient, /source = UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE/u);
+  assert.match(allocationClient, /createSameOriginDataGatewayV1\(\)/u);
+  assert.match(allocationClient, /source \?\? defaultSource/u);
   assert.doesNotMatch(allocationClient, /localStorage|history\.replaceState|CustomEvent/u);
   assert.doesNotMatch(allocationPage, /KNEI_REPRESENTATIVE_SELECTION|\.\/fixture/u);
   assert.doesNotMatch(allocationPage, /source=/u);
