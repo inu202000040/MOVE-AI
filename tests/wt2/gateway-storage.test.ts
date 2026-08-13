@@ -94,8 +94,8 @@ function newsData() {
     routeId: "KNEI",
     stage: "FILTERED",
     llmAnalyzed: false,
-    window: { requestedAsOf: "latest", primaryDays: 30, fallbackDays: 90 },
-    policy: { providerVersion: 18, maximumArticles: 5 },
+    window: { from: "2026-07-15", to: "2026-08-13", days: 30 },
+    policy: { providerVersion: 18, retry: 0 },
     stats: {
       fetchedCandidates: 3,
       filteredCandidates: 2,
@@ -105,7 +105,7 @@ function newsData() {
       candidateBreakdown: { directImpact: 1, contextual: 1, routeFallback: 0 },
     },
     articles: [newsArticle()],
-    attempts: [{ provider: "approved fixture", resultCode: "OK", elapsedMs: 2 }],
+    attempts: [{ provider: "approved fixture", resultCode: "OK", elapsedMs: 2, from: "2026-07-15", to: "2026-08-13" }],
   };
 }
 
@@ -344,17 +344,18 @@ test("cache writers reject unavailable or malformed values and tolerate quota er
 });
 
 test("public DataGateway seam sends canonical news queries and preserves first payload on a retry tie", async () => {
-  const queries: Readonly<Record<string, unknown>>[] = [];
+  const queries: unknown[] = [];
   const first = newsResult();
   first.meta.source = "first provider result";
   const retried = newsResult();
   retried.meta.source = "retry provider result";
   const gateway: DashboardDataGatewayV1 = {
+    snapshot: async () => { throw new Error("not used"); },
     market: async () => { throw new Error("not used"); },
     insight: async () => { throw new Error("not used"); },
     news: async (query) => {
       queries.push(query);
-      return query.retry === 0 ? first : retried;
+      return query["retry"] === 0 ? first : retried;
     },
   };
 

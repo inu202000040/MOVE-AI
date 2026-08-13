@@ -70,20 +70,22 @@ export interface NewsStatsV1 {
 }
 
 export interface NewsWindowV1 {
-  readonly requestedAsOf: "latest" | string;
-  readonly primaryDays: 30;
-  readonly fallbackDays: 90;
+  readonly from: string;
+  readonly to: string;
+  readonly days: 30 | 90;
 }
 
 export interface NewsPolicyV1 {
   readonly providerVersion: 18;
-  readonly maximumArticles: 5;
+  readonly retry: 0 | 1;
 }
 
 export interface NewsAttemptV1 {
   readonly provider: string;
   readonly resultCode: string;
   readonly elapsedMs: number;
+  readonly from: string;
+  readonly to: string;
 }
 
 export interface NewsDataV1 {
@@ -128,9 +130,9 @@ const STATS_KEYS = [
   "candidateBreakdown",
 ] as const;
 const BREAKDOWN_KEYS = ["directImpact", "contextual", "routeFallback"] as const;
-const WINDOW_KEYS = ["requestedAsOf", "primaryDays", "fallbackDays"] as const;
-const POLICY_KEYS = ["providerVersion", "maximumArticles"] as const;
-const ATTEMPT_KEYS = ["provider", "resultCode", "elapsedMs"] as const;
+const WINDOW_KEYS = ["from", "to", "days"] as const;
+const POLICY_KEYS = ["providerVersion", "retry"] as const;
+const ATTEMPT_KEYS = ["provider", "resultCode", "elapsedMs", "from", "to"] as const;
 
 export function createNewsQuery(
   route: RouteId,
@@ -150,13 +152,16 @@ function decodeNewsWindow(value: unknown): NewsWindowV1 | null {
   if (!isRecord(value) || !hasExactKeys(value, WINDOW_KEYS)) {
     return null;
   }
-  const requestedAsOf = value.requestedAsOf === "latest"
-    ? "latest"
-    : decodeIsoDateOrTimestamp(value.requestedAsOf);
-  if (requestedAsOf === null || value.primaryDays !== 30 || value.fallbackDays !== 90) {
+  const from = decodeIsoDateOrTimestamp(value.from);
+  const to = decodeIsoDateOrTimestamp(value.to);
+  const days = value.days === 30 || value.days === 90 ? value.days : null;
+  if (from === null || to === null || days === null || from.includes("T") || to.includes("T") || from > to) {
     return null;
   }
-  return { requestedAsOf, primaryDays: 30, fallbackDays: 90 };
+  const inclusiveDays = Math.round(
+    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000,
+  ) + 1;
+  return inclusiveDays === days ? { from, to, days } : null;
 }
 
 function decodeNewsPolicy(value: unknown): NewsPolicyV1 | null {
@@ -164,24 +169,38 @@ function decodeNewsPolicy(value: unknown): NewsPolicyV1 | null {
     !isRecord(value)
     || !hasExactKeys(value, POLICY_KEYS)
     || value.providerVersion !== 18
-    || value.maximumArticles !== 5
+    || (value.retry !== 0 && value.retry !== 1)
   ) {
     return null;
   }
-  return { providerVersion: 18, maximumArticles: 5 };
+  return { providerVersion: 18, retry: value.retry };
 }
 
-function decodeNewsAttempt(value: unknown): NewsAttemptV1 | null {
+function decodeNewsAttempt(value: unknown, window: NewsWindowV1): NewsAttemptV1 | null {
   if (!isRecord(value) || !hasExactKeys(value, ATTEMPT_KEYS)) {
     return null;
   }
   const provider = decodeNonEmptyString(value.provider);
   const resultCode = decodeNonEmptyString(value.resultCode);
   const elapsedMs = decodeFiniteNumber(value.elapsedMs);
-  if (provider === null || resultCode === null || elapsedMs === null || elapsedMs < 0) {
+  const from = decodeIsoDateOrTimestamp(value.from);
+  const to = decodeIsoDateOrTimestamp(value.to);
+  if (
+    provider === null
+    || resultCode === null
+    || elapsedMs === null
+    || elapsedMs < 0
+    || from === null
+    || to === null
+    || from.includes("T")
+    || to.includes("T")
+    || from > to
+    || from < window.from
+    || to > window.to
+  ) {
     return null;
   }
-  return { provider, resultCode, elapsedMs };
+  return { provider, resultCode, elapsedMs, from, to };
 }
 
 function decodeDirectionCode(value: unknown): NewsDirectionCode | null {
@@ -364,27 +383,39 @@ export function decodeNewsData(value: unknown, expectedRoute?: RouteId): NewsDat
     || stats === null
     || !Array.isArray(value.articles)
     || !Array.isArray(value.attempts)
+    || value.articles.length < 1
     || value.articles.length > 5
+    || (policy.retry === 0 ? window.days !== 30 : window.days !== 90)
   ) {
     return null;
   }
   const articles: NewsArticleV1[] = [];
-  for (const item of value.articles) {
+  for (const [index, item] of value.articles.entries()) {
     const article = decodeNewsArticle(item);
-    if (article === null) {
+    const endOfWindow = Date.parse(`${window.to}T23:59:59.999Z`);
+    if (
+      article === null
+      || article.id !== String(index + 1)
+      || Date.parse(article.publishedAt) > endOfWindow
+      || (article.effectiveAt !== null && Date.parse(article.effectiveAt) > endOfWindow)
+    ) {
       return null;
     }
     articles.push(article);
   }
   const attempts: NewsAttemptV1[] = [];
   for (const item of value.attempts) {
-    const attempt = decodeNewsAttempt(item);
+    const attempt = decodeNewsAttempt(item, window);
     if (attempt === null) {
       return null;
     }
     attempts.push(attempt);
   }
-  if (stats.selectedArticles !== articles.length || new Set(articles.map((article) => article.id)).size !== articles.length) {
+  if (
+    stats.selectedArticles !== articles.length
+    || stats.successfulProviders > attempts.length
+    || new Set(articles.map((article) => article.id)).size !== articles.length
+  ) {
     return null;
   }
   const decoded: NewsDataV1 = {

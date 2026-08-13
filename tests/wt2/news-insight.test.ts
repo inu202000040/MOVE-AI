@@ -41,18 +41,18 @@ function newsData(articleCount = 1) {
     routeId: "KNEI",
     stage: "FILTERED",
     llmAnalyzed: false,
-    window: { requestedAsOf: "latest", primaryDays: 30, fallbackDays: 90 },
-    policy: { providerVersion: 18, maximumArticles: 5 },
+    window: { from: "2026-07-15", to: "2026-08-13", days: 30 },
+    policy: { providerVersion: 18, retry: 0 },
     stats: {
       fetchedCandidates: 8,
       filteredCandidates: 5,
       duplicatesRemoved: 2,
       selectedArticles: articleCount,
-      successfulProviders: 2,
+      successfulProviders: 1,
       candidateBreakdown: { directImpact: 2, contextual: 2, routeFallback: 1 },
     },
     articles,
-    attempts: [{ provider: "approved fixture", resultCode: "OK", elapsedMs: 1 }],
+    attempts: [{ provider: "approved fixture", resultCode: "OK", elapsedMs: 1, from: "2026-07-15", to: "2026-08-13" }],
   };
 }
 

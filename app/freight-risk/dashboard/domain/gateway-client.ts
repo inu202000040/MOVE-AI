@@ -11,7 +11,7 @@ import type { InsightRequestV1 } from "./insight-request";
 import { createMarketQuery, type MarketGatewayResultV1, type MarketSeriesV1 } from "./market";
 import { chooseNewsRetryData, createNewsQuery } from "./news";
 
-export type DashboardDataGatewayV1 = Pick<DataGatewayV1, "market" | "news" | "insight">;
+export type DashboardDataGatewayV1 = Pick<DataGatewayV1, "snapshot" | "market" | "news" | "insight">;
 
 export type NewsCollectionResultV1 =
   | { readonly kind: "READY"; readonly result: NewsGatewayResultV1 }

@@ -12,16 +12,11 @@
 
 * { box-sizing: border-box; }
 body:has(.dashboard-page) { margin: 0; background: var(--dash-canvas); color: var(--dash-ink); font-family: "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; }
-body:has(.dashboard-page) > nav { display: none; }
 button, select { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, select:focus-visible, a:focus-visible, svg:focus-visible { outline: 3px solid rgba(63, 161, 235, .45); outline-offset: 2px; }
 
 .dashboard-page { min-height: 100vh; padding: clamp(24px, 3.1vw, 44px); background: var(--dash-canvas); }
-.dashboard-context { display: flex; justify-content: space-between; align-items: end; gap: 20px; max-width: 1370px; margin: 0 auto 22px; }
-.dashboard-context h1 { margin: 4px 0 3px; color: var(--dash-navy); font-size: 27px; line-height: 1.15; letter-spacing: -.045em; }
-.dashboard-context p { margin: 0; color: var(--dash-muted); font-size: 11px; }
-.dashboard-context p b { color: #40556d; }
 .eyebrow { display: block; color: var(--dash-blue); font-size: 8px; font-weight: 900; letter-spacing: .12em; line-height: 1.3; }
 .all-routes-button { height: 42px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border: 0; border-radius: 10px; color: var(--dash-blue); background: var(--dash-canvas); box-shadow: var(--dash-raised); font-size: 11px; font-weight: 900; transition: .18s ease; }
 .all-routes-button:hover, .all-routes-button[aria-expanded="true"] { transform: translateY(-1px); color: white; background: var(--dash-blue); }
@@ -33,8 +28,6 @@ button:focus-visible, select:focus-visible, a:focus-visible, svg:focus-visible {
 .section-heading h2 { margin: 4px 0 0; color: var(--dash-navy); font-size: 18px; line-height: 1.2; letter-spacing: -.035em; }
 .section-heading p { margin: 5px 0 0; color: var(--dash-muted); font-size: 11px; line-height: 1.45; }
 .heading-action { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 0 auto; }
-.route-selector { display: grid; gap: 5px; color: var(--dash-muted); font-size: 10px; font-weight: 800; }
-.route-selector select { min-width: 196px; height: 42px; padding: 0 38px 0 13px; border: 0; border-radius: 10px; color: var(--dash-navy); background: var(--dash-canvas); box-shadow: var(--dash-inset); font-size: 12px; font-weight: 800; }
 .history-trigger { position: absolute; top: 25px; left: min(49%, 385px); width: 23px; height: 23px; padding: 0; border: 1px solid rgba(21, 38, 157, .25); border-radius: 50%; color: var(--dash-blue); background: var(--dash-canvas); box-shadow: 3px 3px 7px rgba(21,38,157,.1), -3px -3px 7px white; font-size: 11px; font-weight: 900; }
 .chart-legend { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin: -2px 0 9px; color: #53687c; font-size: 9px; font-weight: 750; }
 .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -302,15 +295,12 @@ button:focus-visible, select:focus-visible, a:focus-visible, svg:focus-visible {
 }
 @media (max-width: 640px) {
   .dashboard-page { padding: 14px 12px 36px; }
-  .dashboard-context { align-items: center; margin-bottom: 18px; }
-  .dashboard-context h1 { font-size: 21px; }
-  .dashboard-context p { max-width: 240px; }
   .all-routes-button { width: 40px; height: 40px; padding: 0; justify-content: center; }
   .all-routes-button b { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); overflow: hidden; }
   .soft-card { padding: 16px; }
   .market-card { padding: 18px; }
   .section-heading { flex-direction: column; }
-  .heading-action, .route-selector, .route-selector select { width: 100%; }
+  .heading-action { width: 100%; }
   .history-trigger { top: 21px; right: 17px; left: auto; }
   .chart-legend { justify-content: flex-start; }
   .chart-toolbar { flex-wrap: wrap; padding: 7px; }

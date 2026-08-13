@@ -7,4 +7,5 @@ export * from "./market";
 export * from "./market-selection";
 export * from "./news";
 export * from "./representative";
+export * from "./runtime-seams";
 export * from "./storage-cache";

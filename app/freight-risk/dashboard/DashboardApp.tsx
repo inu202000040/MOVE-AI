@@ -3,9 +3,9 @@
 import { createPortal } from "react-dom";
 import { useEffect, useReducer, useRef, useState } from "react";
 
-import { DEFAULT_ROUTE_ID, ROUTE_IDS, ROUTE_LABELS, isRouteId, type RouteId } from "../../contracts";
+import { ROUTE_IDS, ROUTE_LABELS, type RouteId } from "../../contracts";
 import { FreightChart, HistoryChart, MarketChart, RouteMiniChart } from "./DashboardCharts";
-import { MARKET_POINTS, PERIOD_END, ROUTE_EVENTS, ROUTE_FORECASTS, ROUTE_SERIES } from "./fixture";
+import { PERIOD_END, ROUTE_EVENTS, ROUTE_FORECASTS, ROUTE_SERIES } from "./fixture";
 import {
   INITIAL_MARKET_SELECTION,
   INITIAL_INSIGHT_STATE,
@@ -48,12 +48,6 @@ function formatMarketValue(value: number, series: MarketSeries) {
   return `$${value.toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function routeFromLocation(): RouteId {
-  if (typeof window === "undefined") return DEFAULT_ROUTE_ID;
-  const candidate = new URLSearchParams(window.location.search).get("route");
-  return isRouteId(candidate) ? candidate : DEFAULT_ROUTE_ID;
-}
-
 function useDialogLifecycle(open: boolean, close: () => void, trigger: React.RefObject<HTMLButtonElement | null>) {
   const closeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -80,8 +74,12 @@ function SectionHeading({ eyebrow, title, description, action }: { readonly eyeb
   return <header className="section-heading"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2><p>{description}</p></div>{action !== undefined && <div className="heading-action">{action}</div>}</header>;
 }
 
-function RouteSelector({ routeId, onChange }: { readonly routeId: RouteId; readonly onChange: (route: RouteId) => void }) {
-  return <label className="route-selector"><span>조회 항로</span><select onChange={(event) => { if (isRouteId(event.target.value)) onChange(event.target.value); }} value={routeId}>{ROUTE_IDS.map((id) => <option key={id} value={id}>{ROUTE_LABELS[id]} · {id}</option>)}</select></label>;
+function SharedTopbarAction({ children }: { readonly children: React.ReactNode }) {
+  const [target, setTarget] = useState<Element | null>(null);
+  useEffect(() => {
+    setTarget(document.querySelector(".workspace-header-actions"));
+  }, []);
+  return target === null ? null : createPortal(children, target);
 }
 
 function MarketSelector({ selection, onSelect }: { readonly selection: MarketSelection; readonly onSelect: (slot: "upper" | "lower", series: MarketSeries) => void }) {
@@ -92,30 +90,10 @@ type MarketSurface =
   | { readonly state: "LOADING" | "UNAVAILABLE"; readonly label: string; readonly provider: string; readonly unit: string; readonly points: null; readonly aggregation: null; readonly observationEnd: null }
   | { readonly state: "LIVE" | "REFERENCE"; readonly label: string; readonly provider: string; readonly unit: string; readonly points: readonly { readonly date: string; readonly value: number }[]; readonly aggregation: string; readonly observationEnd: string };
 
-function localMarketSurface(series: MarketSeries): MarketSurface {
+function MarketCard({ id, series, gateway }: { readonly id: string; readonly series: MarketSeries; readonly gateway: DashboardDataGatewayV1 }) {
   const meta = MARKET_META[series];
-  const points = MARKET_POINTS[series];
-  return {
-    state: "REFERENCE",
-    label: meta.label,
-    provider: meta.provider,
-    unit: meta.unit,
-    points,
-    aggregation: "주별 마지막 관측",
-    observationEnd: points.at(-1)?.date ?? PERIOD_END,
-  };
-}
-
-function MarketCard({ id, series, gateway }: { readonly id: string; readonly series: MarketSeries; readonly gateway?: DashboardDataGatewayV1 }) {
-  const meta = MARKET_META[series];
-  const [surface, setSurface] = useState<MarketSurface>(() => gateway === undefined
-    ? localMarketSurface(series)
-    : { state: "LOADING", label: meta.label, provider: "외부 공개 데이터 연결", unit: meta.unit, points: null, aggregation: null, observationEnd: null });
+  const [surface, setSurface] = useState<MarketSurface>({ state: "LOADING", label: meta.label, provider: "외부 공개 데이터 연결", unit: meta.unit, points: null, aggregation: null, observationEnd: null });
   useEffect(() => {
-    if (gateway === undefined) {
-      setSurface(localMarketSurface(series));
-      return;
-    }
     const controller = new AbortController();
     setSurface({ state: "LOADING", label: meta.label, provider: "외부 공개 데이터 연결", unit: meta.unit, points: null, aggregation: null, observationEnd: null });
     void requestMarket(gateway, series, PERIOD_END, controller.signal).then((result) => {
@@ -147,6 +125,10 @@ function MarketCard({ id, series, gateway }: { readonly id: string; readonly ser
       if (!(error instanceof DOMException && error.name === "AbortError") && !controller.signal.aborted) {
         setSurface({ state: "UNAVAILABLE", label: meta.label, provider: "외부 공급원 연결 실패", unit: meta.unit, points: null, aggregation: null, observationEnd: null });
       }
+    }).catch(() => {
+      if (!controller.signal.aborted) {
+        setSurface({ state: "UNAVAILABLE", label: meta.label, provider: "외부 공급원 연결 실패", unit: meta.unit, points: null, aggregation: null, observationEnd: null });
+      }
     });
     return () => controller.abort();
   }, [gateway, meta.label, meta.unit, series]);
@@ -154,7 +136,7 @@ function MarketCard({ id, series, gateway }: { readonly id: string; readonly ser
   return <section aria-labelledby={`${id}-title`} className="soft-card market-card" id={id} role="tabpanel"><SectionHeading action={<DataBadge state={surface.state} />} description={surface.provider} eyebrow="MARKET SIGNAL" title={surface.label} />{surface.points === null ? <div className="external-empty"><span className={surface.state === "LOADING" ? "spinner large" : "news-empty-icon"}>{surface.state === "LOADING" ? "" : "M"}</span><strong>{surface.state === "LOADING" ? "시장 데이터를 불러오는 중입니다." : "외부 자료를 불러오지 못했습니다."}</strong><p>{surface.state === "LOADING" ? "실제 공급원 응답을 기다리고 있습니다." : "임의 수치 대신 연결 상태를 표시합니다."}</p></div> : surface.points.length === 0 ? <div className="external-empty"><span className="news-empty-icon">M</span><strong>검증된 시장 관측값이 없습니다.</strong><p>연결 실패와 빈 관측 범위를 구분해 표시합니다.</p></div> : <><MarketChart color={meta.color} points={surface.points} unit={surface.unit} /><footer className="market-footer"><span>최근 관측 <strong>{latest === undefined ? "—" : formatMarketValue(latest.value, series)} {surface.unit}</strong></span><span>{surface.aggregation} · {surface.observationEnd}</span></footer></>}</section>;
 }
 
-function InsightPanel({ routeId, horizon, gateway, newsResult, representative }: { readonly routeId: RouteId; readonly horizon: ForecastHorizon; readonly gateway?: DashboardDataGatewayV1; readonly newsResult: NewsGatewayResultV1 | null; readonly representative?: RepresentativeSelectionV1 }) {
+function InsightPanel({ routeId, horizon, gateway, newsResult, representative }: { readonly routeId: RouteId; readonly horizon: ForecastHorizon; readonly gateway: DashboardDataGatewayV1; readonly newsResult: NewsGatewayResultV1 | null; readonly representative: RepresentativeSelectionV1 | null }) {
   const [state, dispatch] = useReducer(reduceInsightState, INITIAL_INSIGHT_STATE);
   const validRepresentative = representative?.route === routeId ? representative : null;
   const fixtureForecast = ROUTE_FORECASTS[routeId].forecasts[horizon - 1];
@@ -175,9 +157,9 @@ function InsightPanel({ routeId, horizon, gateway, newsResult, representative }:
   useEffect(() => {
     const readyResult = newsResult?.state === "LIVE" && newsResult.data !== null ? newsResult : null;
     const readyNews = readyResult?.data ?? null;
-    const canRequest = gateway !== undefined && validRepresentative !== null && readyNews !== null && readyNews.articles.length > 0;
+    const canRequest = validRepresentative !== null && readyNews !== null && readyNews.articles.length > 0;
     dispatch({ type: "INPUT_CHANGED", hasNews: canRequest });
-    if (!canRequest || readyResult === null || readyNews === null || validRepresentative === null || gateway === undefined) {
+    if (!canRequest || readyResult === null || readyNews === null || validRepresentative === null) {
       return;
     }
     const identity = {
@@ -236,14 +218,14 @@ function InsightPanel({ routeId, horizon, gateway, newsResult, representative }:
       : state.status === "CONNECTING" || state.status === "LOADING"
         ? "정제된 뉴스가 준비되어 Gemini 자동 해석을 실행하고 있습니다."
         : "뉴스를 수집하면 Gemini 자동 해석을 실행합니다.";
-  return <section aria-busy={state.status === "LOADING"} className="soft-card insight-card"><SectionHeading action={<span className="engine-badge">{badge}</span>} description="정량 예측과 검증 뉴스를 함께 해석" eyebrow="AUTO INSIGHT" title="예측 방향 자동 설명" /><div className={`direction-pill ${direction === "상승" ? "up" : direction === "하락" ? "down" : "flat"}`}><span>{direction === "상승" ? "↗" : direction === "하락" ? "↘" : "→"}</span><strong>{direction} 전망</strong><small>{change >= 0 ? "+" : ""}{change.toFixed(1)}%</small></div><h3>{headline}</h3><p className="insight-summary">{summary}</p>{payload !== null && <div className="evidence-grid"><article><h4>정량 근거</h4><ul>{payload.quantitativeBasis.map((basis) => <li key={basis}>{basis}</li>)}</ul></article><article><h4>뉴스 신호</h4>{factors.length === 0 ? <p>직접 연결할 검증 뉴스가 없습니다.</p> : <ul>{factors.map((factor) => { const article = articleById.get(factor.evidenceId); return <li key={`${factor.tone}-${factor.evidenceId}`}><b>{factor.tone === "up" ? "상방" : "하방"}</b> {factor.factor}{article !== undefined && <a href={article.url} rel="noreferrer" target="_blank">근거 ↗</a>}</li>; })}</ul>}</article></div>}<div className="model-note"><i /><div><strong>{validRepresentative?.selectionMode === "manual" ? "사용자 선택 대표 모델" : "자동 대표 모델"} · {modelName}</strong><span>{horizon}주 MAPE {metric.mapePct.toFixed(1)}% · MSE {Math.round(metric.mse).toLocaleString("ko-KR")} · MASE {metric.mase.toFixed(2)} · 종합 {metric.totalScore.toFixed(1)}점</span></div></div><p className="method-notice">{baseNotice} {engineNotice}{validRepresentative?.selectionMode === "manual" ? ` 자동 선정 1위는 ${validRepresentative.automaticChampion.modelName}입니다.` : ""}</p></section>;
+  return <section aria-busy={state.status === "LOADING"} className="soft-card insight-card"><SectionHeading action={<span className="engine-badge">{badge}</span>} description="정량 예측과 검증 뉴스를 함께 해석" eyebrow="AUTO INSIGHT" title="예측 방향 자동 설명" /><div className={`direction-pill ${direction === "상승" ? "up" : direction === "하락" ? "down" : "flat"}`}><span>{direction === "상승" ? "↗" : direction === "하락" ? "↘" : "→"}</span><strong>{direction} 전망</strong><small>{change >= 0 ? "+" : ""}{change.toFixed(1)}%</small></div><h3>{headline}</h3><p className="insight-summary">{summary}</p>{payload !== null && <div className="evidence-grid"><article><h4>정량 근거</h4><ul>{payload.quantitativeBasis.map((basis) => <li key={basis}>{basis}</li>)}</ul></article><article><h4>뉴스 신호</h4>{factors.length === 0 ? <p>직접 연결할 검증 뉴스가 없습니다.</p> : <ul>{factors.map((factor) => { const article = articleById.get(factor.evidenceId); return <li key={`${factor.tone}-${factor.evidenceId}`}><b>{factor.tone === "up" ? "상방" : "하방"}</b> {factor.factor}{article !== undefined && <a href={article.url} rel="noreferrer" target="_blank">근거 ↗</a>}</li>; })}</ul>}</article></div>}<div className="model-note"><i /><div><strong>{validRepresentative === null ? "승인 참고 모델" : validRepresentative.selectionMode === "manual" ? "사용자 선택 대표 모델" : "자동 대표 모델"} · {modelName}</strong><span>{horizon}주 MAPE {metric.mapePct.toFixed(1)}% · MSE {Math.round(metric.mse).toLocaleString("ko-KR")} · MASE {metric.mase.toFixed(2)} · 종합 {metric.totalScore.toFixed(1)}점</span></div></div><p className="method-notice">{baseNotice} {validRepresentative === null ? "WT3 대표모델 seam 연결 전 참고 수치이며 자동 해석 요청에는 사용하지 않습니다." : engineNotice}{validRepresentative?.selectionMode === "manual" ? ` 자동 선정 1위는 ${validRepresentative.automaticChampion.modelName}입니다.` : ""}</p></section>;
 }
 
 function NewsArticles({ data }: { readonly data: NewsDataV1 }) {
   return <><div className="news-stats"><span>수집 후보<b>{data.stats.fetchedCandidates}</b></span><span>필터 통과<b>{data.stats.filteredCandidates}</b></span><span>중복 제거<b>{data.stats.duplicatesRemoved}</b></span><span>최종 선정<b>{data.stats.selectedArticles}</b></span></div><div className="news-list">{data.articles.map((article, index) => <a className="news-row" href={article.url} key={article.id} rel="noreferrer" target="_blank"><span className="news-index">{String(index + 1).padStart(2, "0")}</span><div><div className="news-badges"><span className={`grade-${article.grade.toLowerCase()}`}>{article.grade} · {article.gradeLabel}</span><span className={`direction-${article.directionCode.toLowerCase()}`}>{article.direction}</span><span className="verified">검증 완료</span>{article.isBoundary && <span className="boundary">기간 직전 공지</span>}</div><strong>{article.title}</strong><p>{article.summary}</p><small>{article.impactSignals.join(" · ")} · {article.source} · {article.publishedAt.slice(0, 10)}{article.effectiveAt === null ? "" : ` · 적용 ${article.effectiveAt.slice(0, 10)}`}</small><em>선정 근거 · {article.reason}</em></div><b aria-hidden="true">›</b></a>)}</div></>;
 }
 
-function NewsPanel({ routeId, gateway, onResult }: { readonly routeId: RouteId; readonly gateway?: DashboardDataGatewayV1; readonly onResult: (result: NewsGatewayResultV1 | null) => void }) {
+function NewsPanel({ routeId, gateway, onResult }: { readonly routeId: RouteId; readonly gateway: DashboardDataGatewayV1; readonly onResult: (result: NewsGatewayResultV1 | null) => void }) {
   const [state, dispatch] = useReducer(reduceNewsState, INITIAL_NEWS_STATE);
   const [meta, setMeta] = useState<{ readonly source: string; readonly fetchedAt: string } | null>(null);
   const requestRevision = useRef(0);
@@ -282,7 +264,7 @@ function NewsPanel({ routeId, gateway, onResult }: { readonly routeId: RouteId; 
 
   const loading = state.status === "LOADING" || state.status === "LOADING_CACHED";
   const collect = async () => {
-    if (gateway === undefined || loading) {
+    if (loading) {
       return;
     }
     const revision = requestRevision.current + 1;
@@ -325,7 +307,7 @@ function NewsPanel({ routeId, gateway, onResult }: { readonly routeId: RouteId; 
   const verifiedEmpty = state.status === "READY_EMPTY";
   const buttonLabel = loading ? "갱신 중" : retained === null ? "뉴스 수집" : "뉴스 갱신";
   const badgeState = loading ? "LOADING" : failed ? "UNAVAILABLE" : retained === null ? "INPUT" : "LIVE";
-  return <section className="soft-card news-card"><SectionHeading action={<><DataBadge state={badgeState} /><button className="collect-button" disabled={loading || gateway === undefined} onClick={() => { void collect(); }}>{loading && <i className="spinner" />}{buttonLabel}</button></>} description="최근 30일 항로 뉴스를 우선하고, 부족할 때만 90일 범위의 B등급 보조자료로 최대 5건 표시" eyebrow="ROUTE NEWS WATCH" title={`${ROUTE_LABELS[routeId]} 항로 운임 영향 뉴스`} />{retained === null ? <div className="external-empty"><span className={loading ? "spinner large" : "news-empty-icon"}>{loading ? "" : "N"}</span><strong>{loading ? "노선 뉴스를 수집하고 정제하는 중입니다." : verifiedEmpty ? "검증 가능한 운임 영향 기사가 없습니다." : failed ? "외부 자료를 불러오지 못했습니다." : "아직 이 항로의 뉴스를 수집하지 않았습니다."}</strong><p>{loading ? "항로·운임 관련성 필터와 URL·제목 유사도 중복 제거를 적용합니다." : verifiedEmpty ? "단순 항만 홍보나 다른 선종 기사로 5개를 채우지 않습니다." : failed ? "임의 기사 대신 연결 상태를 표시합니다." : "버튼을 누르면 뉴스 수집·필터·중복 제거 후 왼쪽 예측 설명에서 Gemini 해석을 자동 생성합니다."}</p></div> : <><div className="news-persistence"><span>{state.status === "ERROR_CACHED" ? "갱신 실패 · 이전 데이터" : state.status === "LOADING_CACHED" ? "이전 결과 유지" : meta?.source ?? "검증 뉴스"}</span><strong>{meta?.fetchedAt ?? "—"}</strong></div><NewsArticles data={retained} /></>}<p className="news-disclaimer">선정 뉴스는 왼쪽 Gemini 해석의 보조 근거이며 모델 입력이나 인과 근거가 아닙니다. 모델 기준일 이후 기사는 사후 모니터링용으로만 분리합니다. S는 가격·운항 변경, A는 직접 운영 영향, B는 시장 참고 자료입니다.</p></section>;
+  return <section className="soft-card news-card"><SectionHeading action={<><DataBadge state={badgeState} /><button className="collect-button" disabled={loading} onClick={() => { void collect(); }}>{loading && <i className="spinner" />}{buttonLabel}</button></>} description="최근 30일 항로 뉴스를 우선하고, 부족할 때만 90일 범위의 B등급 보조자료로 최대 5건 표시" eyebrow="ROUTE NEWS WATCH" title={`${ROUTE_LABELS[routeId]} 항로 운임 영향 뉴스`} />{retained === null ? <div className="external-empty"><span className={loading ? "spinner large" : "news-empty-icon"}>{loading ? "" : "N"}</span><strong>{loading ? "노선 뉴스를 수집하고 정제하는 중입니다." : verifiedEmpty ? "검증 가능한 운임 영향 기사가 없습니다." : failed ? "외부 자료를 불러오지 못했습니다." : "아직 이 항로의 뉴스를 수집하지 않았습니다."}</strong><p>{loading ? "항로·운임 관련성 필터와 URL·제목 유사도 중복 제거를 적용합니다." : verifiedEmpty ? "단순 항만 홍보나 다른 선종 기사로 5개를 채우지 않습니다." : failed ? "임의 기사 대신 연결 상태를 표시합니다." : "버튼을 누르면 뉴스 수집·필터·중복 제거 후 왼쪽 예측 설명에서 Gemini 해석을 자동 생성합니다."}</p></div> : <><div className="news-persistence"><span>{state.status === "ERROR_CACHED" ? "갱신 실패 · 이전 데이터" : state.status === "LOADING_CACHED" ? "이전 결과 유지" : meta?.source ?? "검증 뉴스"}</span><strong>{meta?.fetchedAt ?? "—"}</strong></div><NewsArticles data={retained} /></>}<p className="news-disclaimer">선정 뉴스는 왼쪽 Gemini 해석의 보조 근거이며 모델 입력이나 인과 근거가 아닙니다. 모델 기준일 이후 기사는 사후 모니터링용으로만 분리합니다. S는 가격·운항 변경, A는 직접 운영 영향, B는 시장 참고 자료입니다.</p></section>;
 }
 
 function HistoryDialog({ routeId, open, onClose, trigger }: { readonly routeId: RouteId; readonly open: boolean; readonly onClose: () => void; readonly trigger: React.RefObject<HTMLButtonElement | null> }) {
@@ -362,8 +344,7 @@ function AllRoutesDialog({ open, onClose, trigger }: { readonly open: boolean; r
   return createPortal(<div className="dialog-overlay all-routes-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section aria-labelledby="all-routes-title" aria-modal="true" className="dialog all-routes-dialog" role="dialog"><header><div><span className="eyebrow">ALL KCCI ROUTES · 13</span><h2 id="all-routes-title">KCCI 13개 항로 운임 추이</h2><p>{firstDate}~{latestDate} · 주간 187개 관측값 · 각 그래프 독립 Y축 · USD/FEU</p></div><div className="all-routes-controls"><button aria-pressed={eventsVisible} className="event-toggle" onClick={() => setEventsVisible((visible) => !visible)}>주요 사건 {eventsVisible ? "ON" : "OFF"}</button><button aria-label="전체 노선 창 닫기" className="dialog-close" onClick={onClose} ref={closeButton}>×</button></div></header><div className="all-routes-body"><p className="all-routes-notice">주황색 표시는 공신력 있는 자료와 운임 변동 시점이 겹치는 주요 사건입니다. 단독 인과관계를 뜻하지 않습니다.</p><div className="all-routes-grid">{ROUTE_IDS.map((itemRouteId) => { const points = ROUTE_SERIES[itemRouteId]; const latest = points.at(-1)?.value ?? 0; const first = points[0]?.value ?? latest; const change = first === 0 ? 0 : ((latest - first) / first) * 100; const events = ROUTE_EVENTS.filter((item) => item.routes.some((eventRoute) => eventRoute === itemRouteId)); return <article className="route-mini-card" key={itemRouteId}><div><span>{ROUTE_LABELS[itemRouteId]} · {itemRouteId}</span><strong>{formatMoney(latest)}</strong><small>{latestDate} · <b className={change >= 0 ? "mini-up" : "mini-down"}>{change >= 0 ? "+" : ""}{change.toFixed(1)}%</b></small></div><RouteMiniChart events={events} eventsVisible={eventsVisible} points={points} routeId={itemRouteId} /></article>; })}</div><details className="all-routes-sources"><summary>표시된 주요 사건 {ROUTE_EVENTS.length}건의 근거·출처 보기</summary><div>{ROUTE_EVENTS.map((item) => <article key={item.id}><time>{item.date}</time><span><strong>{item.title}</strong><small>{item.routes.map((itemRouteId) => ROUTE_LABELS[itemRouteId]).join(" · ")}</small></span><a href={item.url} rel="noreferrer" target="_blank">{item.source} 원문 ↗</a></article>)}</div></details></div></section></div>, document.body);
 }
 
-export function DashboardApp({ gateway, representative }: { readonly gateway?: DashboardDataGatewayV1; readonly representative?: RepresentativeSelectionV1 }) {
-  const [routeId, setRouteId] = useState<RouteId>(DEFAULT_ROUTE_ID);
+export function DashboardApp({ gateway, representative, routeId }: { readonly gateway: DashboardDataGatewayV1; readonly representative: RepresentativeSelectionV1 | null; readonly routeId: RouteId }) {
   const [horizon, setHorizon] = useState<ForecastHorizon>(1);
   const [market, setMarket] = useState<MarketSelection>(INITIAL_MARKET_SELECTION);
   const [newsResult, setNewsResult] = useState<NewsGatewayResultV1 | null>(null);
@@ -372,14 +353,30 @@ export function DashboardApp({ gateway, representative }: { readonly gateway?: D
   const historyTrigger = useRef<HTMLButtonElement>(null);
   const allRoutesTrigger = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => setRouteId(routeFromLocation()), []);
-  const changeRoute = (next: RouteId) => {
-    setRouteId(next);
-    const url = new URL(window.location.href);
-    url.searchParams.set("route", next);
-    window.history.replaceState(null, "", url);
+  const validRepresentative = representative?.route === routeId ? representative : null;
+  const referenceProjection = ROUTE_FORECASTS[routeId];
+  const projection = validRepresentative === null ? referenceProjection : {
+    model: { ...referenceProjection.model, id: validRepresentative.modelId, name: validRepresentative.modelName },
+    forecasts: validRepresentative.forecasts.map((forecast) => ({
+      horizon: forecast.horizonWeeks,
+      targetDate: forecast.targetDate,
+      point: forecast.point,
+      lower: forecast.lower90,
+      upper: forecast.upper90,
+    })),
+    metrics: validRepresentative.metricsByHorizon.map((item) => ({
+      horizon: item.horizonWeeks,
+      mapePct: item.mapePct,
+      mse: item.mse,
+      rmse: item.rmse,
+      mase: item.mase,
+      totalScore: item.totalScore,
+      coveragePct: item.coverage.pct,
+      coverageHits: item.coverage.hits,
+      coverageTotal: item.coverage.total,
+      sampleSize: item.coverage.sampleSize,
+    })),
   };
-  const projection = ROUTE_FORECASTS[routeId];
   const selected = projection.forecasts[horizon - 1];
   const metric = projection.metrics[horizon - 1];
   const currentPoint = ROUTE_SERIES[routeId].at(-1);
@@ -387,6 +384,5 @@ export function DashboardApp({ gateway, representative }: { readonly gateway?: D
   const changePct = ((selected.point - current) / current) * 100;
   const direction = changePct >= 3 ? "상승" : changePct <= -3 ? "하락" : "보합";
 
-  return <main className="dashboard-page" aria-label="Dashboard"><div className="dashboard-context"><div><span className="eyebrow">ROUTE MARKET OVERVIEW</span><h1>메인 대시보드</h1><p>운임과 시장 신호를 한 화면에서 확인합니다. <b>기준 {PERIOD_END}</b></p></div><button aria-expanded={allRoutesOpen} aria-haspopup="dialog" className="all-routes-button" onClick={() => setAllRoutesOpen(true)} ref={allRoutesTrigger}><span aria-hidden="true">▥</span><b>전체 노선</b></button></div><div className="dashboard-grid"><section className="soft-card hero-card"><SectionHeading action={<RouteSelector onChange={changeRoute} routeId={routeId} />} description="기본은 2026년 이후 · 휠로 2022년 10월 축부터 전체 기간 탐색" eyebrow="KCCI ROUTE FORECAST" title={`${ROUTE_LABELS[routeId]} 운임 추이·1~4주 전망`} /><button aria-expanded={historyOpen} aria-haspopup="dialog" aria-label={`${ROUTE_LABELS[routeId]} 과거 운임과 주요 사건 보기`} className="history-trigger" onClick={() => setHistoryOpen(true)} ref={historyTrigger}>!</button><div className="chart-legend"><span><i className="actual" />KCCI 실측</span><span><i style={{ background: "#15269d" }} />{projection.model.name}</span><span><i className="range-swatch" />90% 예측구간</span></div><FreightChart actual={ROUTE_SERIES[routeId]} forecasts={projection.forecasts} modelName={projection.model.name} resetKey={routeId} selectedHorizon={horizon} /><div className="forecast-readout"><div className="readout-lead"><div><span className="eyebrow">FORECAST READOUT</span><strong>{ROUTE_LABELS[routeId]} {horizon}주 후 운임은 {formatMoney(selected.point)}로 <em className={direction === "상승" ? "risk" : direction === "하락" ? "relief" : "neutral"}>{direction}</em> 전망입니다.</strong><p>현재 대비 <b>{changePct >= 0 ? "+" : ""}{changePct.toFixed(1)}%</b> · PI90 범위는 {formatMoney(selected.lower)}~{formatMoney(selected.upper)} / FEU</p></div><div className="readout-tools"><span>예측 대상 선택</span><div aria-label="예측 horizon" className="horizon-selector" role="radiogroup">{FORECAST_HORIZONS.map((item) => <button aria-checked={horizon === item} key={item} onClick={() => setHorizon(item)} role="radio">{item}주</button>)}</div></div></div><div className="readout-detail"><article><span>현재 운임 → {horizon}주 점예측</span><div className="readout-flow"><dl><dt>마지막 실측</dt><dd>{formatMoney(current)}</dd><small>{currentPoint?.date} · USD/FEU</small></dl><b>›</b><dl><dt>{horizon}주 예측</dt><dd>{formatMoney(selected.point)}</dd><small>{selected.targetDate} · USD/FEU</small></dl></div></article><article><span>PI90 예측구간</span><div className="readout-flow"><dl><dt>하한</dt><dd>{formatMoney(selected.lower)}</dd></dl><i /><dl><dt>상한</dt><dd>{formatMoney(selected.upper)}</dd></dl></div><small>90% 구간 · USD/FEU</small></article><article><span>대표 모델·외부평가</span><div className="validation-grid"><dl><dt>자동 대표 모델</dt><dd>{projection.model.name}</dd><small>1주 성능 기준 자동 선정</small></dl><dl><dt>{horizon}주 PI90 Coverage</dt><dd>{metric.coveragePct.toFixed(1)}%</dd><small>{metric.coverageHits}/{metric.coverageTotal} 적중 · {metric.sampleSize}회</small></dl></div></article></div></div><footer className="chart-footer"><span>▣ KOBC KCCI · 마지막 실측 {currentPoint?.date}</span><span>선택 예측 대상 {selected.targetDate}</span></footer></section><aside className="market-panel"><MarketSelector onSelect={(slot, series) => setMarket((currentSelection) => selectMarketSeries(currentSelection, slot, series))} selection={market} /><div className="market-stack"><MarketCard gateway={gateway} id="market-upper" key={`market-upper-${market.upper}`} series={market.upper} /><MarketCard gateway={gateway} id="market-lower" key={`market-lower-${market.lower}`} series={market.lower} /></div></aside></div><div className="lower-grid"><InsightPanel gateway={gateway} horizon={horizon} newsResult={newsResult} representative={representative} routeId={routeId} /><NewsPanel gateway={gateway} onResult={setNewsResult} routeId={routeId} /></div><HistoryDialog onClose={() => setHistoryOpen(false)} open={historyOpen} routeId={routeId} trigger={historyTrigger} /><AllRoutesDialog onClose={() => setAllRoutesOpen(false)} open={allRoutesOpen} trigger={allRoutesTrigger} /></main>;
+  return <main className="dashboard-page" aria-label="Dashboard"><SharedTopbarAction><button aria-expanded={allRoutesOpen} aria-haspopup="dialog" className="all-routes-button" onClick={() => setAllRoutesOpen(true)} ref={allRoutesTrigger}><span aria-hidden="true">▥</span><b>전체 노선</b></button></SharedTopbarAction><div className="dashboard-grid"><section className="soft-card hero-card"><SectionHeading action={<DataBadge state={validRepresentative?.forecastSource === "tuned" ? "LIVE" : "REFERENCE"} />} description="기본은 2026년 이후 · 휠로 2022년 10월 축부터 전체 기간 탐색" eyebrow="KCCI ROUTE FORECAST" title={`${ROUTE_LABELS[routeId]} 운임 추이·1~4주 전망`} /><button aria-expanded={historyOpen} aria-haspopup="dialog" aria-label={`${ROUTE_LABELS[routeId]} 과거 운임과 주요 사건 보기`} className="history-trigger" onClick={() => setHistoryOpen(true)} ref={historyTrigger}>!</button><div className="chart-legend"><span><i className="actual" />KCCI 실측</span><span><i style={{ background: "#15269d" }} />{projection.model.name}</span><span><i className="range-swatch" />90% 예측구간</span></div><FreightChart actual={ROUTE_SERIES[routeId]} forecasts={projection.forecasts} modelName={projection.model.name} resetKey={`${routeId}:${validRepresentative?.representativeRevision ?? "reference"}`} selectedHorizon={horizon} /><div className="forecast-readout"><div className="readout-lead"><div><span className="eyebrow">FORECAST READOUT</span><strong>{ROUTE_LABELS[routeId]} {horizon}주 후 운임은 {formatMoney(selected.point)}로 <em className={direction === "상승" ? "risk" : direction === "하락" ? "relief" : "neutral"}>{direction}</em> 전망입니다.</strong><p>현재 대비 <b>{changePct >= 0 ? "+" : ""}{changePct.toFixed(1)}%</b> · PI90 범위는 {formatMoney(selected.lower)}~{formatMoney(selected.upper)} / FEU</p></div><div className="readout-tools"><span>예측 대상 선택</span><div aria-label="예측 horizon" className="horizon-selector" role="radiogroup">{FORECAST_HORIZONS.map((item) => <button aria-checked={horizon === item} key={item} onClick={() => setHorizon(item)} role="radio">{item}주</button>)}</div></div></div><div className="readout-detail"><article><span>현재 운임 → {horizon}주 점예측</span><div className="readout-flow"><dl><dt>마지막 실측</dt><dd>{formatMoney(current)}</dd><small>{currentPoint?.date} · USD/FEU</small></dl><b>›</b><dl><dt>{horizon}주 예측</dt><dd>{formatMoney(selected.point)}</dd><small>{selected.targetDate} · USD/FEU</small></dl></div></article><article><span>PI90 예측구간</span><div className="readout-flow"><dl><dt>하한</dt><dd>{formatMoney(selected.lower)}</dd></dl><i /><dl><dt>상한</dt><dd>{formatMoney(selected.upper)}</dd></dl></div><small>90% 구간 · USD/FEU</small></article><article><span>대표 모델·외부평가</span><div className="validation-grid"><dl><dt>{validRepresentative === null ? "승인 참고 모델" : validRepresentative.selectionMode === "manual" ? "사용자 대표 모델" : "자동 대표 모델"}</dt><dd>{projection.model.name}</dd><small>{validRepresentative === null ? "WT3 대표모델 연결 대기" : "1주 성능 기준 대표 선정"}</small></dl><dl><dt>{horizon}주 PI90 Coverage</dt><dd>{metric.coveragePct.toFixed(1)}%</dd><small>{metric.coverageHits}/{metric.coverageTotal} 적중 · {metric.sampleSize}회</small></dl></div></article></div></div><footer className="chart-footer"><span>▣ KOBC KCCI · 마지막 실측 {currentPoint?.date}</span><span>선택 예측 대상 {selected.targetDate}</span></footer></section><aside className="market-panel"><MarketSelector onSelect={(slot, series) => setMarket((currentSelection) => selectMarketSeries(currentSelection, slot, series))} selection={market} /><div className="market-stack"><MarketCard gateway={gateway} id="market-upper" key={`market-upper-${market.upper}`} series={market.upper} /><MarketCard gateway={gateway} id="market-lower" key={`market-lower-${market.lower}`} series={market.lower} /></div></aside></div><div className="lower-grid"><InsightPanel gateway={gateway} horizon={horizon} newsResult={newsResult} representative={representative} routeId={routeId} /><NewsPanel gateway={gateway} onResult={setNewsResult} routeId={routeId} /></div><HistoryDialog onClose={() => setHistoryOpen(false)} open={historyOpen} routeId={routeId} trigger={historyTrigger} /><AllRoutesDialog onClose={() => setAllRoutesOpen(false)} open={allRoutesOpen} trigger={allRoutesTrigger} /></main>;
 }
-
