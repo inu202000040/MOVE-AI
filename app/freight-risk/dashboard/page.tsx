@@ -1,3 +1,6 @@
+import { DashboardApp } from "./DashboardApp";
+import "./dashboard.css";
+
 export default function DashboardPage() {
-  return <main aria-label="Dashboard" />;
+  return <DashboardApp />;
 }
