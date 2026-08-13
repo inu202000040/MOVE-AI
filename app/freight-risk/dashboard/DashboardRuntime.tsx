@@ -9,7 +9,7 @@ import {
 } from "../../data/runtime/data-gateway.client";
 import { DashboardApp } from "./DashboardApp";
 import {
-  UNAVAILABLE_REPRESENTATIVE_SOURCE,
+  MODELS_REPRESENTATIVE_SOURCE,
   createRepresentativeSnapshotReader,
   requestDashboardSnapshot,
   subscribeRepresentativeSource,
@@ -34,8 +34,8 @@ export function DashboardRuntimeWithDependencies({
     [representativeSource, routeId],
   );
   const subscribeRepresentative = useCallback(
-    (notify: () => void) => subscribeRepresentativeSource(representativeSource, notify),
-    [representativeSource],
+    (notify: () => void) => subscribeRepresentativeSource(representativeSource, routeId, notify),
+    [representativeSource, routeId],
   );
   const representative = useSyncExternalStore(
     subscribeRepresentative,
@@ -80,7 +80,7 @@ export default function DashboardRuntime({
   return (
     <DashboardRuntimeWithDependencies
       gateway={gateway}
-      representativeSource={UNAVAILABLE_REPRESENTATIVE_SOURCE}
+      representativeSource={MODELS_REPRESENTATIVE_SOURCE}
     />
   );
 }

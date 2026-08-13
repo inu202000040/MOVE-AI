@@ -5,6 +5,7 @@ export * from "./insight";
 export * from "./insight-request";
 export * from "./market";
 export * from "./market-selection";
+export * from "./models-representative-source";
 export * from "./news";
 export * from "./representative";
 export * from "./runtime-seams";
