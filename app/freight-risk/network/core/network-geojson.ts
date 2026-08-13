@@ -1,0 +1,169 @@
+import type {
+  Coordinate,
+  NetworkCatalogSeam,
+  NetworkPortRecord,
+} from "./catalog-consumer";
+import { splitAntimeridian } from "./geometry";
+
+export type GeoJsonGeometry =
+  | { readonly type: "Point"; readonly coordinates: Coordinate }
+  | {
+      readonly type: "MultiLineString";
+      readonly coordinates: readonly (readonly Coordinate[])[];
+    };
+
+export interface GeoJsonFeature<
+  TGeometry extends GeoJsonGeometry = GeoJsonGeometry,
+  TProperties extends Readonly<Record<string, unknown>> = Readonly<
+    Record<string, unknown>
+  >,
+> {
+  readonly type: "Feature";
+  readonly id: string;
+  readonly geometry: TGeometry;
+  readonly properties: TProperties;
+}
+
+export interface GeoJsonFeatureCollection<
+  TFeature extends GeoJsonFeature = GeoJsonFeature,
+> {
+  readonly type: "FeatureCollection";
+  readonly features: readonly TFeature[];
+}
+
+export type NetworkGeoJsonSourceId =
+  | "network-routes"
+  | "network-connectors"
+  | "network-chokepoint-corridors"
+  | "network-chokepoint-gates"
+  | "network-chokepoints"
+  | "network-ports"
+  | "network-weather";
+
+export type NetworkGeoJsonSources = Readonly<
+  Record<NetworkGeoJsonSourceId, GeoJsonFeatureCollection>
+>;
+
+function emptyFeatureCollection(): GeoJsonFeatureCollection {
+  return { type: "FeatureCollection", features: [] };
+}
+
+function point(longitude: number, latitude: number): GeoJsonGeometry {
+  return { type: "Point", coordinates: [longitude, latitude] };
+}
+
+function routeFeature(
+  route: NetworkCatalogSeam["routes"][number],
+): GeoJsonFeature {
+  return {
+    type: "Feature",
+    id: route.id,
+    geometry: {
+      type: "MultiLineString",
+      coordinates: splitAntimeridian(route.waypointCoordinates),
+    },
+    properties: {
+      id: route.id,
+      routeId: route.id,
+      primaryPortId: route.primaryPortId,
+    },
+  };
+}
+
+function connectorFeature(
+  port: NetworkPortRecord,
+  primaryPort: NetworkPortRecord,
+): GeoJsonFeature {
+  return {
+    type: "Feature",
+    id: `connector:${port.id}`,
+    geometry: {
+      type: "MultiLineString",
+      coordinates: splitAntimeridian([
+        [primaryPort.longitude, primaryPort.latitude],
+        [port.longitude, port.latitude],
+      ]),
+    },
+    properties: {
+      id: `connector:${port.id}`,
+      routeId: port.routeId,
+      primaryPortId: primaryPort.id,
+      portId: port.id,
+    },
+  };
+}
+
+export function catalogToNetworkGeoJson(
+  catalog: NetworkCatalogSeam,
+): NetworkGeoJsonSources {
+  const primaryPortByRoute = new Map(
+    catalog.ports
+      .filter((port) => port.primary)
+      .map((port) => [port.routeId, port]),
+  );
+  const connectors = catalog.ports
+    .filter((port) => !port.primary)
+    .map((port) => {
+      const primaryPort = primaryPortByRoute.get(port.routeId);
+      if (!primaryPort) {
+        throw new Error(`Missing primary port for route ${port.routeId}`);
+      }
+      return connectorFeature(port, primaryPort);
+    });
+
+  return {
+    "network-routes": {
+      type: "FeatureCollection",
+      features: catalog.routes.map(routeFeature),
+    },
+    "network-connectors": {
+      type: "FeatureCollection",
+      features: connectors,
+    },
+    "network-chokepoint-corridors": emptyFeatureCollection(),
+    "network-chokepoint-gates": emptyFeatureCollection(),
+    "network-chokepoints": {
+      type: "FeatureCollection",
+      features: catalog.chokepoints.map((chokepoint) => ({
+        type: "Feature",
+        id: chokepoint.id,
+        geometry: point(chokepoint.longitude, chokepoint.latitude),
+        properties: {
+          id: chokepoint.id,
+          chokepointId: chokepoint.id,
+          upstreamPortWatchId: chokepoint.upstreamPortWatchId,
+        },
+      })),
+    },
+    "network-ports": {
+      type: "FeatureCollection",
+      features: catalog.ports.map((port) => ({
+        type: "Feature",
+        id: port.id,
+        geometry: point(port.longitude, port.latitude),
+        properties: {
+          id: port.id,
+          portId: port.id,
+          routeId: port.routeId,
+          primary: port.primary,
+          upstreamPortWatchId: port.upstreamPortWatchId,
+        },
+      })),
+    },
+    "network-weather": {
+      type: "FeatureCollection",
+      features: catalog.weather.map((weather) => ({
+        type: "Feature",
+        id: weather.id,
+        geometry: point(weather.longitude, weather.latitude),
+        properties: {
+          id: weather.id,
+          weatherId: weather.id,
+          kind: weather.kind,
+          entityId: weather.entityId,
+          risk: "normal",
+        },
+      })),
+    },
+  };
+}

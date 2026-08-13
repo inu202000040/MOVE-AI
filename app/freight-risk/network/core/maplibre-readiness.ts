@@ -35,8 +35,10 @@ export interface MapLibreMapCandidate {
   remove(): void;
 }
 
-export interface MapLibreReadinessCallbacks {
-  readonly onReady: (map: MapLibreMapCandidate) => void;
+export interface MapLibreReadinessCallbacks<
+  TMap extends MapLibreMapCandidate = MapLibreMapCandidate,
+> {
+  readonly onReady: (map: TMap) => void;
   readonly onFallback: (reason: StaticFallbackReason, error?: unknown) => void;
   readonly onPromotionFailure: (error?: unknown) => void;
   readonly onRecoverableError?: (error: unknown) => void;
@@ -47,9 +49,11 @@ export interface MapLibreReadinessController {
   readonly dispose: () => void;
 }
 
-export interface MapLibreGlobeStartOptions extends MapLibreReadinessCallbacks {
+export interface MapLibreGlobeStartOptions<
+  TMap extends MapLibreMapCandidate = MapLibreMapCandidate,
+> extends MapLibreReadinessCallbacks<TMap> {
   readonly webGl2Supported: boolean;
-  readonly createMap: () => MapLibreMapCandidate;
+  readonly createMap: () => TMap;
   readonly scheduleMicrotask?: (callback: () => void) => void;
 }
 
@@ -97,9 +101,9 @@ export function withConfirmedMapLibreGlobe(
   }
 }
 
-export function attachMapLibreReadiness(
-  map: MapLibreMapCandidate,
-  callbacks: MapLibreReadinessCallbacks,
+export function attachMapLibreReadiness<TMap extends MapLibreMapCandidate>(
+  map: TMap,
+  callbacks: MapLibreReadinessCallbacks<TMap>,
   scheduleMicrotask: (callback: () => void) => void = queueMicrotask,
 ): MapLibreReadinessController {
   const canvas = readUsableCanvas(map);
@@ -254,15 +258,15 @@ export function attachMapLibreReadiness(
   };
 }
 
-export function startMapLibreGlobe(
-  options: MapLibreGlobeStartOptions,
+export function startMapLibreGlobe<TMap extends MapLibreMapCandidate>(
+  options: MapLibreGlobeStartOptions<TMap>,
 ): MapLibreReadinessController | null {
   if (!options.webGl2Supported) {
     options.onFallback("WEBGL2_UNSUPPORTED");
     return null;
   }
 
-  let map: MapLibreMapCandidate;
+  let map: TMap;
   try {
     map = options.createMap();
   } catch (error) {
