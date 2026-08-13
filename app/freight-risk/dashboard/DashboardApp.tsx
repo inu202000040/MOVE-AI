@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useReducer, useRef, useState } from "react";
 
 import { DEFAULT_ROUTE_ID, ROUTE_IDS, ROUTE_LABELS, isRouteId, type RouteId } from "../../contracts";
-import { FreightChart, MarketChart } from "./DashboardCharts";
+import { FreightChart, HistoryChart, MarketChart, RouteMiniChart } from "./DashboardCharts";
 import { MARKET_POINTS, PERIOD_END, ROUTE_EVENTS, ROUTE_FORECASTS, ROUTE_SERIES } from "./fixture";
 import {
   INITIAL_MARKET_SELECTION,
@@ -66,7 +66,7 @@ function useDialogLifecycle(open: boolean, close: () => void, trigger: React.Ref
     return () => {
       document.body.style.overflow = before;
       document.removeEventListener("keydown", onKey);
-      trigger.current?.focus();
+      window.requestAnimationFrame(() => trigger.current?.focus());
     };
   }, [close, open, trigger]);
   return closeButton;
@@ -330,18 +330,36 @@ function NewsPanel({ routeId, gateway, onResult }: { readonly routeId: RouteId; 
 
 function HistoryDialog({ routeId, open, onClose, trigger }: { readonly routeId: RouteId; readonly open: boolean; readonly onClose: () => void; readonly trigger: React.RefObject<HTMLButtonElement | null> }) {
   const closeButton = useDialogLifecycle(open, onClose, trigger);
+  const routeEvents = ROUTE_EVENTS.filter((item) => item.routes.some((eventRoute) => eventRoute === routeId));
+  const [eventsVisible, setEventsVisible] = useState(true);
+  const [activeEventId, setActiveEventId] = useState<string | null>(() => routeEvents[0]?.id ?? null);
+  useEffect(() => {
+    setEventsVisible(true);
+    setActiveEventId(routeEvents[0]?.id ?? null);
+  }, [routeId]);
   if (!open || typeof document === "undefined") return null;
   const points = ROUTE_SERIES[routeId];
-  const values = points.map((point) => point.value);
-  const current = points.at(-1)?.value ?? 0;
-  const events = ROUTE_EVENTS.filter((event) => event.routes.some((eventRoute) => eventRoute === routeId));
-  return createPortal(<div className="dialog-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section aria-labelledby="history-title" aria-modal="true" className="dialog history-dialog" role="dialog"><header><div><span className="eyebrow">FULL ROUTE HISTORY · {routeId}</span><h2 id="history-title">{ROUTE_LABELS[routeId]} KCCI 전체 이력</h2><p>2022년 11월부터 마지막 실측까지의 운임과 검증된 주요 사건을 함께 봅니다.</p></div><button aria-label="닫기" className="dialog-close" onClick={onClose} ref={closeButton}>×</button></header><div className="history-kpis"><article><span>마지막 실측</span><strong>{formatMoney(current)}</strong><small>{PERIOD_END} · USD/FEU</small></article><article><span>기간 최고</span><strong>{formatMoney(Math.max(...values))}</strong><small>187주 관측</small></article><article><span>기간 최저</span><strong>{formatMoney(Math.min(...values))}</strong><small>zero baseline 미사용</small></article><article><span>주요 사건</span><strong>{events.length}건</strong><small>현재 항로 검증 catalog</small></article></div><div className="history-chart-scroll"><MarketChart color="#15269d" points={points} unit="USD/FEU" /></div><div className="event-list"><h3>이 항로의 주요 사건 {events.length}건</h3>{events.length === 0 ? <p>이 항로에 연결된 검증 사건이 없습니다.</p> : events.map((event) => <article key={event.id}><time>{event.date}</time><div><strong>{event.title}</strong><p>{event.summary}</p><a href={event.url} rel="noreferrer" target="_blank">{event.source} ↗</a></div></article>)}</div><footer>사건 표시는 운임 변동과 시기상 연관된 운영 맥락이며 직접 인과를 뜻하지 않습니다.</footer></section></div>, document.body);
+  const latest = points.at(-1);
+  const recentValues = points.slice(-52).map((point) => point.value);
+  const firstValue = points[0]?.value ?? 0;
+  const latestValue = latest?.value ?? 0;
+  const fullChange = firstValue === 0 ? 0 : ((latestValue - firstValue) / firstValue) * 100;
+  const activeEvent = routeEvents.find((item) => item.id === activeEventId) ?? null;
+  return createPortal(<div className="dialog-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section aria-labelledby="history-title" aria-modal="true" className="dialog history-dialog" role="dialog"><header><div><span className="eyebrow">FULL ROUTE HISTORY · {routeId}</span><h2 id="history-title">{ROUTE_LABELS[routeId]} 과거 운임 추이·주요 사건</h2><p>{points[0]?.date}~{latest?.date} · 주간 {points.length}개 관측값 · USD/FEU</p></div><button aria-label="과거 운임 창 닫기" className="dialog-close" onClick={onClose} ref={closeButton}>×</button></header><div className="history-dialog-body"><div className="history-kpis"><article><span>마지막 운임</span><strong>{formatMoney(latestValue)}</strong><small>{latest?.date} · USD/FEU</small></article><article><span>최근 52주 최고</span><strong>{formatMoney(Math.max(...recentValues))}</strong><small>최근 52개 관측</small></article><article><span>최근 52주 최저</span><strong>{formatMoney(Math.min(...recentValues))}</strong><small>최근 52개 관측</small></article><article><span>전체기간 변화</span><strong className={fullChange >= 0 ? "history-up" : "history-down"}>{fullChange >= 0 ? "+" : ""}{fullChange.toFixed(1)}%</strong><small>{points[0]?.date} 대비</small></article></div><section className="history-chart-panel"><header><div><span className="eyebrow">KCCI WEEKLY FREIGHT RATE</span><h3>주간 운임과 사건 발생 시점</h3></div><button aria-pressed={eventsVisible} className="event-toggle" onClick={() => setEventsVisible((visible) => !visible)}>주요 사건 {eventsVisible ? "ON" : "OFF"}</button></header><div className="history-legend"><span><i className="rate" />KCCI 운임</span><span><i className="event" />주요 사건</span><small>운임선 위를 움직이면 주간 값을 확인할 수 있습니다.</small></div><div className="history-chart-scroll"><HistoryChart activeEventId={activeEventId} events={routeEvents} eventsVisible={eventsVisible} onSelectEvent={setActiveEventId} points={points} /></div></section><section className="history-event-section"><div className="event-timeline"><span className="eyebrow">EVENT TIMELINE</span><h3>이 항로의 주요 사건 {routeEvents.length}건</h3>{routeEvents.length === 0 ? <div className="event-empty"><strong>검증해 표시할 사건이 없습니다.</strong><p>근거가 불명확한 사건을 임의로 추가하지 않습니다.</p></div> : routeEvents.map((item) => <button aria-pressed={item.id === activeEventId} className={item.id === activeEventId ? "event-card active" : "event-card"} key={item.id} onClick={() => setActiveEventId(item.id)}><time>{item.date}</time><span><strong>{item.short}</strong><small>{item.source}</small></span><b aria-hidden="true">›</b></button>)}</div><aside className="event-detail">{activeEvent === null ? <div className="event-empty"><strong>선택된 사건이 없습니다.</strong></div> : <><span>{activeEvent.date} · {activeEvent.source}</span><h3>{activeEvent.title}</h3><p>{activeEvent.summary}</p><a href={activeEvent.url} rel="noreferrer" target="_blank">원문 출처 보기 ↗</a></>}</aside></section></div><footer>주황색 표시는 사건과 운임 변동 시점이 겹친다는 뜻이며, 해당 사건이 운임 변화를 단독으로 일으켰다는 인과관계를 의미하지 않습니다.</footer></section></div>, document.body);
 }
 
 function AllRoutesDialog({ open, onClose, trigger }: { readonly open: boolean; readonly onClose: () => void; readonly trigger: React.RefObject<HTMLButtonElement | null> }) {
   const closeButton = useDialogLifecycle(open, onClose, trigger);
+  const [eventsVisible, setEventsVisible] = useState(true);
+  useEffect(() => {
+    if (open) {
+      setEventsVisible(true);
+    }
+  }, [open]);
   if (!open || typeof document === "undefined") return null;
-  return createPortal(<div className="dialog-overlay all-routes-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section aria-labelledby="all-routes-title" aria-modal="true" className="dialog all-routes-dialog" role="dialog"><header><div><span className="eyebrow">ALL ROUTES OBSERVATORY</span><h2 id="all-routes-title">KCCI 13개 항로 운임 추이</h2><p>각 항로는 독립 y축으로 표시하며 관찰용 카드에서 현재 항로를 변경하지 않습니다.</p></div><button aria-label="닫기" className="dialog-close" onClick={onClose} ref={closeButton}>×</button></header><div className="all-routes-grid">{ROUTE_IDS.map((routeId) => { const points = ROUTE_SERIES[routeId]; const latest = points.at(-1)?.value ?? 0; const forecast = ROUTE_FORECASTS[routeId].forecasts[0]; return <article className="route-mini-card" key={routeId}><div><span>{ROUTE_LABELS[routeId]} · {routeId}</span><strong>{formatMoney(latest)}</strong><small>1주 {formatMoney(forecast.point)}</small></div><MarketChart color="#15269d" points={points.slice(-35)} unit="USD/FEU" /></article>; })}</div></section></div>, document.body);
+  const firstDate = ROUTE_SERIES[ROUTE_IDS[0]][0]?.date;
+  const latestDate = ROUTE_SERIES[ROUTE_IDS[0]].at(-1)?.date;
+  return createPortal(<div className="dialog-overlay all-routes-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section aria-labelledby="all-routes-title" aria-modal="true" className="dialog all-routes-dialog" role="dialog"><header><div><span className="eyebrow">ALL KCCI ROUTES · 13</span><h2 id="all-routes-title">KCCI 13개 항로 운임 추이</h2><p>{firstDate}~{latestDate} · 주간 187개 관측값 · 각 그래프 독립 Y축 · USD/FEU</p></div><div className="all-routes-controls"><button aria-pressed={eventsVisible} className="event-toggle" onClick={() => setEventsVisible((visible) => !visible)}>주요 사건 {eventsVisible ? "ON" : "OFF"}</button><button aria-label="전체 노선 창 닫기" className="dialog-close" onClick={onClose} ref={closeButton}>×</button></div></header><div className="all-routes-body"><p className="all-routes-notice">주황색 표시는 공신력 있는 자료와 운임 변동 시점이 겹치는 주요 사건입니다. 단독 인과관계를 뜻하지 않습니다.</p><div className="all-routes-grid">{ROUTE_IDS.map((itemRouteId) => { const points = ROUTE_SERIES[itemRouteId]; const latest = points.at(-1)?.value ?? 0; const first = points[0]?.value ?? latest; const change = first === 0 ? 0 : ((latest - first) / first) * 100; const events = ROUTE_EVENTS.filter((item) => item.routes.some((eventRoute) => eventRoute === itemRouteId)); return <article className="route-mini-card" key={itemRouteId}><div><span>{ROUTE_LABELS[itemRouteId]} · {itemRouteId}</span><strong>{formatMoney(latest)}</strong><small>{latestDate} · <b className={change >= 0 ? "mini-up" : "mini-down"}>{change >= 0 ? "+" : ""}{change.toFixed(1)}%</b></small></div><RouteMiniChart events={events} eventsVisible={eventsVisible} points={points} routeId={itemRouteId} /></article>; })}</div><details className="all-routes-sources"><summary>표시된 주요 사건 {ROUTE_EVENTS.length}건의 근거·출처 보기</summary><div>{ROUTE_EVENTS.map((item) => <article key={item.id}><time>{item.date}</time><span><strong>{item.title}</strong><small>{item.routes.map((itemRouteId) => ROUTE_LABELS[itemRouteId]).join(" · ")}</small></span><a href={item.url} rel="noreferrer" target="_blank">{item.source} 원문 ↗</a></article>)}</div></details></div></section></div>, document.body);
 }
 
 export function DashboardApp({ gateway, representative }: { readonly gateway?: DashboardDataGatewayV1; readonly representative?: RepresentativeSelectionV1 }) {

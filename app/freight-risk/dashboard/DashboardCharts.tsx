@@ -254,3 +254,109 @@ export function MarketChart({ points, color, unit }: { readonly points: readonly
     {points.map((point, index) => <circle cx={x(point.date)} cy={y(point.value)} fill={color} key={point.date} r={index === points.length - 1 ? 5.5 : 3.8} stroke="white" strokeWidth="2"><title>{`${point.date} · ${point.value.toLocaleString("ko-KR")} ${unit}`}</title></circle>)}
   </svg></div>;
 }
+
+export interface HistoryChartEvent {
+  readonly id: string;
+  readonly date: string;
+  readonly title: string;
+  readonly source: string;
+}
+
+export function HistoryChart({
+  points,
+  events,
+  eventsVisible,
+  activeEventId,
+  onSelectEvent,
+}: {
+  readonly points: readonly ChartPoint[];
+  readonly events: readonly HistoryChartEvent[];
+  readonly eventsVisible: boolean;
+  readonly activeEventId: string | null;
+  readonly onSelectEvent: (eventId: string) => void;
+}) {
+  const { ref, width } = useMeasuredWidth(640);
+  const [hovered, setHovered] = useState<{ readonly x: number; readonly y: number; readonly date: string; readonly value: number } | null>(null);
+  const height = 360;
+  const pad = { top: 56, right: 24, bottom: 48, left: 72 };
+  const values = points.map((point) => point.value);
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const yPad = Math.max(1, (rawMax - rawMin) * 0.12);
+  const min = Math.max(0, rawMin - yPad);
+  const max = rawMax + yPad;
+  const start = time(points[0]?.date ?? "2022-11-07");
+  const end = time(points.at(-1)?.date ?? "2026-08-03");
+  const plotRight = width - pad.right;
+  const plotBottom = height - pad.bottom;
+  const x = (date: string) => pad.left + ((time(date) - start) / Math.max(1, end - start)) * (plotRight - pad.left);
+  const y = (value: number) => pad.top + ((max - value) / Math.max(1, max - min)) * (plotBottom - pad.top);
+  const onPointerMove = (event: PointerEvent<SVGSVGElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = ((event.clientX - rect.left) / Math.max(1, rect.width)) * width;
+    const nearest = points.reduce((best, point) => Math.abs(x(point.date) - localX) < Math.abs(x(best.date) - localX) ? point : best, points[0]);
+    if (nearest !== undefined) {
+      setHovered({ x: x(nearest.date), y: y(nearest.value), date: nearest.date, value: nearest.value });
+    }
+  };
+  return <div className="history-chart" ref={ref}><svg aria-label="주간 운임과 사건 발생 시점" height={height} onPointerLeave={() => setHovered(null)} onPointerMove={onPointerMove} role="img" viewBox={`0 0 ${width} ${height}`} width={width}>
+    {Array.from({ length: 5 }, (_, index) => { const value = min + ((max - min) * index) / 4; const yy = y(value); return <g key={value}><line className="chart-grid" x1={pad.left} x2={plotRight} y1={yy} y2={yy} /><text className="chart-axis" textAnchor="end" x={pad.left - 10} y={yy + 4}>{Math.round(value).toLocaleString("ko-KR")}</text></g>; })}
+    {Array.from({ length: 6 }, (_, index) => { const ratio = index / 5; const timestamp = start + (end - start) * ratio; return <text className="chart-axis" key={timestamp} textAnchor={index === 0 ? "start" : index === 5 ? "end" : "middle"} x={pad.left + (plotRight - pad.left) * ratio} y={height - 17}>{formatDate(timestamp)}</text>; })}
+    <text className="chart-axis-title" textAnchor="middle" transform={`rotate(-90 18 ${height / 2})`} x="18" y={height / 2}>KCCI</text>
+    <text className="chart-axis-title" textAnchor="end" x={plotRight} y={height - 2}>날짜</text>
+    <path d={linePath(points.map((point) => ({ x: x(point.date), y: y(point.value) })))} fill="none" stroke="#0879c0" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+    {eventsVisible && events.map((item) => { const markerX = x(item.date); const selected = item.id === activeEventId; const markerY = pad.top + 12; return <g aria-label={`${item.date} ${item.title} · ${item.source}`} className={selected ? "history-marker selected" : "history-marker"} key={item.id} onBlur={() => undefined} onFocus={() => onSelectEvent(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelectEvent(item.id); } }} onMouseEnter={() => onSelectEvent(item.id)} role="button" tabIndex={0}><title>{`${item.date} · ${item.title} · ${item.source}`}</title><line x1={markerX} x2={markerX} y1={pad.top + 19} y2={plotBottom} /><rect height="12" transform={`rotate(45 ${markerX} ${markerY})`} width="12" x={markerX - 6} y={markerY - 6} /><circle cx={markerX} cy={(pad.top + plotBottom) / 2} fill="transparent" r="14" /></g>; })}
+    {hovered !== null && <g pointerEvents="none"><line className="history-crosshair" x1={hovered.x} x2={hovered.x} y1={pad.top} y2={plotBottom} /><circle cx={hovered.x} cy={hovered.y} fill="#0879c0" r="5" stroke="white" strokeWidth="2" /></g>}
+    {points.length > 0 && <circle cx={x(points.at(-1)?.date ?? "2026-08-03")} cy={y(points.at(-1)?.value ?? 0)} fill="#0879c0" r="6" stroke="white" strokeWidth="2" />}
+  </svg>{hovered !== null && <div className="chart-tooltip history-tooltip" style={{ left: `${Math.max(11, Math.min(84, (hovered.x / width) * 100))}%`, top: `${Math.max(8, (hovered.y / height) * 100 - 8)}%` }}><strong>KCCI 주간 운임</strong><span>{hovered.date}</span><b>{Math.round(hovered.value).toLocaleString("ko-KR")} USD/FEU</b></div>}</div>;
+}
+
+export function RouteMiniChart({
+  routeId,
+  points,
+  events,
+  eventsVisible,
+}: {
+  readonly routeId: string;
+  readonly points: readonly ChartPoint[];
+  readonly events: readonly HistoryChartEvent[];
+  readonly eventsVisible: boolean;
+}) {
+  const [tooltip, setTooltip] = useState<
+    | { readonly kind: "rate"; readonly x: number; readonly y: number; readonly date: string; readonly value: number }
+    | { readonly kind: "event"; readonly x: number; readonly date: string; readonly title: string; readonly source: string }
+    | null
+  >(null);
+  const width = 480;
+  const height = 208;
+  const pad = { top: 34, right: 14, bottom: 28, left: 52 };
+  const values = points.map((point) => point.value);
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const yPad = Math.max(1, (rawMax - rawMin) * 0.1);
+  const min = Math.max(0, rawMin - yPad);
+  const max = rawMax + yPad;
+  const start = time(points[0]?.date ?? "2022-11-07");
+  const end = time(points.at(-1)?.date ?? "2026-08-03");
+  const x = (date: string) => pad.left + ((time(date) - start) / Math.max(1, end - start)) * (width - pad.left - pad.right);
+  const y = (value: number) => pad.top + ((max - value) / Math.max(1, max - min)) * (height - pad.top - pad.bottom);
+  const path = linePath(points.map((point) => ({ x: x(point.date), y: y(point.value) })));
+  const areaPath = `${path} L${x(points.at(-1)?.date ?? "2026-08-03")},${height - pad.bottom} L${x(points[0]?.date ?? "2022-11-07")},${height - pad.bottom} Z`;
+  const gradientId = `mini-area-${routeId}`;
+  const onPointerMove = (event: PointerEvent<SVGSVGElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = ((event.clientX - rect.left) / Math.max(1, rect.width)) * width;
+    const nearest = points.reduce((best, point) => Math.abs(x(point.date) - localX) < Math.abs(x(best.date) - localX) ? point : best, points[0]);
+    if (nearest !== undefined) {
+      setTooltip({ kind: "rate", x: x(nearest.date), y: y(nearest.value), date: nearest.date, value: nearest.value });
+    }
+  };
+  return <div className="mini-chart-shell"><svg aria-label={`${routeId} 전체 운임 추이`} onPointerLeave={() => setTooltip(null)} onPointerMove={onPointerMove} preserveAspectRatio="xMidYMid meet" role="img" viewBox={`0 0 ${width} ${height}`}><defs><linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#0072bc" stopOpacity=".2" /><stop offset="1" stopColor="#0072bc" stopOpacity=".015" /></linearGradient></defs>
+    {Array.from({ length: 3 }, (_, index) => { const value = min + ((max - min) * index) / 2; const yy = y(value); return <g key={value}><line className="chart-grid" x1={pad.left} x2={width - pad.right} y1={yy} y2={yy} /><text className="chart-axis mini-axis" textAnchor="end" x={pad.left - 7} y={yy + 3}>{Math.round(value).toLocaleString("ko-KR")}</text></g>; })}
+    <text className="chart-axis mini-axis" x={pad.left} y={height - 9}>{points[0]?.date.slice(0, 7)}</text><text className="chart-axis mini-axis" textAnchor="end" x={width - pad.right} y={height - 9}>{points.at(-1)?.date.slice(0, 7)}</text>
+    <path d={areaPath} fill={`url(#${gradientId})`} /><path d={path} fill="none" stroke="#0072bc" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" />
+    {eventsVisible && events.map((item) => { const markerX = x(item.date); const markerY = pad.top + 7; return <g aria-label={`${item.date} ${item.title} · ${item.source}`} className="mini-event-marker" key={item.id} onFocus={() => setTooltip({ kind: "event", x: markerX, date: item.date, title: item.title, source: item.source })} onMouseEnter={() => setTooltip({ kind: "event", x: markerX, date: item.date, title: item.title, source: item.source })} role="img" tabIndex={0}><line x1={markerX} x2={markerX} y1={pad.top + 13} y2={height - pad.bottom} /><rect height="9" transform={`rotate(45 ${markerX} ${markerY})`} width="9" x={markerX - 4.5} y={markerY - 4.5} /></g>; })}
+    {points.length > 0 && <><circle cx={x(points.at(-1)?.date ?? "2026-08-03")} cy={y(points.at(-1)?.value ?? 0)} fill="#0072bc" opacity=".18" r="10" /><circle cx={x(points.at(-1)?.date ?? "2026-08-03")} cy={y(points.at(-1)?.value ?? 0)} fill="#0072bc" r="4.8" stroke="white" strokeWidth="2" /></>}
+    {tooltip?.kind === "rate" && <g pointerEvents="none"><line className="history-crosshair" x1={tooltip.x} x2={tooltip.x} y1={pad.top} y2={height - pad.bottom} /><circle cx={tooltip.x} cy={tooltip.y} fill="#0072bc" r="4" stroke="white" strokeWidth="2" /></g>}
+  </svg>{tooltip !== null && <div className="mini-tooltip" style={{ left: `${Math.max(16, Math.min(80, (tooltip.x / width) * 100))}%` }}>{tooltip.kind === "rate" ? <><span>{tooltip.date}</span><strong>{Math.round(tooltip.value).toLocaleString("ko-KR")} USD/FEU</strong></> : <><span>{tooltip.date} · {tooltip.source}</span><strong>{tooltip.title}</strong></>}</div>}</div>;
+}

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   MARKET_POINTS,
   PERIOD_END,
+  ROUTE_EVENTS,
   ROUTE_FORECASTS,
   ROUTE_SERIES,
 } from "../../app/freight-risk/dashboard/fixture";
@@ -55,4 +56,54 @@ test("market fixture carries only approved observed values", () => {
   assert.ok(MARKET_POINTS.oil.length > 20);
   assert.ok(MARKET_POINTS.bunker.length > 20);
   assert.equal(MARKET_POINTS.harpex.length, 3);
+});
+
+test("route event catalog preserves the approved ten sources and route coverage", () => {
+  const expectedCounts = {
+    KUWI: 3,
+    KUEI: 4,
+    KNEI: 3,
+    KMDI: 3,
+    KMEI: 2,
+    KAUI: 1,
+    KLEI: 2,
+    KLWI: 2,
+    KSAI: 1,
+    KWAI: 1,
+    KCI: 0,
+    KJI: 0,
+    KSEI: 1,
+  } as const;
+
+  assert.equal(ROUTE_EVENTS.length, 10);
+  assert.deepEqual(
+    ROUTE_EVENTS.map(({ id }) => id),
+    [
+      "panama-drought-2023",
+      "red-sea-2023",
+      "capacity-crunch-2024",
+      "africa-surge-2024",
+      "singapore-congestion-2024",
+      "tariff-frontloading-2025",
+      "south-america-east-gri-2025",
+      "south-america-west-delay-2025",
+      "hormuz-2026",
+      "early-peak-2026",
+    ],
+  );
+
+  for (const routeId of ROUTE_IDS) {
+    assert.equal(
+      ROUTE_EVENTS.filter(({ routes }) => routes.some((eventRoute) => eventRoute === routeId)).length,
+      expectedCounts[routeId],
+      routeId,
+    );
+  }
+
+  for (const item of ROUTE_EVENTS) {
+    assert.match(item.date, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(item.routes.length > 0);
+    assert.ok(item.source.length > 0);
+    assert.match(item.url, /^https:\/\//);
+  }
 });
