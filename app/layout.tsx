@@ -1,26 +1,20 @@
 import type { ReactNode } from "react";
 
-import { PAGE_PATHS } from "./contracts";
-
-const NAVIGATION = [
-  ["Landing", PAGE_PATHS.landing],
-  ["Dashboard", PAGE_PATHS.dashboard],
-  ["Models", PAGE_PATHS.models],
-  ["Network", PAGE_PATHS.network],
-  ["Allocation", PAGE_PATHS.allocation],
-] as const;
+import "./globals.css";
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="ko">
+      <head>
+        <meta charSet="utf-8" />
+        <meta content="width=device-width, initial-scale=1" name="viewport" />
+        <title>GLOVIS 해상운임 예측·운임 의사결정 플랫폼</title>
+        <meta
+          content="KCCI 운임 예측과 글로벌 항만 모니터링, 운임 의사결정을 지원하는 GLOVIS 해상운임 예측·운임 의사결정 플랫폼"
+          name="description"
+        />
+      </head>
       <body>
-        <nav aria-label="Primary">
-          {NAVIGATION.map(([label, href]) => (
-            <a href={href} key={href}>
-              {label}
-            </a>
-          ))}
-        </nav>
         {children}
       </body>
     </html>
