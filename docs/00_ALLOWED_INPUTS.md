@@ -10,7 +10,7 @@
 
 | 입력 | 상태 | 동결 조건 |
 |---|---|---|
-| Figma UI 원본 | `PENDING_USER_SUPPLY` | 실제 Figma 파일 또는 공유 링크, 버전 기록, 디자인 소유권 확인 |
+| Figma UI 원본 | `IN_PROGRESS_CLEAN_ROOM` | 사이드 작업에서 신규 파일 생성 중. 완료 후 실제 파일 URL, version, frame ID, 디자인 소유권 기록 |
 | UI PNG exports | `PENDING_USER_SUPPLY` | 원본 파일, viewport/state/page 식별자, bytes, SHA-256 |
 | Landing 영상·poster·로고 | `PENDING_USER_SUPPLY` | 원본 파일, 사용 권한, bytes, SHA-256 |
 
@@ -28,15 +28,17 @@
 
 다음 clean-room 문서는 WT별 정제가 완료되고 금지 참조 검사를 통과한 버전만 허용한다.
 
-| 문서 | 상태 |
-|---|---|
-| `README.md` 공통 운영 규칙 | `PENDING_QA` |
-| `WT1_FOUNDATION_LANDING.md` | `PENDING_QA` |
-| `WT2_DASHBOARD.md` | `PENDING_QA` |
-| `WT3_MODELS.md` | `PENDING_QA` |
-| `WT4_NETWORK.md` | `PENDING_QA` |
-| `WT5_ALLOCATION.md` | `PENDING_QA` |
-| `WT6_DATA_API.md` | `PENDING_QA` |
+| 문서 | 상태 | SHA-256 |
+|---|---|---|
+| `docs/specs/README.md` 공통 운영 규칙 | `APPROVED` | `be766e2c3cc60406ad60d64e8fad9ec3c92867a8ed72a51142761b703d4aa5fd` |
+| `docs/specs/WT1_FOUNDATION_LANDING.md` | `APPROVED` | `e09a7d55a11f71cee1bd7408c1531c1c57b2673964759536dccafd7333473531` |
+| `docs/specs/WT2_DASHBOARD.md` | `APPROVED` | `a611a9712ede969e7e88537777983cde59c26136294dacdb6ead6baa4ce4659f` |
+| `docs/specs/WT3_MODELS.md` | `APPROVED` | `702e611a4017eeb9b3a50708f2fcc31098c86a20c731cc6e4debfbf7a3f3d6c6` |
+| `docs/specs/WT4_NETWORK.md` | `APPROVED` | `632790a809dbcc59944a91be8dedd696433317324019701549d6d2281da63809` |
+| `docs/specs/WT5_ALLOCATION.md` | `APPROVED` | `a7e78e3e8850689216ce37966bdf53ee120d2abe166d87c63f0d073f2a8b34d5` |
+| `docs/specs/WT6_DATA_API.md` | `APPROVED` | `4fca56132506218b8e8a4fe287889ad1e3eac295bce38bffa9516ea833597ef0` |
+
+WT7 clean-room provenance/visual-input 검사와 WT8 cross-contract/data-lineage 검사는 위 exact bytes에서 모두 `P0=0, P1=0`으로 종료됐다. 문서를 수정하면 해당 SHA와 두 PASS는 즉시 무효가 된다.
 
 허용 문서는 기능, 표시 문구, 수식, DTO, 데이터 변환 규칙, 디자인 치수, 상태 전이, acceptance 조건만 포함해야 한다. 이전 구현의 저장소명·URL·커밋·파일 경로·행 번호·파일 hash·코드 비교 지시는 포함하지 않는다.
 
@@ -67,7 +69,7 @@
 | 16 | `16_ROUTE_EVENTS_AND_CORRIDORS.xlsx` | 67,294 | `2bfe8ed28f43baf82268ae012d228c6051fb47898548a719afbcb07f3322fe02` | WT2·WT4·WT6 |
 | 17 | `17_RUNTIME_PROVIDER_CATALOG.xlsx` | 23,309 | `a11e7bff4bd204eb6daeb974630cd5d57fa6f0fec13da451b2815809c4b01e7f` | WT6·QA |
 | 18 | `18_CVAR_ALLOCATION_CONFIG.xlsx` | 19,735 | `9da8647b07057bee547d5b0d9c90369957b9534fa3e79f3d0b2877023b504652` | WT5·WT6 |
-| 19 | `19_KCCI_ROUTE_TRENDS_REFERENCE.html` | 42,093 | `ec9c2bac58ef66c65cb4822717f064027b9d40c9586d907dcde45b58e7cddacc` | WT2·WT7, UI reference only |
+| 19 | `19_KCCI_ROUTE_TRENDS_REFERENCE.html` | 42,093 | `ec9c2bac58ef66c65cb4822717f064027b9d40c9586d907dcde45b58e7cddacc` | `QUARANTINED`; package inventory에만 기록하며 구현·시각 QA 입력으로 직접 열람하지 않음 |
 
 패키지 검증 파일:
 
@@ -86,9 +88,13 @@
 
 - 이전 애플리케이션 저장소와 프로토타입 저장소의 TS, TSX, CSS, HTML, JS, test, fixture, generated JSON
 - 이전 저장소의 Git commit, branch, patch, cherry-pick, archive 또는 code export
+- 이전 저장소나 배포 사이트의 화면 캡처, DOM, computed style, 이미지, 영상, SVG, catalog 또는 시각 비교 결과
+- 이전 저장소의 clone, fetch, fork, import와 파일명·행 번호·함수 구조 열람
 - 이전 소스 파일 경로·행 번호·파일 hash를 구현 지시로 사용하는 문서
 - 이전 snapshot·catalog·news artifact 복사
 - 비밀키, `.env.local`, model cache, dependency cache, build output
+
+`19_KCCI_ROUTE_TRENDS_REFERENCE.html`의 허용 가능한 데이터·상호작용 요구는 승인된 WT2 명세에 독립 기술된 항목만 사용한다. HTML·CSS·JavaScript 자체는 구현 입력이 아니다.
 
 ## 6. 시작 게이트
 
