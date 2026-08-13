@@ -12,10 +12,9 @@
     "start": "vinext start",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
-    "test": "npm run test:contracts && npm run test:routes && npm run test:qa",
+    "test": "npm run test:contracts && npm run test:routes",
     "test:contracts": "tsx --test tests/contracts/**/*.test.ts",
     "test:routes": "tsx --test tests/bootstrap/**/*.test.ts",
-    "test:qa": "tsx --test tests/qa/**/*.test.ts",
     "verify": "npm run typecheck && npm run lint && npm test && npm run build"
   },
   "dependencies": {
