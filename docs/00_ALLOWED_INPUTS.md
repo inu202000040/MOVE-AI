@@ -12,7 +12,16 @@
 |---|---|---|
 | 초기 Figma UI 가안 | `REFERENCE_ONLY` | 구성과 화면 흐름을 이해하는 선택 참고자료. 디자인·기능·로직·정보 밀도·상태·반응형은 `docs/specs`가 우선하며 Figma 불일치만으로 QA 실패 처리하지 않음 |
 | 초기 UI PNG exports | `REFERENCE_ONLY` | Figma 가안의 선택 참고자료. pixel parity 기준, 필수 acceptance 또는 누락 기능의 대체 명세로 사용하지 않음 |
-| Landing 영상·poster·로고 | `PENDING_USER_SUPPLY` | 원본 파일, 사용 권한, bytes, SHA-256 |
+| Landing 영상·poster | `APPROVED_FOR_MOVE_AI` | 프로젝트 소유자가 팀의 MOVE-AI 사용 권한, 1708×721 master, 동일 MP4에서 파생한 JPEG poster를 2026-08-13 승인. 만료 미지정. binary identity는 아래 표와 구현 asset manifest로 고정 |
+
+Landing media 승인 identity:
+
+| asset | source/derivation | bytes | dimensions | SHA-256 |
+|---|---|---:|---:|---|
+| intro MP4 | 사용자 제공 master, H.264/AVC, 24fps, 11.041667초 | 2,429,702 | 1708×721 | `aaa91e9ab74192fa461eae298554080173846641ab5cf96ca14a1ecd589f1904` |
+| poster JPEG | 위 MP4의 0.25초/6번 frame을 Chromium canvas `image/jpeg` quality 0.92로 2회 동일 추출 | 280,972 | 1708×721 | `9a010ef9975b0eed94656cac9ebfe28278943e5343f09f032f9a8fc812541d8d` |
+
+권리 근거는 `project owner confirmed team usage rights in coordinator task`, 승인 기록은 `coordinator-task/019fcf7c-829e-7fe3-902c-09185b7301c7/2026-08-13`, 허용 범위는 `MOVE-AI project`, 승인일은 `2026-08-13`, 만료는 `not specified`다. 프로젝트 소유자는 제공된 1708×721 master를 승인했다. 제3자 owner identity는 주장하지 않는다.
 
 초기 Figma와 PNG는 `2026-08-13`에 새로 만든 가안이라는 사실을 보존한다. 완성 구현 계약이 아니라 선택 참고자료이며, 삭제하거나 과거에 완성된 디자인으로 소급 표기하지 않는다.
 
