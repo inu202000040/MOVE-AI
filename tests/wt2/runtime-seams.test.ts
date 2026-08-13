@@ -8,7 +8,9 @@ import {
   UNAVAILABLE_REPRESENTATIVE_SOURCE,
   bindRepresentativeSource,
   collectNews,
+  createRepresentativeSnapshotReader,
   readRepresentativeSource,
+  requestDashboardSnapshot,
   requestMarket,
   type DashboardDataGatewayV1,
   type DashboardRepresentativeSourceV1,
@@ -41,11 +43,13 @@ test("injected Dashboard gateway exercises market and news without direct provid
     },
   };
 
+  const snapshot = await requestDashboardSnapshot(gateway);
   const market = await requestMarket(gateway, "fx", "2026-08-03");
   const news = await collectNews(gateway, "KNEI", "test-refresh");
+  assert.equal(snapshot, null);
   assert.equal(market?.state, "UNAVAILABLE");
   assert.equal(news?.kind, "ERROR");
-  assert.deepEqual(calls, ["market:fx:false", "news:KNEI:0"]);
+  assert.deepEqual(calls, ["snapshot:false", "market:fx:false", "news:KNEI:0"]);
   assert.equal(JSON.stringify(await gateway.insight({
     route: { id: "KNEI", name: "유럽", asOf: "2026-08-03" },
     current: { date: "2026-08-03", value: 4_884 },
@@ -81,6 +85,9 @@ test("representative subscription publishes only completely decoded matching rev
     },
   };
   const observed: (RepresentativeSelectionV1 | null)[] = [];
+  const readSnapshot = createRepresentativeSnapshotReader(source, "KNEI");
+  const firstSnapshot = readSnapshot();
+  assert.strictEqual(readSnapshot(), firstSnapshot);
   const unsubscribe = bindRepresentativeSource(source, "KNEI", (value) => observed.push(value));
   assert.equal(observed[0]?.modelId, "sarimax");
 
@@ -112,9 +119,14 @@ test("production page mounts the client runtime with required, fail-closed seams
   assert.equal(runtime.includes("DashboardRuntimeWithDependencies"), true);
   assert.equal(runtime.includes("UNAVAILABLE_DASHBOARD_GATEWAY"), true);
   assert.equal(runtime.includes("UNAVAILABLE_REPRESENTATIVE_SOURCE"), true);
-  assert.equal(runtime.includes("bindRepresentativeSource"), true);
+  assert.equal(runtime.includes("useSyncExternalStore"), true);
+  assert.equal(runtime.includes("createSameOriginDataGatewayV1"), false);
+  assert.equal(runtime.includes('data/runtime/data-gateway'), false);
   assert.equal(app.includes("gateway?:"), false);
   assert.equal(app.includes("representative?:"), false);
   assert.equal(app.includes("localMarketSurface"), false);
+  assert.equal(app.includes("ROUTE_FORECASTS"), false);
+  assert.equal(app.includes("ROUTE_SERIES"), false);
+  assert.equal(app.includes("window.history"), false);
   assert.equal(app.includes("fetch("), false);
 });

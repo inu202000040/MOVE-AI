@@ -22,18 +22,57 @@ export function readRepresentativeSource(
   }
 }
 
+export function createRepresentativeSnapshotReader(
+  source: DashboardRepresentativeSourceV1,
+  routeId: RouteId,
+): () => RepresentativeSelectionV1 | null {
+  let initialized = false;
+  let fingerprint: string | null = null;
+  let retained: RepresentativeSelectionV1 | null = null;
+  return () => {
+    const next = readRepresentativeSource(source, routeId);
+    const nextFingerprint = next === null ? null : JSON.stringify(next);
+    if (initialized && nextFingerprint === fingerprint) {
+      return retained;
+    }
+    if (
+      retained !== null
+      && next !== null
+      && retained.representativeRevision === next.representativeRevision
+      && nextFingerprint !== fingerprint
+    ) {
+      retained = null;
+      fingerprint = null;
+      initialized = true;
+      return null;
+    }
+    retained = next;
+    fingerprint = nextFingerprint;
+    initialized = true;
+    return retained;
+  };
+}
+
+export function subscribeRepresentativeSource(
+  source: DashboardRepresentativeSourceV1,
+  notify: () => void,
+): () => void {
+  try {
+    return source.subscribe(notify);
+  } catch {
+    return () => undefined;
+  }
+}
+
 export function bindRepresentativeSource(
   source: DashboardRepresentativeSourceV1,
   routeId: RouteId,
   publish: (selection: RepresentativeSelectionV1 | null) => void,
 ): () => void {
-  const synchronize = () => publish(readRepresentativeSource(source, routeId));
+  const readSnapshot = createRepresentativeSnapshotReader(source, routeId);
+  const synchronize = () => publish(readSnapshot());
   synchronize();
-  try {
-    return source.subscribe(synchronize);
-  } catch {
-    return () => undefined;
-  }
+  return subscribeRepresentativeSource(source, synchronize);
 }
 
 function unavailableResult(domain: "snapshot" | "market" | "news" | "insight"): PendingGatewayResultV1 {

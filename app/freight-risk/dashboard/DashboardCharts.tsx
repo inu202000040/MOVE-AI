@@ -86,6 +86,7 @@ export function FreightChart({
   const dataLeft = pad.left + 14;
   const dataRight = width - pad.right - 14;
   const plotBottom = height - pad.bottom;
+  const hasForecast = forecasts.length > 0;
   const fullEnd = time(forecasts.at(-1)?.targetDate ?? actual.at(-1)?.date ?? "2026-08-31");
   const [viewport, setViewport] = useState<[number, number]>([RECENT_START, fullEnd]);
   const [hovered, setHovered] = useState<{ x: number; y: number; label: string; date: string; value: number } | null>(null);
@@ -200,7 +201,7 @@ export function FreightChart({
           viewBox={`0 0 ${width} ${height}`}
           width={width}
         >
-          <rect className="forecast-zone" height={plotBottom - pad.top} rx="8" width={Math.max(0, width - pad.right - dividerX)} x={dividerX} y={pad.top} />
+          {hasForecast && <rect className="forecast-zone" height={plotBottom - pad.top} rx="8" width={Math.max(0, width - pad.right - dividerX)} x={dividerX} y={pad.top} />}
           {Array.from({ length: 5 }, (_, index) => {
             const value = scale.min + ((scale.max - scale.min) * index) / 4;
             const y = scale.y(value);
@@ -212,8 +213,7 @@ export function FreightChart({
           })}
           <text className="chart-axis-title" textAnchor="middle" transform={`rotate(-90 18 ${height / 2})`} x="18" y={height / 2}>KCCI</text>
           <text className="chart-axis-title" textAnchor="end" x={width - pad.right} y={height - 3}>날짜</text>
-          <line className="forecast-divider" x1={dividerX} x2={dividerX} y1={pad.top} y2={plotBottom} />
-          <text className="forecast-zone-label" x={Math.min(width - 84, dividerX + 14)} y={pad.top + 17}>예측 구간</text>
+          {hasForecast && <><line className="forecast-divider" x1={dividerX} x2={dividerX} y1={pad.top} y2={plotBottom} /><text className="forecast-zone-label" x={Math.min(width - 84, dividerX + 14)} y={pad.top + 17}>예측 구간</text></>}
           <path className="actual-line" d={linePath(renderedActual.map((point) => ({ x: scale.x(point.timestamp), y: scale.y(point.value) })))} />
           <path d={linePath(forecastLine.map((point) => ({ x: scale.x(time(point.date)), y: scale.y(point.value) })))} fill="none" stroke={modelColor} strokeDasharray="7 6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4.4" />
           {forecasts.filter((point) => time(point.targetDate) >= viewport[0] && time(point.targetDate) <= viewport[1]).map((point) => {

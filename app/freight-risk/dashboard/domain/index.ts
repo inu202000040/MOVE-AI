@@ -8,4 +8,5 @@ export * from "./market-selection";
 export * from "./news";
 export * from "./representative";
 export * from "./runtime-seams";
+export * from "./snapshot";
 export * from "./storage-cache";

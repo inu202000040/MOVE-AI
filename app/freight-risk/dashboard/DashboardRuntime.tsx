@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { useFreightRiskRoute } from "../../components/shell";
 import { DashboardApp } from "./DashboardApp";
 import {
   UNAVAILABLE_DASHBOARD_GATEWAY,
   UNAVAILABLE_REPRESENTATIVE_SOURCE,
-  bindRepresentativeSource,
+  createRepresentativeSnapshotReader,
+  requestDashboardSnapshot,
+  subscribeRepresentativeSource,
   type DashboardDataGatewayV1,
   type DashboardRepresentativeSourceV1,
-  type RepresentativeSelectionV1,
+  type DashboardSnapshotSurfaceV1,
 } from "./domain";
 
 export interface DashboardRuntimeDependenciesV1 {
@@ -23,18 +25,42 @@ export function DashboardRuntimeWithDependencies({
   representativeSource,
 }: DashboardRuntimeDependenciesV1) {
   const { routeId } = useFreightRiskRoute();
-  const [representative, setRepresentative] = useState<RepresentativeSelectionV1 | null>(null);
-
-  useEffect(
-    () => bindRepresentativeSource(representativeSource, routeId, setRepresentative),
+  const [snapshot, setSnapshot] = useState<DashboardSnapshotSurfaceV1>({ status: "LOADING" });
+  const readRepresentative = useMemo(
+    () => createRepresentativeSnapshotReader(representativeSource, routeId),
     [representativeSource, routeId],
   );
+  const subscribeRepresentative = useCallback(
+    (notify: () => void) => subscribeRepresentativeSource(representativeSource, notify),
+    [representativeSource],
+  );
+  const representative = useSyncExternalStore(
+    subscribeRepresentative,
+    readRepresentative,
+    () => null,
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setSnapshot({ status: "LOADING" });
+    void requestDashboardSnapshot(gateway, controller.signal).then((ready) => {
+      if (!controller.signal.aborted) {
+        setSnapshot(ready ?? { status: "UNAVAILABLE", source: "snapshot validation failed" });
+      }
+    }).catch(() => {
+      if (!controller.signal.aborted) {
+        setSnapshot({ status: "UNAVAILABLE", source: "snapshot gateway unavailable" });
+      }
+    });
+    return () => controller.abort();
+  }, [gateway]);
 
   return (
     <DashboardApp
       gateway={gateway}
       representative={representative}
       routeId={routeId}
+      snapshot={snapshot}
     />
   );
 }
