@@ -135,22 +135,22 @@ export class SameOriginHttpDataGateway implements SharedDataGatewayV1 {
   }
 
   async portSummary(signal?: AbortSignal): Promise<GatewayResultV1<PortTrafficDataV1, PortStateV1>> {
-    return decodePortSummaryResultV1(await this.request("/api/globe-port-traffic", { signal }));
+    return decodePortSummaryResultV1(await this.request("/api/globe-signals?scope=p", { signal }));
   }
 
   async portDetail(query: PortDetailQueryV1, signal?: AbortSignal): Promise<GatewayResultV1<PortTrafficDataV1, PortStateV1>> {
     const entries: (readonly [string, string | number])[] = [["id", query.id]];
     if (query.days !== undefined) entries.push(["days", query.days]);
-    return decodePortDetailResultV1(await this.request(`/api/globe-port-traffic?${queryString(entries)}`, { signal }), query);
+    return decodePortDetailResultV1(await this.request(`/api/globe-signals?${queryString([["scope", "p"], ...entries])}`, { signal }), query);
   }
 
   async chokeSummary(signal?: AbortSignal): Promise<GatewayResultV1<ChokepointTrafficDataV1, ChokepointStateV1>> {
-    return decodeChokepointSummaryResultV1(await this.request("/api/globe-chokepoint-traffic", { signal }));
+    return decodeChokepointSummaryResultV1(await this.request("/api/globe-signals?scope=c", { signal }));
   }
 
   async chokeDetail(query: ChokepointDetailQueryV1, signal?: AbortSignal): Promise<GatewayResultV1<ChokepointTrafficDataV1, ChokepointStateV1>> {
     return decodeChokepointDetailResultV1(
-      await this.request(`/api/globe-chokepoint-traffic?${queryString([["id", query.id]])}`, { signal }), query,
+      await this.request(`/api/globe-signals?${queryString([["scope", "c"], ["id", query.id]])}`, { signal }), query,
     );
   }
 
@@ -160,11 +160,10 @@ export class SameOriginHttpDataGateway implements SharedDataGatewayV1 {
 
   private async request(path: string, init?: RequestInit): Promise<unknown> {
     if (!path.startsWith("/api/") || /^\/\//u.test(path)) throw new Error("Gateway request must use a same-origin API path");
-    // Invoke the browser fetch function without rebinding its receiver to this
-    // gateway instance. Some browser runtimes reject a branded Window.fetch
-    // when it is called as an object method ("Illegal invocation").
-    const fetchSameOrigin = this.fetchSameOrigin;
-    const response = await fetchSameOrigin(path, init);
+    // Browser-native fetch requires the Window receiver in some runtimes. The
+    // gateway stores it as a dependency, so invoke it with the global receiver
+    // instead of accidentally binding it to this class instance.
+    const response = await this.fetchSameOrigin.call(globalThis, path, init);
     const contentType = response.headers.get("content-type") ?? "";
     if (!/^application\/json(?:;|$)/iu.test(contentType)) throw new Error("Gateway response must be JSON");
     const body: unknown = await response.json();

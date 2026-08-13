@@ -6,6 +6,7 @@ This directory contains only redistributable assets used by the network globe's 
 - `icons/weather/*.svg`: Meteocons static fill icons 0.1.0 by Bas Milius, MIT License. Source package: `@meteocons/svg-static@0.1.0`. The full license is preserved in `licenses/METEOCONS-LICENSE.txt`.
 - `icons/tabler/*.svg`: Tabler Icons 3.46.0 by Paweł Kuna, MIT License. The stroke color is adapted for the dark map scene; geometry is unchanged. Source: https://github.com/tabler/tabler-icons/tree/v3.46.0/icons/outline. The full license is preserved in `licenses/TABLER-ICONS-LICENSE.txt`.
 - `assets/starfield.png`: project-specific background generated with OpenAI ImageGen for this WT4 implementation; it contains no third-party logo or text.
+- `globe-symbols/{port,strait,canal}.svg`: project-specific MOVE-AI team assets reused from the teammate Network renderer supplied for this integration. These icons are not third-party packages.
 
 The progressive online basemap uses OpenFreeMap vector tiles. OpenFreeMap's published style attribution credits OpenFreeMap, OpenMapTiles, and OpenStreetMap contributors; the scene source carries the same attribution string so a MapLibre attribution control can render it.
 

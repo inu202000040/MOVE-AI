@@ -1,4 +1,5 @@
 import { squaredDistance } from "./geometry";
+import type { Coordinate } from "./catalog-consumer";
 
 export const WEATHER_DECLUTTER_ZOOM = 2.15;
 
@@ -15,6 +16,7 @@ export interface WeatherDeclutterCandidate {
   readonly hovered: boolean;
   readonly pinned?: boolean;
   readonly globeFacing?: boolean;
+  readonly inViewport?: boolean;
 }
 
 export interface ProjectedMarkerCandidate {
@@ -115,7 +117,10 @@ export function selectVisibleWeather(
     throw new RangeError("minimumDistance cannot be negative");
   }
   const ordered = [...candidates]
-    .filter((candidate) => candidate.globeFacing !== false || candidate.selected)
+    // A selected point must not leak through the far side of the globe. MapLibre
+    // otherwise renders covered DOM markers at its default 0.2 opacity.
+    .filter((candidate) => candidate.globeFacing !== false)
+    .filter((candidate) => candidate.inViewport !== false)
     .filter(
       (candidate) =>
         zoom >= WEATHER_DECLUTTER_ZOOM ||
@@ -139,4 +144,20 @@ export function selectVisibleWeather(
     }
   }
   return accepted;
+}
+
+/** True when a longitude/latitude lies on the camera-facing globe hemisphere. */
+export function coordinateFacesGlobeCenter(
+  coordinate: Coordinate,
+  center: Coordinate,
+  horizonTolerance = -0.08,
+): boolean {
+  const radians = Math.PI / 180;
+  const latitude = coordinate[1] * radians;
+  const centerLatitude = center[1] * radians;
+  const longitudeDelta = (coordinate[0] - center[0]) * radians;
+  const dot =
+    Math.sin(latitude) * Math.sin(centerLatitude) +
+    Math.cos(latitude) * Math.cos(centerLatitude) * Math.cos(longitudeDelta);
+  return dot >= horizonTolerance;
 }

@@ -36,7 +36,7 @@ import {
   createNetworkMapPromotion,
   createRemoteFreeGlobeStyle,
   createRendererDiagnostics,
-  declutterProjectedMarkers,
+  coordinateFacesGlobeCenter,
   DEFAULT_STATIC_VIEWPORT,
   INITIAL_RENDERER_STATE,
   moveNetworkFocusMode,
@@ -47,6 +47,7 @@ import {
   reduceRendererState,
   resetStaticViewport,
   resolveNetworkPointerIntent,
+  sampleRoute,
   selectVisibleWeather,
   splitAntimeridian,
   startNetworkMapLibreGlobe,
@@ -85,8 +86,8 @@ const MAP_PALETTE = {
   sky: "#020b15",
   horizon: "#68d8ff",
   atmosphere: "#0d7dac",
-  route: "#195ca7",
-  routeShadow: "#061b36",
+  route: "#159bf4",
+  routeShadow: "#001a33",
   selection: "#ffb64c",
   chokepoint: "#ff8b46",
   port: "#eafcff",
@@ -324,7 +325,7 @@ function StaticNetworkMap({
     () =>
       catalog.routes.map((route) => ({
         route,
-        segments: splitAntimeridian(route.waypointCoordinates).map((segment) =>
+        segments: splitAntimeridian(sampleRoute(route.waypointCoordinates)).map((segment) =>
           segment.map((coordinate) => projectWebMercator(coordinate, 1000, 500)),
         ),
       })),
@@ -337,6 +338,7 @@ function StaticNetworkMap({
           if (feature.geometry.type !== "MultiLineString") return [];
           return feature.geometry.coordinates.map((segment, index) => ({
             id: `${String(feature.id)}:${index}`,
+            routeId: String(feature.properties.routeId ?? ""),
             points: segment.map((coordinate) =>
               projectWebMercator(coordinate, 1000, 500),
             ),
@@ -348,32 +350,28 @@ function StaticNetworkMap({
   const markerPositions = useMemo(
     () =>
       new Map(
-        declutterProjectedMarkers(
-          [
-            ...catalog.ports.map((port) => ({
-              id: `port:${port.id}`,
-              ...projectWebMercator([port.longitude, port.latitude], 1000, 500),
-            })),
-            ...catalog.chokepoints.map((chokepoint) => ({
-              id: `chokepoint:${chokepoint.id}`,
-              ...projectWebMercator(
-                [chokepoint.longitude, chokepoint.latitude],
-                1000,
-                500,
-              ),
-            })),
-            ...catalog.weather.map((weather) => ({
-              id: `weather:${weather.id}`,
-              ...projectWebMercator(
-                [weather.longitude, weather.latitude],
-                1000,
-                500,
-              ),
-            })),
-          ],
-          11,
-          34,
-        ).map((position) => [position.id, position]),
+        [
+          ...catalog.ports.map((port) => ({
+            id: `port:${port.id}`,
+            ...projectWebMercator([port.longitude, port.latitude], 1000, 500),
+          })),
+          ...catalog.chokepoints.map((chokepoint) => ({
+            id: `chokepoint:${chokepoint.id}`,
+            ...projectWebMercator(
+              [chokepoint.longitude, chokepoint.latitude],
+              1000,
+              500,
+            ),
+          })),
+          ...catalog.weather.map((weather) => ({
+            id: `weather:${weather.id}`,
+            ...projectWebMercator(
+              [weather.longitude, weather.latitude],
+              1000,
+              500,
+            ),
+          })),
+        ].map((position) => [position.id, position] as const),
       ),
     [catalog],
   );
@@ -448,6 +446,7 @@ function StaticNetworkMap({
         <g aria-hidden="true" className="network-static-map__connectors">
           {connectorSegments.map((segment) => (
             <polyline
+              className={segment.routeId === selection.mapRouteId ? "is-selected" : undefined}
               data-network-connector="true"
               key={segment.id}
               points={segment.points.map(({ x, y }) => `${x},${y}`).join(" ")}
@@ -829,7 +828,14 @@ export function NetworkPageClient({
   const resetView = useCallback((): void => {
     setViewport(resetStaticViewport());
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    mapRef.current?.easeTo({ center: [126.2, 27.5], zoom: 1.42, bearing: -7, pitch: 0, duration: reducedMotion ? 0 : 700 });
+    mapRef.current?.easeTo({
+      center: [126.2, 27.5],
+      zoom: 1.42,
+      bearing: -7,
+      pitch: 0,
+      padding: { top: 0, right: 0, bottom: 0, left: 0 },
+      duration: reducedMotion ? 0 : 700,
+    });
   }, []);
 
 
@@ -1022,14 +1028,16 @@ export function NetworkPageClient({
             setPortDetailResource(resolveNetworkResource(result, attempt));
           }
         },
-        () => {
+        (error) => {
           if (!controller.signal.aborted) {
             setPortDetailResource({
               status: "error",
               attempt,
               result: null,
               retryable: true,
-              message: "데이터를 불러올 수 없습니다.",
+              message: error instanceof Error
+                ? error.message
+                : "데이터를 불러올 수 없습니다.",
             });
           }
         },
@@ -1088,13 +1096,16 @@ export function NetworkPageClient({
 
   useEffect(() => {
     const handleEscape = (event: globalThis.KeyboardEvent): void => {
-      if (event.key === "Escape" && visibleNetworkPanel(selection).kind !== "none") {
-        closeDetail();
+      if (event.key !== "Escape") return;
+      if (legendOpen) {
+        setLegendOpen(false);
+        return;
       }
+      if (visibleNetworkPanel(selection).kind !== "none") closeDetail();
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [closeDetail, selection]);
+  }, [closeDetail, legendOpen, selection]);
 
   useEffect(() => {
     featureStateRef.current?.apply(selection);
@@ -1177,6 +1188,9 @@ export function NetworkPageClient({
       const marker = new mapLibre.Marker({
         anchor: "center",
         element: button,
+        opacity: 1,
+        opacityWhenCovered: 0,
+        subpixelPositioning: true,
       })
         .setLngLat([observation.longitude, observation.latitude])
         .addTo(map);
@@ -1192,6 +1206,8 @@ export function NetworkPageClient({
 
     const updateVisibility = (): void => {
       const minimumDistance = map.getCanvas().clientWidth <= 640 ? 36 : 46;
+      const canvas = map.getCanvas();
+      const center = map.getCenter();
       const visible = new Set(
         selectVisibleWeather(
           handles.map((handle) => {
@@ -1208,6 +1224,15 @@ export function NetworkPageClient({
               selected: selectedWeatherIdRef.current === handle.id,
               hovered: handle.element.matches(":hover"),
               pinned: handle.observation.kind === "route",
+              globeFacing: coordinateFacesGlobeCenter(
+                [handle.observation.longitude, handle.observation.latitude],
+                [center.lng, center.lat],
+              ),
+              inViewport:
+                point.x >= -40 &&
+                point.x <= canvas.clientWidth + 40 &&
+                point.y >= -40 &&
+                point.y <= canvas.clientHeight + 40,
             };
           }),
           map.getZoom(),
@@ -1217,6 +1242,7 @@ export function NetworkPageClient({
       for (const handle of handles) {
         const isVisible = visible.has(handle.id);
         handle.element.dataset.visible = String(isVisible);
+        handle.element.hidden = !isVisible;
       }
     };
 
@@ -1263,6 +1289,32 @@ export function NetworkPageClient({
       }
     }
   }, [focusMode, renderer.kind]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || renderer.kind !== "globe_ready" || !map.getLayer("network-connector-line")) {
+      return;
+    }
+    const activeRouteId = selection.mapRouteId;
+    try {
+      map.setPaintProperty(
+        "network-connector-line",
+        "line-color",
+        activeRouteId
+          ? ["case", ["==", ["get", "routeId"], activeRouteId], "#ffb400", "#58b9f2"]
+          : "#58b9f2",
+      );
+      map.setPaintProperty(
+        "network-connector-line",
+        "line-width",
+        activeRouteId
+          ? ["case", ["==", ["get", "routeId"], activeRouteId], 2.35, 1.35]
+          : 1.35,
+      );
+    } catch {
+      dispatchRenderer({ type: "DEGRADE", degradation: "CATALOG_UNAVAILABLE" });
+    }
+  }, [renderer.kind, selection.mapRouteId]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -1493,10 +1545,6 @@ export function NetworkPageClient({
           viewport={viewport}
         />
       ) : null}
-      {renderer.kind === "globe_ready" ? (
-        <p className="network-map-footer">드래그 회전 · 표식 클릭은 상세 정보</p>
-      ) : null}
-
       <header className="network-header">
         <div>
           <p className="network-eyebrow">
@@ -1683,23 +1731,41 @@ export function NetworkPageClient({
       <section className={legendOpen ? "network-legend is-open" : "network-legend"}>
         <button
           aria-expanded={legendOpen}
+          aria-controls="network-map-legend"
           onClick={() => setLegendOpen((open) => !open)}
           type="button"
         >
           범례
         </button>
         {legendOpen ? (
-          <ul>
-            <li><i className="legend-origin" /> 부산항</li>
-            <li><i className="legend-port" /> 목적항 57개</li>
-            <li><i className="legend-route" /> 대표 해상 회랑</li>
-            <li><i className="legend-connector" /> 동일 노선 권역</li>
-            <li><i className="legend-strait" /> 해협</li>
-            <li><i className="legend-canal" /> 운하</li>
-            <li><i className="legend-weather" /> 기상 애니메이션</li>
-            <li><i className="legend-choke" /> AIS 7일 추정 통과량</li>
-            <li><i className="legend-help" /> 사용법: 표식을 선택하세요</li>
-          </ul>
+          <div
+            aria-label="지도 범례"
+            className="network-legend__panel"
+            id="network-map-legend"
+            role="region"
+          >
+            <div className="network-legend__head">
+              <strong>지도 범례</strong>
+              <button
+                aria-label="범례 닫기"
+                onClick={() => setLegendOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <ul>
+              <li><i className="legend-origin" /> 부산항</li>
+              <li><i className="legend-port" /> 목적항 57개</li>
+              <li><i className="legend-route" /> 대표 해상 회랑</li>
+              <li><i className="legend-connector" /> 동일 노선 권역 연결</li>
+              <li><i className="legend-strait" /> 해협</li>
+              <li><i className="legend-canal" /> 운하</li>
+              <li><i className="legend-weather" /> 기상 애니메이션</li>
+              <li><i className="legend-choke" /> AIS 7일 추정 통과량</li>
+            </ul>
+            <p>드래그 회전 · 표식 클릭은 상세 정보</p>
+          </div>
         ) : null}
       </section>
 
@@ -1713,6 +1779,20 @@ export function NetworkPageClient({
           }
           aria-live="polite"
           className={`network-detail-panel network-detail-panel--${panel.kind}`}
+          data-detail-state={
+            panel.kind === "port"
+              ? portDetailResource.status
+              : panel.kind === "chokepoint"
+                ? chokepointDetailResource.status
+                : undefined
+          }
+          data-detail-message={
+            panel.kind === "port" && portDetailResource.status === "error"
+              ? portDetailResource.message
+              : panel.kind === "chokepoint" && chokepointDetailResource.status === "error"
+                ? chokepointDetailResource.message
+                : undefined
+          }
           data-panel-kind={panel.kind}
         >
           <button

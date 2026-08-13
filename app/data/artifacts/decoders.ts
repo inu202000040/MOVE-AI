@@ -29,6 +29,23 @@ const MODEL_IDS = [
 ] as const;
 const HORIZONS = [1, 2, 3, 4] as const;
 const APPROVED_NETWORK_REFERENCE_MANIFEST_SHA256 = "991690557c80d0820228f8d6c63b78c82e74677d64aa91ba1be2906b681bfa71";
+const NETWORK_ROUTE_WAYPOINT_COUNTS: Readonly<Record<(typeof ROUTE_IDS)[number], number>> = {
+  KAUI: 17,
+  KCI: 6,
+  KJI: 8,
+  KLEI: 28,
+  KLWI: 11,
+  KMDI: 40,
+  KMEI: 30,
+  KNEI: 52,
+  KSAI: 25,
+  KSEI: 12,
+  KUEI: 28,
+  KUWI: 10,
+  KWAI: 30,
+};
+const NETWORK_ROUTE_WAYPOINT_TOTAL = 297;
+const NETWORK_CHOKEPOINT_CORRIDOR_COORDINATE_TOTAL = 57;
 
 function networkCoordinate(
   longitudeValue: unknown,
@@ -464,7 +481,7 @@ export function assertNetworkCatalogSeamV1(value: unknown): void {
     const id = oneOf(item.id, ROUTE_IDS, `${path}.id`);
     const primaryPortId = string(item.primaryPortId, `${path}.primaryPortId`);
     const coordinates = array(item.waypointCoordinates, `${path}.waypointCoordinates`);
-    if (coordinates.length < 2) throw new Error("Network route needs at least two waypoints");
+    exactArrayLength(coordinates, NETWORK_ROUTE_WAYPOINT_COUNTS[id], `${path}.waypointCoordinates`);
     const waypointCoordinates = coordinates.map((coordinate, coordinateIndex) => {
       const coordinatePath = `${path}.waypointCoordinates[${coordinateIndex}]`;
       const pair = array(coordinate, coordinatePath);
@@ -478,6 +495,13 @@ export function assertNetworkCatalogSeamV1(value: unknown): void {
   const expectedRouteIds = [...ROUTE_IDS].sort();
   if (routeIds.join("\0") !== expectedRouteIds.join("\0")) {
     throw new Error("Network routes must contain the exact canonical route ID set");
+  }
+  const routeWaypointTotal = decodedRoutes.reduce(
+    (total, route) => total + route.waypointCoordinates.length,
+    0,
+  );
+  if (routeWaypointTotal !== NETWORK_ROUTE_WAYPOINT_TOTAL) {
+    throw new Error(`Network routes must contain exactly ${NETWORK_ROUTE_WAYPOINT_TOTAL} waypoints`);
   }
   const routeById = new Map(decodedRoutes.map((route) => [route.id, route] as const));
   const routeIdSet = new Set<string>(routeIds);
@@ -531,17 +555,50 @@ export function assertNetworkCatalogSeamV1(value: unknown): void {
   const decodedChokepoints = chokepoints.map((value, index) => {
     const path = `$network.chokepoints[${index}]`;
     const item = record(value, path);
-    exactKeys(item, ["id", "longitude", "latitude", "upstreamPortWatchId"], path);
+    exactKeys(
+      item,
+      [
+        "id", "longitude", "latitude", "upstreamPortWatchId",
+        "corridorCoordinates", "gateHalfWidthKm",
+      ],
+      path,
+    );
+    const corridor = array(item.corridorCoordinates, `${path}.corridorCoordinates`);
+    if (corridor.length < 2) {
+      throw new Error(`${path}.corridorCoordinates must contain at least two coordinates`);
+    }
+    const corridorCoordinates = corridor.map((coordinate, coordinateIndex) => {
+      const coordinatePath = `${path}.corridorCoordinates[${coordinateIndex}]`;
+      const pair = array(coordinate, coordinatePath);
+      exactArrayLength(pair, 2, coordinatePath);
+      const decoded = networkCoordinate(pair[0], pair[1], coordinatePath);
+      return [decoded.longitude, decoded.latitude] as const;
+    });
+    const gateHalfWidthKm = finite(item.gateHalfWidthKm, `${path}.gateHalfWidthKm`);
+    if (gateHalfWidthKm <= 0) {
+      throw new Error(`${path}.gateHalfWidthKm must be positive`);
+    }
     return {
       id: string(item.id, `${path}.id`),
       ...networkCoordinate(item.longitude, item.latitude, path),
       upstreamPortWatchId: string(item.upstreamPortWatchId, `${path}.upstreamPortWatchId`),
+      corridorCoordinates,
+      gateHalfWidthKm,
     };
   });
   const chokepointIds = decodedChokepoints.map((chokepoint) => chokepoint.id);
   sortedUnique(chokepointIds, "$network chokepoint IDs");
   if (new Set(decodedChokepoints.map((chokepoint) => chokepoint.upstreamPortWatchId)).size !== 11) {
     throw new Error("Network chokepoint upstream IDs must be unique");
+  }
+  const chokepointCorridorCoordinateTotal = decodedChokepoints.reduce(
+    (total, chokepoint) => total + chokepoint.corridorCoordinates.length,
+    0,
+  );
+  if (chokepointCorridorCoordinateTotal !== NETWORK_CHOKEPOINT_CORRIDOR_COORDINATE_TOTAL) {
+    throw new Error(
+      `Network chokepoints must contain exactly ${NETWORK_CHOKEPOINT_CORRIDOR_COORDINATE_TOTAL} corridor coordinates`,
+    );
   }
   const chokepointById = new Map(decodedChokepoints.map((chokepoint) => [chokepoint.id, chokepoint] as const));
 
@@ -590,7 +647,7 @@ export function assertNetworkCatalogSeamIdentityV1(value: unknown): void {
   exactKeys(
     root,
     [
-      "schemaVersion", "catalogSeamSha256", "byteSize", "routeCount", "portCount",
+      "schemaVersion", "catalogSeamSha256", "byteSize", "routeCount", "routeWaypointCount", "portCount",
       "uniquePortSeriesCount", "chokepointCount", "weatherCount", "referenceManifestSha256",
     ],
     "$networkIdentity",
@@ -609,6 +666,11 @@ export function assertNetworkCatalogSeamIdentityV1(value: unknown): void {
   const byteSize = integer(root.byteSize, "$networkIdentity.byteSize");
   if (byteSize <= 0) throw new Error("$networkIdentity.byteSize must be positive");
   literal(integer(root.routeCount, "routeCount"), 13, "routeCount");
+  literal(
+    integer(root.routeWaypointCount, "routeWaypointCount"),
+    NETWORK_ROUTE_WAYPOINT_TOTAL,
+    "routeWaypointCount",
+  );
   literal(integer(root.portCount, "portCount"), 57, "portCount");
   literal(integer(root.uniquePortSeriesCount, "uniquePortSeriesCount"), 56, "uniquePortSeriesCount");
   literal(integer(root.chokepointCount, "chokepointCount"), 11, "chokepointCount");

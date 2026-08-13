@@ -60,7 +60,7 @@ test("progressive scene installs same-origin fallback before data and keeps remo
   assert.deepEqual(report.degradations, ["SCENE_ICON_UNAVAILABLE"]);
   assert.equal(
     degradations.filter((code) => code === "SCENE_ICON_UNAVAILABLE").length,
-    6,
+    7,
   );
   assert.equal(sources.has("network-basemap-natural-earth-land"), true);
   assert.equal(sources.has("network-basemap-natural-earth-places"), true);

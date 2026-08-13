@@ -64,6 +64,12 @@ function createCatalog(): NetworkCatalogSeam {
     longitude: -150 + index * 25,
     latitude: -50 + index * 10,
     upstreamPortWatchId: `choke-series-${index}`,
+    corridorCoordinates: [
+      [-150 + index * 25 - 0.5, -50 + index * 10 - 0.5],
+      [-150 + index * 25, -50 + index * 10],
+      [-150 + index * 25 + 0.5, -50 + index * 10 + 0.5],
+    ] as const,
+    gateHalfWidthKm: 10 + index,
   }));
   const weather = [
     ...ports.map((port) => ({

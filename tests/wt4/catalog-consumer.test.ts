@@ -5,6 +5,7 @@ import { ROUTE_IDS } from "../../app/contracts/routes";
 import {
   NETWORK_CHOKEPOINT_IDS,
   NETWORK_CATALOG_COUNTS,
+  NETWORK_ROUTE_WAYPOINT_COUNTS,
   sha256Hex,
   validateNetworkCatalogHandoff,
   type NetworkCatalogHandoff,
@@ -24,16 +25,28 @@ function createCatalog(referenceManifestSha256: string) {
   const routes = routeIds.map((id, index) => ({
     id,
     primaryPortId: ports[index]!.id,
-    waypointCoordinates: [
-      [129.04, 35.1],
-      [ports[index]!.longitude, ports[index]!.latitude],
-    ],
+    waypointCoordinates: Array.from(
+      { length: NETWORK_ROUTE_WAYPOINT_COUNTS[id] },
+      (_, waypointIndex) => {
+        const ratio = waypointIndex / (NETWORK_ROUTE_WAYPOINT_COUNTS[id] - 1);
+        return [
+          129.04 + (ports[index]!.longitude - 129.04) * ratio,
+          35.1 + (ports[index]!.latitude - 35.1) * ratio,
+        ];
+      },
+    ),
   }));
   const chokepoints = NETWORK_CHOKEPOINT_IDS.map((id, index) => ({
     id,
     longitude: -150 + index * 25,
     latitude: -50 + index * 10,
     upstreamPortWatchId: `choke-series-${index.toString().padStart(2, "0")}`,
+    corridorCoordinates: [
+      [-150 + index * 25 - 0.5, -50 + index * 10 - 0.5],
+      [-150 + index * 25, -50 + index * 10],
+      [-150 + index * 25 + 0.5, -50 + index * 10 + 0.5],
+    ],
+    gateHalfWidthKm: 10 + index,
   }));
   const weather = [
     ...ports.map((port) => ({
@@ -96,6 +109,7 @@ async function buildHandoff(
     catalogSeamSha256,
     byteSize: catalogBytes.byteLength,
     routeCount: NETWORK_CATALOG_COUNTS.routes,
+    routeWaypointCount: NETWORK_CATALOG_COUNTS.routeWaypoints,
     portCount: NETWORK_CATALOG_COUNTS.ports,
     uniquePortSeriesCount: NETWORK_CATALOG_COUNTS.uniquePortSeries,
     chokepointCount: NETWORK_CATALOG_COUNTS.chokepoints,

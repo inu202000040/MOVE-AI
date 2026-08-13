@@ -6,7 +6,7 @@ import type {
   NetworkWeatherRecord,
 } from "./catalog-consumer";
 import { createNetworkChokepointGeometry } from "./chokepoint-geometry";
-import { splitAntimeridian } from "./geometry";
+import { sampleGreatCircle, sampleRoute, splitAntimeridian } from "./geometry";
 
 export type GeoJsonGeometry =
   | { readonly type: "Point"; readonly coordinates: Coordinate }
@@ -118,7 +118,7 @@ function routeFeature(
     id: route.id,
     geometry: {
       type: "MultiLineString",
-      coordinates: splitAntimeridian(route.waypointCoordinates),
+      coordinates: splitAntimeridian(sampleRoute(route.waypointCoordinates)),
     },
     properties: {
       id: route.id,
@@ -137,10 +137,11 @@ function connectorFeature(
     id: `connector:${port.id}`,
     geometry: {
       type: "MultiLineString",
-      coordinates: splitAntimeridian([
+      coordinates: splitAntimeridian(sampleGreatCircle(
         [primaryPort.longitude, primaryPort.latitude],
         [port.longitude, port.latitude],
-      ]),
+        8,
+      )),
     },
     properties: {
       id: `connector:${port.id}`,
@@ -209,10 +210,9 @@ export function catalogToNetworkGeoJson(
         properties: {
           id: record.id,
           chokepointId: record.id,
-          kind: geometry.profile.kind,
-          bearingDegrees: geometry.profile.bearingDegrees,
-          corridorLengthKm: geometry.profile.corridorLengthKm,
-          corridorWidthKm: geometry.profile.corridorWidthKm,
+          kind: geometry.kind,
+          bearingDegrees: geometry.bearingDegrees,
+          gateHalfWidthKm: geometry.gateHalfWidthKm,
           upstreamPortWatchId: record.upstreamPortWatchId,
         },
       })),
@@ -232,7 +232,8 @@ export function catalogToNetworkGeoJson(
           id: record.id,
           chokepointId: record.id,
           gateCount: geometry.gates.length,
-          kind: geometry.profile.kind,
+          kind: geometry.kind,
+          gateHalfWidthKm: geometry.gateHalfWidthKm,
           upstreamPortWatchId: record.upstreamPortWatchId,
         },
       })),
@@ -246,6 +247,8 @@ export function catalogToNetworkGeoJson(
         properties: {
           id: chokepoint.id,
           chokepointId: chokepoint.id,
+          kind: chokepointGeometry.find(({ record }) => record.id === chokepoint.id)
+            ?.geometry.kind ?? "strait",
           upstreamPortWatchId: chokepoint.upstreamPortWatchId,
         },
       })),

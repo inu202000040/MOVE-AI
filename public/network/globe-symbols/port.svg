@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16" fill="none">
+  <title>항만</title>
+  <path d="M8 0.85 14.2 4.35v7.3L8 15.15l-6.2-3.5v-7.3L8 .85Z" fill="#0067B1" stroke="#C9EEFF" stroke-width=".85"/>
+  <circle cx="8" cy="4.15" r="1.05" stroke="#fff" stroke-width="1.05"/>
+  <path d="M8 5.2v6.75M5.65 6.8h4.7M3.95 9.25c.42 2.4 1.82 3.48 4.05 3.48s3.63-1.08 4.05-3.48M3.95 9.25l-1.05 1.1m9.15-1.1 1.05 1.1" stroke="#fff" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

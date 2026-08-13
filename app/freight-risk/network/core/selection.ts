@@ -48,14 +48,14 @@ export function orderedUniqueRouteIds(routeIds: readonly string[]): readonly str
 export function resolveNetworkPointerIntent(
   hits: NetworkPointerHits,
 ): NetworkPointerSelection {
-  const weather = chooseNearest(hits.weather);
-  if (weather) return { kind: "weather", id: weather.id };
-
   const port = chooseNearest(hits.ports);
   if (port) return { kind: "port", id: port.id };
 
   const chokepoint = chooseNearest(hits.chokepoints);
   if (chokepoint) return { kind: "chokepoint", id: chokepoint.id };
+
+  const weather = chooseNearest(hits.weather);
+  if (weather) return { kind: "weather", id: weather.id };
 
   const routeIds = orderedUniqueRouteIds(hits.routeIds);
   if (routeIds.length === 1) return { kind: "route", id: routeIds[0]! };

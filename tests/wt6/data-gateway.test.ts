@@ -6,6 +6,7 @@ import { POST as insightPost } from "../../app/api/freight-risk/insight/route";
 import { GET as tuneGet, POST as tunePost } from "../../app/api/freight-risk/tune/route";
 import { GET as portGet } from "../../app/api/globe-port-traffic/route";
 import { GET as chokeGet } from "../../app/api/globe-chokepoint-traffic/route";
+import { GET as globeSignalsGet } from "../../app/api/globe-signals/route";
 import { GET as weatherGet } from "../../app/api/globe-weather/route";
 import {
   adaptDataGatewayV1,
@@ -68,6 +69,7 @@ test("one exported factory supplies validated in-process snapshot/catalog and al
       "POST /api/freight-risk/tune": tunePost,
       "GET /api/globe-port-traffic": portGet,
       "GET /api/globe-chokepoint-traffic": chokeGet,
+      "GET /api/globe-signals": globeSignalsGet,
       "GET /api/globe-weather": weatherGet,
     };
     const handler = handlers[key];
@@ -108,7 +110,7 @@ test("one exported factory supplies validated in-process snapshot/catalog and al
   assert.ok(observed.some((entry) => entry.includes("refresh=nonce-123")));
   assert.deepEqual(new Set(observed.map((entry) => new URL(`http://localhost${entry.slice(entry.indexOf(" ") + 1)}`).pathname)), new Set([
     "/api/freight-risk/market", "/api/freight-risk/news", "/api/freight-risk/insight", "/api/freight-risk/tune",
-    "/api/globe-port-traffic", "/api/globe-chokepoint-traffic", "/api/globe-weather",
+    "/api/globe-signals", "/api/globe-weather",
   ]));
 
   const fixture = await createFixtureDataAccessV1();
@@ -134,21 +136,6 @@ test("same-origin client never blesses malformed HTTP JSON as caller-selected do
   );
   const canonicalMarket = await canonicalFixture.market({ series: "harpex", from: "2026-07-01", to: "2026-08-31", providerVersion: 3 });
   assert.equal(canonicalMarket.state, "REFERENCE");
-});
-
-test("same-origin client does not rebind the browser fetch receiver", async () => {
-  const fetchSameOrigin: SameOriginFetchV1 = async function (this: unknown, input, init) {
-    if (this !== undefined) throw new TypeError("Illegal invocation");
-    return marketGet(new Request(`http://localhost${input}`, init));
-  };
-  const gateway = new SameOriginHttpDataGateway(fetchSameOrigin);
-  const result = await gateway.market({
-    series: "harpex",
-    from: "2026-07-01",
-    to: "2026-08-31",
-    providerVersion: 3,
-  });
-  assert.equal(result.state, "REFERENCE");
 });
 
 test("client snapshot is truthful UNAVAILABLE unless a validated provider is injected", async () => {

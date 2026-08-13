@@ -208,10 +208,10 @@ export function createNetworkMapLayers(
       type: "line",
       source: "network-connectors",
       paint: {
-        "line-color": palette.selection,
-        "line-width": 1.5,
-        "line-opacity": 0.54,
-        "line-dasharray": [3, 3],
+        "line-color": "#58b9f2",
+        "line-width": 1.35,
+        "line-opacity": 0.34,
+        "line-dasharray": [1.35, 1.9],
       },
     },
     {
@@ -251,8 +251,14 @@ export function createNetworkMapLayers(
       id: "network-chokepoint-icon",
       type: "symbol",
       source: "network-chokepoints",
+      filter: ["!=", ["get", "kind"], "cape"],
       layout: {
-        "icon-image": "network-icon-chokepoint",
+        "icon-image": [
+          "case",
+          ["==", ["get", "kind"], "canal"],
+          "network-icon-chokepoint-canal",
+          "network-icon-chokepoint-strait",
+        ],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 0, 0.45, 5, 0.72],
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
@@ -308,6 +314,11 @@ export function createNetworkMapLayers(
       id: "network-weather-halo",
       type: "circle",
       source: "network-weather",
+      filter: [
+        "all",
+        ["!=", ["get", "kind"], "port"],
+        ["!=", ["get", "kind"], "chokepoint"],
+      ],
       paint: {
         "circle-color": [
           "match",
@@ -329,6 +340,11 @@ export function createNetworkMapLayers(
       id: "network-weather-marker",
       type: "circle",
       source: "network-weather",
+      filter: [
+        "all",
+        ["!=", ["get", "kind"], "port"],
+        ["!=", ["get", "kind"], "chokepoint"],
+      ],
       paint: {
         "circle-color": [
           "match",

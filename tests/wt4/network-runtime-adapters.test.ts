@@ -26,7 +26,10 @@ test("WT6 canonical artifact validates as 13/57/11/82 with canonical route geome
     new Set(decoded.ports.map(({ upstreamPortWatchId }) => upstreamPortWatchId)).size,
     56,
   );
-  assert.ok(decoded.routes.every(({ waypointCoordinates }) => waypointCoordinates.length === 2));
+  assert.equal(
+    decoded.routes.reduce((total, { waypointCoordinates }) => total + waypointCoordinates.length, 0),
+    297,
+  );
 });
 
 test("canonical DataGateway fixture decodes exact network queries and truthful states", async () => {

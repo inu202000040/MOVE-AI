@@ -25,7 +25,7 @@ import { assertExactCount, requireInteger, requireString } from "./schema";
 import { readTable, readXlsx, type XlsxWorkbook } from "./xlsx";
 
 export const GENERATOR_ID = "move-ai-clean-room-producer";
-export const GENERATOR_VERSION = "1.0.0";
+export const GENERATOR_VERSION = "1.1.0";
 export const DEFAULT_GENERATION_CLOCK = "2026-08-13T00:00:00+09:00";
 
 const PACK_SIDECARS = [
@@ -276,9 +276,17 @@ export async function generateAll(input: {
     allSeries: readTable(chokeBook, "ALL_SERIES"),
   });
 
-  const [catalogBook, weatherBook, newsBook, tuningBook, runtimeProviderBook] = await Promise.all([
+  const [
+    catalogBook,
+    weatherBook,
+    corridorBook,
+    newsBook,
+    tuningBook,
+    runtimeProviderBook,
+  ] = await Promise.all([
     workbook("01"),
     workbook("09"),
+    workbook("16"),
     workbook("10"),
     workbook("15"),
     workbook("17"),
@@ -290,6 +298,8 @@ export async function generateAll(input: {
     ports: readTable(catalogBook, "PORTS"),
     chokepoints: readTable(catalogBook, "CHOKEPOINTS"),
     weather: readTable(weatherBook, "LOCATION_CATALOG"),
+    corridorWaypoints: readTable(corridorBook, "CORRIDOR_WAYPOINTS"),
+    corridorChokepoints: readTable(corridorBook, "CHOKEPOINTS"),
   });
   const newsPolicy = produceNewsPolicy({
     generatedAt,
@@ -428,12 +438,26 @@ export async function generateAll(input: {
       inputs: [
         provenanceInput("01", ["ROUTES", "PORTS", "CHOKEPOINTS"]),
         provenanceInput("09", ["LOCATION_CATALOG"]),
+        provenanceInput("16", ["CORRIDOR_WAYPOINTS", "CHOKEPOINTS"]),
         provenanceInput("12", ["FILES", "VALIDATION"]),
       ],
-      parameters: { timezone: "Asia/Seoul", routeWaypoints: "approved representative endpoints" },
-      rowCounts: { routes: 13, ports: 57, uniquePortSeries: 56, chokepoints: 11, weather: 82 },
-      attribution: "Approved route, PortWatch and weather catalogs",
-      usageNote: "Coordinates are retained without display rounding.",
+      parameters: {
+        timezone: "Asia/Seoul",
+        routeWaypoints: "approved CORRIDOR_WAYPOINTS anchors in waypoint_sequence order",
+        geometryUse: "INDICATIVE_REPRESENTATIVE_SEA_CORRIDOR",
+        chokepointGeometry: "approved corridor and gateHalfWidthKm",
+      },
+      rowCounts: {
+        routes: 13,
+        routeWaypoints: 297,
+        ports: 57,
+        uniquePortSeries: 56,
+        chokepoints: 11,
+        chokepointCorridorCoordinates: 57,
+        weather: 82,
+      },
+      attribution: "Approved route, corridor, PortWatch and weather catalogs",
+      usageNote: "Approved anchor, port, chokepoint corridor, and weather coordinates are retained without display rounding.",
     },
   ];
 

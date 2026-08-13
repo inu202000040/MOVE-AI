@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16" fill="none">
+  <title>해협</title>
+  <circle cx="8" cy="8" r="7.15" fill="#087C89" stroke="#C9FBFF" stroke-width=".85"/>
+  <path d="M3.15 4.15 6.5 7.15v1.7l-3.35 3M12.85 4.15 9.5 7.15v1.7l3.35 3" stroke="#fff" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M8 4.15v7.7" stroke="#74E9F5" stroke-width="1.05" stroke-linecap="round" stroke-dasharray="1.15 1.15"/>
+</svg>

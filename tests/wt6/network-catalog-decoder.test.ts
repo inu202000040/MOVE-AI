@@ -37,6 +37,10 @@ test("network catalog accepts only ordered canonical artifact keys and the appro
     () => assertNetworkCatalogSeamIdentityV1({ ...identityArtifact, byteSize: 0 }),
     /positive/u,
   );
+  assert.throws(
+    () => assertNetworkCatalogSeamIdentityV1({ ...identityArtifact, routeWaypointCount: 296 }),
+    /routeWaypointCount/u,
+  );
 });
 
 test("network route and primary-port identities are closed over the canonical route set", () => {
@@ -70,6 +74,34 @@ test("network coordinates and upstream identities are bounded and unique where r
   const badWaypoint = catalog();
   badWaypoint.routes[0].waypointCoordinates[1][0] = -181;
   assert.throws(() => assertNetworkCatalogSeamV1(badWaypoint), /longitude/u);
+
+  const missingWaypoint = catalog();
+  missingWaypoint.routes[0].waypointCoordinates.pop();
+  assert.throws(() => assertNetworkCatalogSeamV1(missingWaypoint), /waypointCoordinates length/u);
+
+  const badCorridorLongitude = catalog();
+  badCorridorLongitude.chokepoints[0].corridorCoordinates[0][0] = 180.0001;
+  assert.throws(() => assertNetworkCatalogSeamV1(badCorridorLongitude), /corridorCoordinates.*longitude/u);
+
+  const emptyCorridor = catalog();
+  emptyCorridor.chokepoints[0].corridorCoordinates.length = 0;
+  assert.throws(() => assertNetworkCatalogSeamV1(emptyCorridor), /at least two coordinates/u);
+
+  const zeroGateWidth = catalog();
+  zeroGateWidth.chokepoints[0].gateHalfWidthKm = 0;
+  assert.throws(() => assertNetworkCatalogSeamV1(zeroGateWidth), /gateHalfWidthKm must be positive/u);
+
+  const wrongChokepointKeys = catalog();
+  const chokepoint = wrongChokepointKeys.chokepoints[0];
+  wrongChokepointKeys.chokepoints[0] = {
+    id: chokepoint.id,
+    longitude: chokepoint.longitude,
+    latitude: chokepoint.latitude,
+    upstreamPortWatchId: chokepoint.upstreamPortWatchId,
+    gateHalfWidthKm: chokepoint.gateHalfWidthKm,
+    corridorCoordinates: chokepoint.corridorCoordinates,
+  };
+  assert.throws(() => assertNetworkCatalogSeamV1(wrongChokepointKeys), /ordered keys/u);
 
   const duplicateChokeUpstream = catalog();
   duplicateChokeUpstream.chokepoints[1].upstreamPortWatchId = duplicateChokeUpstream.chokepoints[0].upstreamPortWatchId;

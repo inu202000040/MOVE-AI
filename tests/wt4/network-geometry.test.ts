@@ -15,7 +15,7 @@ import {
 } from "../../app/freight-risk/network/core/catalog-consumer";
 import {
   createNetworkChokepointGeometry,
-  NETWORK_CHOKEPOINT_GEOMETRY_PROFILES,
+  NETWORK_CHOKEPOINT_KIND_BY_ID,
 } from "../../app/freight-risk/network/core/chokepoint-geometry";
 import {
   catalogToNetworkGeoJson,
@@ -24,9 +24,9 @@ import {
 
 const catalog = catalogArtifact as unknown as NetworkCatalogSeam;
 
-test("all 11 chokepoints have deterministic corridor and two-gate geometry", () => {
+test("all 11 chokepoints preserve approved corridor and gate geometry", () => {
   assert.deepEqual(
-    Object.keys(NETWORK_CHOKEPOINT_GEOMETRY_PROFILES),
+    Object.keys(NETWORK_CHOKEPOINT_KIND_BY_ID),
     [...NETWORK_CHOKEPOINT_IDS],
   );
 
@@ -35,14 +35,15 @@ test("all 11 chokepoints have deterministic corridor and two-gate geometry", () 
     const second = createNetworkChokepointGeometry(chokepoint);
     assert.deepEqual(first, second);
     assert.deepEqual(first.center, [chokepoint.longitude, chokepoint.latitude]);
-    assert.deepEqual(first.corridorCoordinates[1], first.center);
-    assert.deepEqual(
-      first.gates.map(({ side }) => side),
-      ["entry", "exit"],
+    assert.deepEqual(first.corridorCoordinates, chokepoint.corridorCoordinates);
+    assert.equal(first.gates.length, chokepoint.corridorCoordinates.length);
+    assert.equal(first.gates[0]?.side, "entry");
+    assert.equal(first.gates.at(-1)?.side, "exit");
+    assert.equal(first.gateHalfWidthKm, chokepoint.gateHalfWidthKm);
+    assert.equal(
+      first.fitCoordinates.length,
+      chokepoint.corridorCoordinates.length * 3,
     );
-    assert.equal(first.fitCoordinates.length, 5);
-    assert.ok(first.profile.corridorLengthKm > 0);
-    assert.ok(first.profile.corridorWidthKm > 0);
     for (const [longitude, latitude] of first.fitCoordinates) {
       assert.ok(Number.isFinite(longitude));
       assert.ok(longitude >= -180 && longitude <= 180);
@@ -52,7 +53,7 @@ test("all 11 chokepoints have deterministic corridor and two-gate geometry", () 
   }
 });
 
-test("network GeoJSON includes 11 shared-identity corridors and two-line gate features", () => {
+test("network GeoJSON includes 11 source corridors and all workbook gate features", () => {
   const sources = catalogToNetworkGeoJson(catalog);
   const corridors = sources["network-chokepoint-corridors"].features;
   const gates = sources["network-chokepoint-gates"].features;
@@ -69,12 +70,27 @@ test("network GeoJSON includes 11 shared-identity corridors and two-line gate fe
     assert.equal(corridor?.geometry.type, "MultiLineString");
     assert.equal(corridor?.id, id);
     assert.equal(gate?.id, id);
-    assert.equal(gate?.properties.gateCount, 2);
+    const source = catalog.chokepoints.find((item) => item.id === id);
+    assert.equal(gate?.properties.gateCount, source?.corridorCoordinates.length);
     assert.equal(gate?.geometry.type, "MultiLineString");
     if (gate?.geometry.type === "MultiLineString") {
-      assert.equal(gate.geometry.coordinates.length, 2);
+      assert.equal(gate.geometry.coordinates.length, source?.corridorCoordinates.length);
     }
   }
+});
+
+test("catalog keeps all 297 route anchors and 57 chokepoint corridor coordinates", () => {
+  assert.equal(
+    catalog.routes.reduce((total, route) => total + route.waypointCoordinates.length, 0),
+    297,
+  );
+  assert.equal(
+    catalog.chokepoints.reduce(
+      (total, chokepoint) => total + chokepoint.corridorCoordinates.length,
+      0,
+    ),
+    57,
+  );
 });
 
 test("weather GeoJSON adopts supplied condition and risk without shrinking registry", () => {

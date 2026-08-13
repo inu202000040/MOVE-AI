@@ -12,6 +12,14 @@ body:has(.network-page) > nav {
   display: none;
 }
 
+.workspace-shell[data-page="network"] .workspace-surface {
+  overflow-y: hidden;
+}
+
+.workspace-shell[data-page="network"] .workspace-content {
+  min-height: calc(100dvh - 77px);
+}
+
 @media (min-width: 901px) {
   .workspace-shell[data-page="network"] .workspace-brand-copy {
     display: none;
@@ -420,7 +428,7 @@ button,
 
 .network-weather-marker {
   align-items: center;
-  animation: network-weather-drift 4.8s ease-in-out infinite alternate;
+  animation: network-weather-breathe 4.8s ease-in-out infinite alternate;
   background: transparent;
   border: 0;
   border-radius: 50%;
@@ -432,7 +440,7 @@ button,
   justify-content: center;
   padding: 2px;
   position: absolute;
-  transition: filter 160ms ease, opacity 160ms ease, transform 160ms ease;
+  transition: filter 160ms ease, box-shadow 160ms ease;
   width: 48px;
 }
 
@@ -454,6 +462,17 @@ button,
   width: 62px;
 }
 
+/* Port and chokepoint weather rows intentionally retain the approved source
+   coordinates. Their DOM icons are offset only at presentation time so the
+   underlying entity marker remains visible and independently clickable. */
+.network-weather-marker[data-kind="port"] {
+  translate: 34px -34px;
+}
+
+.network-weather-marker[data-kind="chokepoint"] {
+  translate: 30px -30px;
+}
+
 .network-weather-marker[data-risk="warning"] {
   border-color: rgba(255, 190, 75, 0.84);
   box-shadow: 0 0 0 4px rgba(255, 190, 75, 0.14), 0 0 22px rgba(255, 190, 75, 0.52);
@@ -464,14 +483,10 @@ button,
   box-shadow: 0 0 0 5px rgba(255, 93, 98, 0.14), 0 0 26px rgba(255, 93, 98, 0.62);
 }
 
-.network-weather-marker[data-visible="false"] {
-  opacity: 0 !important;
-  pointer-events: none;
-}
-
-.network-weather-marker[data-visible="false"]:focus-visible {
-  opacity: 1 !important;
-  pointer-events: auto;
+.network-weather-marker[hidden],
+.network-weather-marker[data-visible="false"],
+.network-weather-marker.maplibregl-marker-covered {
+  display: none !important;
 }
 
 .network-weather-marker[data-selected="true"],
@@ -507,15 +522,15 @@ button,
   opacity: 1;
 }
 
-@keyframes network-weather-drift {
-  to { margin-top: -3px; }
+@keyframes network-weather-breathe {
+  to { filter: brightness(1.06) saturate(1.04); }
 }
 
 .network-legend {
-  bottom: 22px;
-  left: 18px;
+  bottom: 18px;
+  left: 20px;
   position: absolute;
-  z-index: 12;
+  z-index: 15;
 }
 
 .network-legend > button {
@@ -525,52 +540,117 @@ button,
   border-radius: 12px;
   box-shadow: 5px 5px 14px rgba(0, 7, 18, 0.28), -3px -3px 9px rgba(255, 255, 255, 0.45);
   color: #16269d;
+  font-size: 10px;
+  font-weight: 850;
+  min-width: 64px;
+  padding: 0 14px;
+}
+
+.network-legend__panel {
+  backdrop-filter: blur(14px);
+  background: rgba(241, 242, 249, 0.97);
+  border: 1px solid rgba(63, 161, 235, 0.22);
+  border-radius: 14px;
+  bottom: 50px;
+  box-shadow: 0 16px 38px rgba(0, 18, 144, 0.22);
+  box-sizing: border-box;
+  color: #25304b;
+  left: 0;
+  padding: 12px 13px;
+  position: absolute;
+  width: 264px;
+}
+
+.network-legend__head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+
+.network-legend__head strong {
+  color: #071663;
   font-size: 11px;
-  font-weight: 800;
-  padding: 0 16px;
+  font-weight: 900;
+}
+
+.network-legend__head button {
+  align-items: center;
+  background: rgba(224, 226, 237, 0.8);
+  border: 0;
+  border-radius: 9px;
+  color: #253b9f;
+  cursor: pointer;
+  display: flex;
+  font-size: 20px;
+  height: 34px;
+  justify-content: center;
+  line-height: 1;
+  width: 34px;
 }
 
 .network-legend ul {
-  background: var(--network-surface);
-  border: 1px solid rgba(110, 167, 184, 0.4);
-  border-radius: 16px;
-  bottom: 50px;
-  box-shadow: 0 20px 50px rgba(0, 7, 13, 0.35);
-  color: #173142;
   display: grid;
-  gap: 11px;
-  left: 0;
+  gap: 9px 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   list-style: none;
   margin: 0;
-  min-width: 188px;
-  padding: 14px;
-  position: absolute;
+  padding: 0;
 }
 
 .network-legend li {
   align-items: center;
   display: flex;
-  font-size: 11px;
-  font-weight: 700;
-  gap: 9px;
+  font-size: 8.5px;
+  font-weight: 650;
+  gap: 7px;
+  line-height: 1.25;
+  min-width: 0;
 }
 
 .network-legend i {
-  border-radius: 99px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
   display: inline-block;
-  height: 4px;
-  width: 22px;
+  flex: 0 0 20px;
+  height: 14px;
+  width: 20px;
 }
 
-.legend-origin { background: var(--network-amber); box-shadow: 0 0 0 3px #833e14; }
-.legend-route { background: var(--network-cyan); }
-.legend-port { background: #ecfdff; box-shadow: 0 0 0 3px #1d738d; }
-.legend-choke { background: var(--network-orange); }
-.legend-connector { background: #55a8bd; }
-.legend-strait { background: #ff8b46; }
-.legend-canal { background: #f4be65; }
-.legend-weather { background: #5ad3ae; box-shadow: 0 0 0 3px #176a62; }
-.legend-help { background: #8194a1; }
+.legend-origin,
+.legend-port { background-image: url("/network/globe-symbols/port.svg"); }
+.legend-route {
+  background: #159bf4;
+  border-radius: 999px;
+  box-shadow: 0 0 4px rgba(21, 155, 244, 0.55);
+  height: 3px !important;
+}
+.legend-connector {
+  background: repeating-linear-gradient(90deg, #58b9f2 0 4px, transparent 4px 7px);
+  height: 2px !important;
+}
+.legend-strait { background-image: url("/network/globe-symbols/strait.svg"); }
+.legend-canal { background-image: url("/network/globe-symbols/canal.svg"); }
+.legend-weather {
+  background-image: url("/network/icons/weather/partly-cloudy-day.svg");
+  filter: drop-shadow(0 2px 3px rgba(21, 88, 139, 0.32));
+}
+.legend-choke {
+  background: linear-gradient(90deg, #ffd166, #ff8a38 54%, #ff385d);
+  border: 1px dashed rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  box-shadow: 0 0 7px rgba(255, 138, 56, 0.48);
+  height: 8px !important;
+}
+
+.network-legend__panel > p {
+  border-top: 1px solid rgba(78, 102, 146, 0.17);
+  color: #717789;
+  font-size: 8px;
+  margin: 10px 0 0;
+  padding-top: 8px;
+}
 
 .network-detail-panel {
   background: var(--network-surface);
@@ -813,6 +893,11 @@ button,
   vector-effect: non-scaling-stroke;
 }
 
+.network-static-map__connectors polyline.is-selected {
+  stroke: #ffb400;
+  stroke-width: 2.35;
+}
+
 .network-static-map__route {
   fill: none;
   filter: url(#network-route-glow);
@@ -920,6 +1005,7 @@ button,
 
 @media (max-width: 640px) {
   .workspace-shell[data-page="network"] .workspace-content {
+    min-height: calc(100dvh - 78px);
     padding: 0;
   }
 
@@ -962,7 +1048,9 @@ button,
   .network-detail-panel--chokepoint,
   .network-detail-panel--port { width: auto; }
   .network-detail-panel h2 { font-size: 22px; }
-  .network-legend { bottom: 10px; left: 12px; }
+  .network-legend { bottom: 10px; left: 8px; }
+  .network-legend__panel { width: 157px; }
+  .network-legend ul { grid-template-columns: 1fr; }
   .network-static-map__controls { bottom: 9px; right: 12px; }
   .network-map-footer { bottom: 10px; max-width: 160px; text-align: center; }
   .network-weather-status { left: 12px; right: auto; top: 12px; }

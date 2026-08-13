@@ -81,13 +81,18 @@ const FALLBACK_SOURCE_IDS = new Set([
 const SCENE_IMAGES: readonly SceneImageDefinition[] = [
   {
     id: "network-icon-port",
-    url: "/network/icons/tabler/anchor.svg",
-    pixelRatio: 1,
+    url: "/network/globe-symbols/port.svg",
+    pixelRatio: 2,
   },
   {
-    id: "network-icon-chokepoint",
-    url: "/network/icons/tabler/radar-2.svg",
-    pixelRatio: 1,
+    id: "network-icon-chokepoint-strait",
+    url: "/network/globe-symbols/strait.svg",
+    pixelRatio: 2,
+  },
+  {
+    id: "network-icon-chokepoint-canal",
+    url: "/network/globe-symbols/canal.svg",
+    pixelRatio: 2,
   },
   {
     id: "network-icon-weather-normal",

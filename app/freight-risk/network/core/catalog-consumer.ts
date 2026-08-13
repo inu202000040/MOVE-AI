@@ -2,11 +2,28 @@ import { ROUTE_IDS } from "../../../contracts/routes";
 
 export const NETWORK_CATALOG_COUNTS = {
   routes: 13,
+  routeWaypoints: 297,
   ports: 57,
   uniquePortSeries: 56,
   chokepoints: 11,
   weather: 82,
 } as const;
+
+export const NETWORK_ROUTE_WAYPOINT_COUNTS = {
+  KAUI: 17,
+  KCI: 6,
+  KJI: 8,
+  KLEI: 28,
+  KLWI: 11,
+  KMDI: 40,
+  KMEI: 30,
+  KNEI: 52,
+  KSAI: 25,
+  KSEI: 12,
+  KUEI: 28,
+  KUWI: 10,
+  KWAI: 30,
+} as const satisfies Readonly<Record<(typeof ROUTE_IDS)[number], number>>;
 
 export const NETWORK_CATALOG_SCHEMA_VERSION = "network-catalog-seam/v1" as const;
 export const NETWORK_CATALOG_IDENTITY_SCHEMA_VERSION =
@@ -49,6 +66,8 @@ export interface NetworkChokepointRecord {
   readonly longitude: number;
   readonly latitude: number;
   readonly upstreamPortWatchId: string;
+  readonly corridorCoordinates: readonly Coordinate[];
+  readonly gateHalfWidthKm: number;
 }
 
 export type NetworkWeatherKind = "port" | "chokepoint" | "route";
@@ -77,6 +96,7 @@ export interface NetworkCatalogIdentity {
   readonly catalogSeamSha256: string;
   readonly byteSize: number;
   readonly routeCount: number;
+  readonly routeWaypointCount: number;
   readonly portCount: number;
   readonly uniquePortSeriesCount: number;
   readonly chokepointCount: number;
@@ -135,6 +155,8 @@ const CHOKEPOINT_KEYS = [
   "longitude",
   "latitude",
   "upstreamPortWatchId",
+  "corridorCoordinates",
+  "gateHalfWidthKm",
 ] as const;
 const WEATHER_KEYS = [
   "id",
@@ -148,6 +170,7 @@ const IDENTITY_KEYS = [
   "catalogSeamSha256",
   "byteSize",
   "routeCount",
+  "routeWaypointCount",
   "portCount",
   "uniquePortSeriesCount",
   "chokepointCount",
@@ -259,20 +282,32 @@ function parseChokepoint(value: unknown): NetworkChokepointRecord | null {
   }
   const longitude = value.longitude;
   const latitude = value.latitude;
+  const gateHalfWidthKm = value.gateHalfWidthKm;
   if (
     !isIdentifier(value.id) ||
     !isIdentifier(value.upstreamPortWatchId) ||
     !isFiniteCoordinate(longitude, latitude) ||
     typeof longitude !== "number" ||
-    typeof latitude !== "number"
+    typeof latitude !== "number" ||
+    !Array.isArray(value.corridorCoordinates) ||
+    value.corridorCoordinates.length < 2 ||
+    typeof gateHalfWidthKm !== "number" ||
+    !Number.isFinite(gateHalfWidthKm) ||
+    gateHalfWidthKm <= 0
   ) {
     return null;
   }
+  const corridorCoordinates = value.corridorCoordinates.map(parseCoordinate);
+  if (corridorCoordinates.some((coordinate) => coordinate === null)) return null;
   return {
     id: value.id,
     longitude,
     latitude,
     upstreamPortWatchId: value.upstreamPortWatchId,
+    corridorCoordinates: corridorCoordinates.filter(
+      (coordinate): coordinate is Coordinate => coordinate !== null,
+    ),
+    gateHalfWidthKm,
   };
 }
 
@@ -370,6 +405,10 @@ export function decodeNetworkCatalogSeam(
     parsedPorts.length !== NETWORK_CATALOG_COUNTS.ports ||
     parsedChokepoints.length !== NETWORK_CATALOG_COUNTS.chokepoints ||
     parsedWeather.length !== NETWORK_CATALOG_COUNTS.weather ||
+    parsedRoutes.reduce(
+      (total, route) => total + route.waypointCoordinates.length,
+      0,
+    ) !== NETWORK_CATALOG_COUNTS.routeWaypoints ||
     !isSortedUnique(parsedRoutes) ||
     !isSortedUnique(parsedPorts) ||
     !isSortedUnique(parsedChokepoints) ||
@@ -377,6 +416,11 @@ export function decodeNetworkCatalogSeam(
     !sameStringSet(
       parsedRoutes.map((route) => route.id),
       ROUTE_IDS,
+    ) ||
+    parsedRoutes.some(
+      (route) =>
+        route.waypointCoordinates.length !==
+        NETWORK_ROUTE_WAYPOINT_COUNTS[route.id as keyof typeof NETWORK_ROUTE_WAYPOINT_COUNTS],
     ) ||
     !sameStringSet(
       parsedChokepoints.map((chokepoint) => chokepoint.id),
@@ -471,6 +515,7 @@ export function decodeNetworkCatalogIdentity(
     !SHA256_PATTERN.test(value.referenceManifestSha256) ||
     !isNonnegativeInteger(value.byteSize) ||
     !isNonnegativeInteger(value.routeCount) ||
+    !isNonnegativeInteger(value.routeWaypointCount) ||
     !isNonnegativeInteger(value.portCount) ||
     !isNonnegativeInteger(value.uniquePortSeriesCount) ||
     !isNonnegativeInteger(value.chokepointCount) ||
@@ -483,6 +528,7 @@ export function decodeNetworkCatalogIdentity(
     catalogSeamSha256: value.catalogSeamSha256,
     byteSize: value.byteSize,
     routeCount: value.routeCount,
+    routeWaypointCount: value.routeWaypointCount,
     portCount: value.portCount,
     uniquePortSeriesCount: value.uniquePortSeriesCount,
     chokepointCount: value.chokepointCount,
@@ -552,6 +598,10 @@ export async function validateNetworkCatalogHandoff(
   if (catalog) {
     if (
       identity.routeCount !== catalog.routes.length ||
+      identity.routeWaypointCount !== catalog.routes.reduce(
+        (total, route) => total + route.waypointCoordinates.length,
+        0,
+      ) ||
       identity.portCount !== catalog.ports.length ||
       identity.uniquePortSeriesCount !==
         new Set(catalog.ports.map((port) => port.upstreamPortWatchId)).size ||

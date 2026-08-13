@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  coordinateFacesGlobeCenter,
   declutterProjectedMarkers,
   selectVisibleWeather,
   WEATHER_DECLUTTER_ZOOM,
@@ -95,6 +96,19 @@ test("declutter threshold is stable at 2.14/2.15 and preserves risk priority", (
   );
 });
 
+test("weather declutter never resurrects backface or offscreen markers", () => {
+  assert.equal(coordinateFacesGlobeCenter([127, 35], [126, 27]), true);
+  assert.equal(coordinateFacesGlobeCenter([-54, -27], [126, 27]), false);
+  assert.deepEqual(
+    selectVisibleWeather([
+      weatherCandidate({ id: "front", globeFacing: true, inViewport: true }),
+      weatherCandidate({ id: "back-selected", selected: true, globeFacing: false, inViewport: true }),
+      weatherCandidate({ id: "offscreen", selected: true, globeFacing: true, inViewport: false }),
+    ], 4, 20).map(({ id }) => id),
+    ["front"],
+  );
+});
+
 test("overlapping port hit targets receive deterministic one-to-one positions", () => {
   const first = declutterProjectedMarkers([
     { id: "port:LONG_BEACH", x: 200, y: 100 },
@@ -162,6 +176,20 @@ test("pointer dispatch is categorical and nearby ports resolve deterministically
       ],
     }),
     { kind: "port", id: "long-beach" },
+  );
+
+  assert.deepEqual(
+    resolveNetworkPointerIntent({
+      weather: [
+        { id: "weather-los-angeles", distance: 0, explicitTarget: true, visualOrder: 4 },
+      ],
+      ports: [
+        { id: "los-angeles", distance: 0, explicitTarget: true, visualOrder: 3 },
+      ],
+      chokepoints: [],
+      routeIds: ["KUWI"],
+    }),
+    { kind: "port", id: "los-angeles" },
   );
 });
 

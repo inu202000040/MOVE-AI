@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import { gzipSync } from "node:zlib";
 import test from "node:test";
+import { WEATHER_LOCATIONS_V1 } from "../../app/api/globe-weather/weather-locations";
 import {
   WeatherGatewayServiceV1,
   classifyWeatherV1,
@@ -8,6 +10,7 @@ import {
   decodeMetNorwayV1,
   decodeOpenMeteoMarineV1,
 } from "../../app/api/globe-weather/weather-service";
+import { readTable, readXlsx } from "../../scripts/wt6/xlsx";
 
 const NOW_MS = Date.parse("2026-08-13T07:00:00.000Z");
 
@@ -136,6 +139,52 @@ test("METAR CSV enforces time bounds and preserves minimum visibility semantics"
   assert.equal(readings[0].windGustKn, 30);
   assert.equal(readings[0].visibilityIsMinimum, false);
 });
+
+test(
+  "weather locations have zero identity, name, route, and coordinate mismatches against workbook 09",
+  { skip: !process.env.MOVE_AI_DATA_PACK_ROOT },
+  async () => {
+    const inputRoot = process.env.MOVE_AI_DATA_PACK_ROOT;
+    assert.ok(inputRoot);
+    const workbook = await readXlsx(
+      path.join(inputRoot, "09_WEATHER_API_REFERENCE.xlsx"),
+      ["LOCATION_CATALOG"],
+    );
+    const sourceLocations = readTable(workbook, "LOCATION_CATALOG");
+    assert.equal(sourceLocations.length, 82);
+    assert.equal(
+      new Set(sourceLocations.map((location) => location.location_key)).size,
+      82,
+    );
+
+    const approved = sourceLocations
+      .map((location) => ({
+        key: location.location_key,
+        kind: location.kind,
+        entityId: location.entity_id,
+        nameKo: location.name_ko,
+        subtitleKo: location.subtitle_ko,
+        routeCode: location.route_code,
+        longitude: location.longitude,
+        latitude: location.latitude,
+      }))
+      .sort((left, right) =>
+        String(left.key).localeCompare(String(right.key)),
+      );
+    const runtime = WEATHER_LOCATIONS_V1.map((location) => ({
+      key: location.key,
+      kind: location.kind,
+      entityId: location.entityId,
+      nameKo: location.nameKo,
+      subtitleKo: location.subtitleKo,
+      routeCode: location.routeCode,
+      longitude: location.longitude,
+      latitude: location.latitude,
+    })).sort((left, right) => left.key.localeCompare(right.key));
+
+    assert.deepEqual(runtime, approved);
+  },
+);
 
 test("condition precedence and every matching risk reason are retained", () => {
   const result = classifyWeatherV1({
