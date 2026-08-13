@@ -1,10 +1,9 @@
-export const GATEWAY_SCHEMA_VERSION = "move-ai/gateway-v1" as const;
+export const GATEWAY_SCHEMA_VERSION = "move-ai/gateway/v1" as const;
 
 export const DATA_MODES = [
   "live",
-  "cached",
   "fixture",
-  "reference",
+  "cached",
   "unavailable",
 ] as const;
 
@@ -18,7 +17,15 @@ export const GATEWAY_ROOT_KEYS = [
   "meta",
 ] as const;
 
-export const GATEWAY_ERROR_KEYS = ["code", "message", "retryable"] as const;
+export const GATEWAY_ERROR_KEYS = [
+  "code",
+  "message",
+  "retryable",
+  "upstreamStatus",
+  "details",
+] as const;
+
+export const GATEWAY_ERROR_DETAIL_KEYS = ["reasonCode"] as const;
 
 export const GATEWAY_META_KEYS = [
   "mode",
@@ -28,6 +35,9 @@ export const GATEWAY_META_KEYS = [
   "fetchedAt",
   "unit",
   "isEstimate",
+  "attribution",
+  "warnings",
+  "provider",
   "cache",
 ] as const;
 
@@ -37,6 +47,12 @@ export interface GatewayErrorV1 {
   readonly code: string;
   readonly message: string;
   readonly retryable: boolean;
+  readonly upstreamStatus: number | null;
+  readonly details: GatewayErrorDetailsV1 | null;
+}
+
+export interface GatewayErrorDetailsV1 {
+  readonly reasonCode: string;
 }
 
 export interface GatewayCacheMetaV1 {
@@ -53,7 +69,16 @@ export interface GatewayMetaV1 {
   readonly fetchedAt: string;
   readonly unit: string | null;
   readonly isEstimate: boolean;
+  readonly attribution: string;
+  readonly warnings: readonly string[];
+  readonly provider: string | null;
   readonly cache: GatewayCacheMetaV1;
+}
+
+export function isGatewaySchemaVersion(
+  value: unknown,
+): value is typeof GATEWAY_SCHEMA_VERSION {
+  return value === GATEWAY_SCHEMA_VERSION;
 }
 
 export interface GatewayResultV1<TData, TState extends string> {

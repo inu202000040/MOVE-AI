@@ -65,16 +65,22 @@ route 변경은 URL `replaceState`, storage 저장, 동일 origin route event �
 모든 public gateway 결과는 다음 공통 envelope를 가진다.
 
 ```ts
-type DataMode = "live" | "cached" | "fixture" | "reference" | "unavailable";
+type DataMode = "live" | "fixture" | "cached" | "unavailable";
+
+type GatewayErrorDetailsV1 = {
+  reasonCode: string;
+};
 
 type GatewayResultV1<TData, TState extends string> = {
-  schemaVersion: "move-ai/gateway-v1";
+  schemaVersion: "move-ai/gateway/v1";
   state: TState;
   data: TData | null;
   error: {
     code: string;
     message: string;
     retryable: boolean;
+    upstreamStatus: number | null;
+    details: GatewayErrorDetailsV1 | null;
   } | null;
   meta: {
     mode: DataMode;
@@ -84,6 +90,9 @@ type GatewayResultV1<TData, TState extends string> = {
     fetchedAt: string;
     unit: string | null;
     isEstimate: boolean;
+    attribution: string;
+    warnings: string[];
+    provider: string | null;
     cache: {
       hit: boolean;
       stale: boolean;
@@ -96,10 +105,13 @@ type GatewayResultV1<TData, TState extends string> = {
 규칙:
 
 - `mode=unavailable`이면 `data=null`, `error!=null`이다.
-- fixture/reference/cached 값을 UI에서 LIVE로 표시하지 않는다.
+- fixture/cached 값을 UI에서 LIVE로 표시하지 않는다.
+- `REFERENCE`는 market domain state이며 `meta.mode`가 아니다.
 - `state`는 method별 정확한 literal allowlist를 가진다.
 - public HTTP와 storage 경계에서 envelope와 domain data를 모두 구조 검증한다.
 - upstream JSON은 `unknown`으로 받고 검증 전 타입 단언하지 않는다.
+- `error.details`의 허용 key는 forward-additive string인 `reasonCode` 하나다.
+- stack, raw provider body, filesystem detail, credential은 error에 넣지 않는다.
 
 ## 5. DataGateway 메서드
 
