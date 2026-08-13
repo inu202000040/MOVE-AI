@@ -34,6 +34,7 @@ const style = createRemoteFreeGlobeStyle({
   weatherNormal: "normal",
   weatherWarning: "warning",
   weatherSevere: "severe",
+  weatherUnavailable: "unavailable",
 });
 
 class RuntimeCanvas implements MapLibreCanvasLike {

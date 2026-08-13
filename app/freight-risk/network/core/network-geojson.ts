@@ -201,7 +201,7 @@ export function catalogToNetworkGeoJson(
           weatherId: weather.id,
           kind: weather.kind,
           entityId: weather.entityId,
-          risk: "normal",
+          risk: "unavailable",
         },
       })),
     },

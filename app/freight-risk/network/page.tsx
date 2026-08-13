@@ -4,7 +4,7 @@ import "./network.css";
 import { validatedArtifactSeamV1 } from "../../data/runtime/data-gateway";
 import { NetworkPageClient } from "./NetworkPageClient";
 
-export default async function NetworkPage() {
+async function NetworkPageContent() {
   const artifacts = await validatedArtifactSeamV1();
   return (
     <NetworkPageClient
@@ -14,4 +14,8 @@ export default async function NetworkPage() {
       }}
     />
   );
+}
+
+export default function NetworkPage() {
+  return <NetworkPageContent />;
 }

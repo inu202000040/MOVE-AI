@@ -21,6 +21,7 @@ export interface NetworkMapPalette {
   readonly weatherNormal: string;
   readonly weatherWarning: string;
   readonly weatherSevere: string;
+  readonly weatherUnavailable: string;
 }
 
 export type RemoteFreeGlobeStyle = StyleSpecification & {
@@ -227,7 +228,9 @@ export function createNetworkMapLayers(
           palette.weatherSevere,
           "warning",
           palette.weatherWarning,
+          "normal",
           palette.weatherNormal,
+          palette.weatherUnavailable,
         ],
         "circle-radius": 3.5,
         "circle-opacity": 0.9,

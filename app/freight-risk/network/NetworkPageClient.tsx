@@ -12,12 +12,12 @@ import {
 } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { DataGatewayV1 } from "../../contracts/gateway";
+import { useFreightRiskRoute } from "../../components/shell";
 import {
   DEFAULT_ROUTE_ID,
   isRouteId,
   type RouteId,
 } from "../../contracts/routes";
-import { STORAGE_KEYS } from "../../contracts/storage";
 import type {
   ChokepointTrafficDataV1,
   PortTrafficDataV1,
@@ -58,8 +58,14 @@ import {
 } from "./core";
 import {
   APPROVED_NETWORK_LABELS,
+  buildNetworkChartPath,
   createNetworkRuntimeAdapters,
+  formatEstimatedTons,
+  formatPercent,
+  formatVesselCalls,
+  resolveChokepointPanelDataV1,
   resolveNetworkResource,
+  resolvePortPanelDataV1,
   type ChokepointStateV1,
   type NetworkCatalogAdapterResult,
   type NetworkCatalogArtifactPropsV1,
@@ -81,9 +87,8 @@ const MAP_PALETTE = {
   weatherNormal: "#5ad3ae",
   weatherWarning: "#ffbd4a",
   weatherSevere: "#ff5d62",
+  weatherUnavailable: "#8aa6b2",
 } as const;
-
-const ROUTE_CHANGE_EVENT = "move-ai:route-change";
 
 function initialSelection(routeId: RouteId): NetworkSelectionState {
   return {
@@ -115,8 +120,6 @@ type CatalogClientState =
 interface NetworkPageClientProps {
   readonly dataGateway?: DataGatewayV1;
   readonly initialCatalogArtifacts: NetworkCatalogArtifactPropsV1;
-  readonly initialRouteId?: RouteId;
-  readonly preferStoredRoute?: boolean;
 }
 
 const FALLBACK_LABELS: Readonly<Record<StaticFallbackReason, string>> = {
@@ -157,6 +160,13 @@ function resourceLabel<TData, TState extends string>(
   }
   if (resource.status === "error") return "UNAVAILABLE";
   return "연결 확인 중";
+}
+
+function resourceData<TData, TState extends string>(
+  resource: NetworkResourceState<TData, TState>,
+): TData | null {
+  if (resource.status !== "ready" && resource.status !== "empty") return null;
+  return resource.result.data;
 }
 
 function detailCloseLabel(kind: ReturnType<typeof visibleNetworkPanel>["kind"]): string {
@@ -209,6 +219,21 @@ function StaticNetworkMap({
       })),
     [catalog],
   );
+  const connectorSegments = useMemo(
+    () =>
+      catalogToNetworkGeoJson(catalog)["network-connectors"].features.flatMap(
+        (feature) => {
+          if (feature.geometry.type !== "MultiLineString") return [];
+          return feature.geometry.coordinates.map((segment, index) => ({
+            id: `${String(feature.id)}:${index}`,
+            points: segment.map((coordinate) =>
+              projectWebMercator(coordinate, 1000, 500),
+            ),
+          }));
+        },
+      ),
+    [catalog],
+  );
   const markerPositions = useMemo(
     () =>
       new Map(
@@ -243,7 +268,9 @@ function StaticNetworkMap({
   );
 
   const beginPan = (event: PointerEvent<SVGSVGElement>): void => {
-    if ((event.target as Element).closest("[role=button]")) return;
+    if (event.target instanceof Element && event.target.closest("[role=button]")) {
+      return;
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = { x: event.clientX, y: event.clientY, viewport };
   };
@@ -307,6 +334,15 @@ function StaticNetworkMap({
             y2={index * 83.333}
           />
         ))}
+        <g aria-hidden="true" className="network-static-map__connectors">
+          {connectorSegments.map((segment) => (
+            <polyline
+              data-network-connector="true"
+              key={segment.id}
+              points={segment.points.map(({ x, y }) => `${x},${y}`).join(" ")}
+            />
+          ))}
+        </g>
         {routeSegments.map(({ route, segments }) => {
           if (!isRouteId(route.id)) return null;
           const routeId = route.id;
@@ -447,13 +483,15 @@ function StaticNetworkMap({
 export function NetworkPageClient({
   dataGateway,
   initialCatalogArtifacts,
-  initialRouteId = DEFAULT_ROUTE_ID,
-  preferStoredRoute = true,
 }: NetworkPageClientProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const selectionTriggerRef = useRef<HTMLElement | SVGElement | null>(null);
-  const publishingRouteEventRef = useRef(false);
+  const navigationInitializedRef = useRef(false);
+  const {
+    routeId: navigationRouteId,
+    changeRoute,
+  } = useFreightRiskRoute();
   const runtimeAdapters = useMemo(
     () => createNetworkRuntimeAdapters({
       artifacts: initialCatalogArtifacts,
@@ -470,15 +508,19 @@ export function NetworkPageClient({
   const [renderer, dispatchRenderer] = useReducer(reduceRendererState, INITIAL_RENDERER_STATE);
   const [selection, dispatchSelection] = useReducer(
     reduceNetworkSelection,
-    initialSelection(initialRouteId),
+    initialSelection(DEFAULT_ROUTE_ID),
   );
   const [focusMode, setFocusMode] = useState<NetworkFocusMode>("combined");
   const [viewport, setViewport] = useState(DEFAULT_STATIC_VIEWPORT);
   const [legendOpen, setLegendOpen] = useState(false);
-  const [routeReconciled, setRouteReconciled] = useState(false);
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [rendererAttempt, setRendererAttempt] = useState(0);
-  const [gatewayAttempt, setGatewayAttempt] = useState(0);
+  const [portAttempt, setPortAttempt] = useState(0);
+  const [chokepointAttempt, setChokepointAttempt] = useState(0);
+  const [weatherAttempt, setWeatherAttempt] = useState(0);
+  const [chokepointMetric, setChokepointMetric] = useState<"tons" | "vessels">(
+    "tons",
+  );
   const [catalogResource, setCatalogResource] = useState<CatalogClientState>({
     status: "loading",
     attempt: 0,
@@ -533,11 +575,36 @@ export function NetworkPageClient({
     panel.kind === "weather"
       ? catalog?.weather.find(({ id }) => id === panel.id) ?? null
       : null;
+  const portPanelData = selectedPort
+    ? resolvePortPanelDataV1(
+        selectedPort.id,
+        resourceData(portResource),
+        resourceData(portDetailResource),
+      )
+    : null;
+  const chokepointPanelData = selectedChokepoint
+    ? resolveChokepointPanelDataV1(
+        selectedChokepoint.id,
+        resourceData(chokepointResource),
+        resourceData(chokepointDetailResource),
+      )
+    : null;
+  const portChartPath = buildNetworkChartPath(
+    portPanelData?.detail?.points.map(({ estimatedTotalTons7d }) =>
+      estimatedTotalTons7d,
+    ) ?? [],
+  );
+  const chokepointChartPath = buildNetworkChartPath(
+    chokepointPanelData?.detail?.points.map((point) =>
+      chokepointMetric === "tons"
+        ? point.estimatedTransitTons7d
+        : point.containerVessels7d,
+    ) ?? [],
+  );
 
-  const selectRoute = useCallback(
+  const selectMapRoute = useCallback(
     (routeId: RouteId, trigger?: HTMLElement | SVGElement): void => {
       if (trigger) selectionTriggerRef.current = trigger;
-      dispatchSelection({ type: "CHANGE_NAVIGATION_ROUTE", routeId });
       dispatchSelection({ type: "SELECT_ROUTE", routeId });
       const route = catalog?.routes.find(({ id }) => id === routeId);
       const center = route?.waypointCoordinates[
@@ -551,6 +618,13 @@ export function NetworkPageClient({
     },
     [catalog],
   );
+  const changeNavigationRoute = useCallback(
+    (routeId: RouteId, trigger?: HTMLElement | SVGElement): void => {
+      if (!changeRoute(routeId)) return;
+      selectMapRoute(routeId, trigger);
+    },
+    [changeRoute, selectMapRoute],
+  );
   const selectPort = useCallback((
     portId: string,
     trigger?: HTMLElement | SVGElement,
@@ -558,7 +632,6 @@ export function NetworkPageClient({
     if (trigger) selectionTriggerRef.current = trigger;
     const port = catalog?.ports.find(({ id }) => id === portId);
     if (!port) return;
-    dispatchSelection({ type: "CHANGE_NAVIGATION_ROUTE", routeId: port.routeId });
     dispatchSelection({ type: "SELECT_PORT", portId, routeId: port.routeId });
     if (port) {
       mapRef.current?.easeTo({ center: [port.longitude, port.latitude], zoom: 4.6, duration: 700 });
@@ -627,26 +700,20 @@ export function NetworkPageClient({
 
   useEffect(() => {
     if (!catalog) return;
-    const attempt = gatewayAttempt + 1;
+    const attempt = portAttempt + 1;
     const gateway = runtimeAdapters.gateway;
     if (!gateway) {
-      const unavailable = {
+      setPortResource({
         status: "error" as const,
         attempt,
         result: null,
         retryable: false,
         message: "데이터 게이트웨이를 사용할 수 없습니다.",
-      };
-      setPortResource(unavailable);
-      setChokepointResource(unavailable);
-      setWeatherResource(unavailable);
+      });
       return;
     }
     const controller = new AbortController();
     setPortResource({ status: "loading", attempt });
-    setChokepointResource({ status: "loading", attempt });
-    setWeatherResource({ status: "loading", attempt });
-
     void gateway.portSummary(controller.signal).then(
       (result) => {
         if (!controller.signal.aborted) {
@@ -665,6 +732,25 @@ export function NetworkPageClient({
         }
       },
     );
+    return () => controller.abort();
+  }, [catalog, portAttempt, runtimeAdapters]);
+
+  useEffect(() => {
+    if (!catalog) return;
+    const attempt = chokepointAttempt + 1;
+    const gateway = runtimeAdapters.gateway;
+    if (!gateway) {
+      setChokepointResource({
+        status: "error",
+        attempt,
+        result: null,
+        retryable: false,
+        message: "데이터 게이트웨이를 사용할 수 없습니다.",
+      });
+      return;
+    }
+    const controller = new AbortController();
+    setChokepointResource({ status: "loading", attempt });
     void gateway.chokeSummary(controller.signal).then(
       (result) => {
         if (!controller.signal.aborted) {
@@ -683,6 +769,25 @@ export function NetworkPageClient({
         }
       },
     );
+    return () => controller.abort();
+  }, [catalog, chokepointAttempt, runtimeAdapters]);
+
+  useEffect(() => {
+    if (!catalog) return;
+    const attempt = weatherAttempt + 1;
+    const gateway = runtimeAdapters.gateway;
+    if (!gateway) {
+      setWeatherResource({
+        status: "error",
+        attempt,
+        result: null,
+        retryable: false,
+        message: "데이터 게이트웨이를 사용할 수 없습니다.",
+      });
+      return;
+    }
+    const controller = new AbortController();
+    setWeatherResource({ status: "loading", attempt });
     void gateway.weather(controller.signal).then(
       (result) => {
         if (!controller.signal.aborted) {
@@ -702,14 +807,14 @@ export function NetworkPageClient({
       },
     );
     return () => controller.abort();
-  }, [catalog, gatewayAttempt, runtimeAdapters]);
+  }, [catalog, runtimeAdapters, weatherAttempt]);
 
   useEffect(() => {
     if (!selectedPort) {
       setPortDetailResource({ status: "idle" });
       return;
     }
-    const attempt = gatewayAttempt + 1;
+    const attempt = portAttempt + 1;
     const gateway = runtimeAdapters.gateway;
     if (!gateway) {
       setPortDetailResource({
@@ -744,14 +849,14 @@ export function NetworkPageClient({
         },
       );
     return () => controller.abort();
-  }, [gatewayAttempt, runtimeAdapters, selectedPort]);
+  }, [portAttempt, runtimeAdapters, selectedPort]);
 
   useEffect(() => {
     if (!selectedChokepoint) {
       setChokepointDetailResource({ status: "idle" });
       return;
     }
-    const attempt = gatewayAttempt + 1;
+    const attempt = chokepointAttempt + 1;
     const gateway = runtimeAdapters.gateway;
     if (!gateway) {
       setChokepointDetailResource({
@@ -786,75 +891,18 @@ export function NetworkPageClient({
         },
       );
     return () => controller.abort();
-  }, [gatewayAttempt, runtimeAdapters, selectedChokepoint]);
+  }, [chokepointAttempt, runtimeAdapters, selectedChokepoint]);
 
   useEffect(() => {
-    const queryRoute = new URL(window.location.href).searchParams.get("route");
-    let routeId = isRouteId(queryRoute) ? queryRoute : initialRouteId;
-    if (!isRouteId(queryRoute) && preferStoredRoute) {
-      try {
-        const stored = window.localStorage.getItem(STORAGE_KEYS.route);
-        if (isRouteId(stored)) routeId = stored;
-      } catch {
-        // URL/default route remains authoritative when storage is unavailable.
-      }
+    dispatchSelection({
+      type: "CHANGE_NAVIGATION_ROUTE",
+      routeId: navigationRouteId,
+    });
+    if (!navigationInitializedRef.current) {
+      navigationInitializedRef.current = true;
+      dispatchSelection({ type: "SELECT_ROUTE", routeId: navigationRouteId });
     }
-    dispatchSelection({ type: "CHANGE_NAVIGATION_ROUTE", routeId });
-    dispatchSelection({ type: "SELECT_ROUTE", routeId });
-    setRouteReconciled(true);
-  }, [initialRouteId, preferStoredRoute]);
-
-  useEffect(() => {
-    if (!routeReconciled) return;
-    const routeId = selection.navigationRouteId;
-    if (!isRouteId(routeId)) return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("route", routeId);
-    window.history.replaceState(window.history.state, "", url);
-    try {
-      window.localStorage.setItem(STORAGE_KEYS.route, routeId);
-    } catch {
-      // URL state remains usable when storage is unavailable.
-    }
-    publishingRouteEventRef.current = true;
-    try {
-      window.dispatchEvent(
-        new CustomEvent(ROUTE_CHANGE_EVENT, { detail: { routeId } }),
-      );
-    } finally {
-      publishingRouteEventRef.current = false;
-    }
-  }, [routeReconciled, selection.navigationRouteId]);
-
-  useEffect(() => {
-    const applyUrlRoute = (): void => {
-      const routeId = new URL(window.location.href).searchParams.get("route");
-      if (isRouteId(routeId)) {
-        dispatchSelection({ type: "CHANGE_NAVIGATION_ROUTE", routeId });
-        dispatchSelection({ type: "SELECT_ROUTE", routeId });
-      }
-    };
-    const applySharedRoute = (event: Event): void => {
-      if (publishingRouteEventRef.current) return;
-      if (!(event instanceof CustomEvent)) return;
-      const detail = event.detail;
-      if (
-        typeof detail === "object" &&
-        detail !== null &&
-        "routeId" in detail &&
-        isRouteId(detail.routeId)
-      ) {
-        dispatchSelection({ type: "CHANGE_NAVIGATION_ROUTE", routeId: detail.routeId });
-        dispatchSelection({ type: "SELECT_ROUTE", routeId: detail.routeId });
-      }
-    };
-    window.addEventListener("popstate", applyUrlRoute);
-    window.addEventListener(ROUTE_CHANGE_EVENT, applySharedRoute);
-    return () => {
-      window.removeEventListener("popstate", applyUrlRoute);
-      window.removeEventListener(ROUTE_CHANGE_EVENT, applySharedRoute);
-    };
-  }, []);
+  }, [navigationRouteId]);
 
   useEffect(() => {
     const handleEscape = (event: globalThis.KeyboardEvent): void => {
@@ -984,7 +1032,7 @@ export function NetworkPageClient({
             if (intent.kind === "port") selectPort(intent.id);
             if (intent.kind === "chokepoint") selectChokepoint(intent.id);
             if (intent.kind === "route" && isRouteId(intent.id)) {
-              selectRoute(intent.id);
+              selectMapRoute(intent.id);
             }
             if (intent.kind === "overlap") {
               dispatchSelection({ type: "SHOW_OVERLAP", routeIds: intent.routeIds });
@@ -1059,7 +1107,7 @@ export function NetworkPageClient({
     rendererAttempt,
     selectChokepoint,
     selectPort,
-    selectRoute,
+    selectMapRoute,
     selectWeather,
     sources,
   ]);
@@ -1091,7 +1139,7 @@ export function NetworkPageClient({
           catalog={catalog}
           onChokepoint={selectChokepoint}
           onPort={selectPort}
-          onRoute={selectRoute}
+          onRoute={selectMapRoute}
           onViewport={setViewport}
           onWeather={selectWeather}
           selection={selection}
@@ -1160,7 +1208,10 @@ export function NetworkPageClient({
             <select
               onChange={(event) => {
                 if (isRouteId(event.currentTarget.value)) {
-                  selectRoute(event.currentTarget.value, event.currentTarget);
+                  changeNavigationRoute(
+                    event.currentTarget.value,
+                    event.currentTarget,
+                  );
                 }
               }}
               value={selection.navigationRouteId}
@@ -1336,7 +1387,7 @@ export function NetworkPageClient({
                   <button
                     key={routeId}
                     onClick={() => {
-                      if (isRouteId(routeId)) selectRoute(routeId);
+                      if (isRouteId(routeId)) selectMapRoute(routeId);
                     }}
                     type="button"
                   >
@@ -1357,20 +1408,44 @@ export function NetworkPageClient({
               </p>
               <h2>{APPROVED_NETWORK_LABELS.ports[selectedPort.id]?.ko ?? selectedPort.id}</h2>
               <dl className="network-kpi-grid">
-                <div><dt>최근 7일 추정 물동량</dt><dd>UNAVAILABLE</dd></div>
-                <div><dt>전주 대비</dt><dd>UNAVAILABLE</dd></div>
-                <div><dt>수입 추정</dt><dd>UNAVAILABLE</dd></div>
-                <div><dt>수출 추정</dt><dd>UNAVAILABLE</dd></div>
-                <div><dt>컨테이너선 입항</dt><dd>UNAVAILABLE</dd></div>
-                <div><dt>데이터 기준일</dt><dd>UNAVAILABLE</dd></div>
+                <div>
+                  <dt>최근 7일 추정 물동량</dt>
+                  <dd>{formatEstimatedTons(portPanelData?.summary?.estimatedTotalTons7d)}</dd>
+                </div>
+                <div>
+                  <dt>전주 대비</dt>
+                  <dd>{formatPercent(portPanelData?.summary?.estimatedTotalTonsChangePercent)}</dd>
+                </div>
+                <div>
+                  <dt>수입 추정</dt>
+                  <dd>{formatEstimatedTons(portPanelData?.summary?.estimatedImportTons7d)}</dd>
+                </div>
+                <div>
+                  <dt>수출 추정</dt>
+                  <dd>{formatEstimatedTons(portPanelData?.summary?.estimatedExportTons7d)}</dd>
+                </div>
+                <div>
+                  <dt>컨테이너선 입항</dt>
+                  <dd>{formatVesselCalls(portPanelData?.summary?.containerVesselCalls7d)}</dd>
+                </div>
+                <div>
+                  <dt>데이터 기준일</dt>
+                  <dd>{portPanelData?.summary?.observedAt ?? "—"}</dd>
+                </div>
               </dl>
               <section className="network-chart-placeholder" aria-label="항만 추정 물동량 추세">
                 <p className="network-eyebrow">PORTWATCH · RECENT 90 DAYS</p>
                 <h3>일별 추정 물동량 7일 이동합계</h3>
-                <p>AIS 추정 · t · 데이터를 불러올 수 없습니다.</p>
+                {portChartPath ? (
+                  <svg aria-label="항만 물동량 추세 차트" viewBox="0 0 420 120">
+                    <path d={portChartPath} />
+                  </svg>
+                ) : (
+                  <p>AIS 추정 · t · 데이터를 불러올 수 없습니다.</p>
+                )}
               </section>
               <div className="network-panel-actions">
-                <button onClick={() => setGatewayAttempt((attempt) => attempt + 1)} type="button">
+                <button onClick={() => setPortAttempt((attempt) => attempt + 1)} type="button">
                   다시 시도
                 </button>
                 <button
@@ -1397,24 +1472,77 @@ export function NetworkPageClient({
                   selectedChokepoint.id}
               </h2>
               <dl className="network-kpi-grid">
-                <div><dt>대표 통과 구간</dt><dd>{selectedChokepoint.id}</dd></div>
-                <div><dt>대표 경로 이용</dt><dd>{selection.navigationRouteId}</dd></div>
-                <div><dt>데이터 기준일</dt><dd>UNAVAILABLE</dd></div>
-                <div><dt>연결 노선</dt><dd>{selection.navigationRouteId}</dd></div>
-                <div><dt>최근 7일 추정 통과량</dt><dd>UNAVAILABLE</dd></div>
-                <div><dt>전주 대비</dt><dd>UNAVAILABLE</dd></div>
-                <div><dt>컨테이너선 통항</dt><dd>UNAVAILABLE</dd></div>
+                <div>
+                  <dt>최근 7일 추정 통과량</dt>
+                  <dd>{formatEstimatedTons(chokepointPanelData?.summary?.estimatedTransitTons7d)}</dd>
+                </div>
+                <div>
+                  <dt>물동량 전주 대비</dt>
+                  <dd>{formatPercent(chokepointPanelData?.summary?.transitTonsChangePercent)}</dd>
+                </div>
+                <div>
+                  <dt>컨테이너선 통항</dt>
+                  <dd>{formatVesselCalls(chokepointPanelData?.summary?.containerVessels7d)}</dd>
+                </div>
+                <div>
+                  <dt>통항 척수 전주 대비</dt>
+                  <dd>{formatPercent(chokepointPanelData?.summary?.vesselChangePercent)}</dd>
+                </div>
+                <div>
+                  <dt>데이터 기준일</dt>
+                  <dd>{chokepointPanelData?.summary?.observedAt ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>관측 시계열</dt>
+                  <dd>{chokepointPanelData?.detail?.points.length ?? 0}개</dd>
+                </div>
               </dl>
               <div className="network-metric-control" role="radiogroup" aria-label="초크포인트 지표">
-                <button aria-checked="true" role="radio" type="button">추정 물동량</button>
-                <button aria-checked="false" role="radio" type="button">통항 척수</button>
+                <button
+                  aria-checked={chokepointMetric === "tons"}
+                  onClick={() => setChokepointMetric("tons")}
+                  role="radio"
+                  tabIndex={chokepointMetric === "tons" ? 0 : -1}
+                  type="button"
+                >
+                  추정 물동량
+                </button>
+                <button
+                  aria-checked={chokepointMetric === "vessels"}
+                  onClick={() => setChokepointMetric("vessels")}
+                  role="radio"
+                  tabIndex={chokepointMetric === "vessels" ? 0 : -1}
+                  type="button"
+                >
+                  통항 척수
+                </button>
               </div>
               <section className="network-chart-placeholder" aria-label="초크포인트 추세">
                 <p className="network-eyebrow">PORTWATCH TREND</p>
                 <h3>최근 7일 이동합계</h3>
-                <p>데이터를 불러올 수 없습니다.</p>
+                {chokepointChartPath ? (
+                  <>
+                    <svg aria-label="초크포인트 추세 차트" viewBox="0 0 420 120">
+                      <path d={chokepointChartPath} />
+                    </svg>
+                    <ol className="network-chart-rows">
+                      {chokepointPanelData?.detail?.points.slice(-5).map((point) => (
+                        <li key={point.date}>
+                          <time dateTime={point.date}>{point.date}</time>
+                          <span>
+                            {chokepointMetric === "tons"
+                              ? formatEstimatedTons(point.estimatedTransitTons7d)
+                              : formatVesselCalls(point.containerVessels7d)}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  </>
+                ) : (
+                  <p>데이터를 불러올 수 없습니다.</p>
+                )}
               </section>
-              <button onClick={() => setGatewayAttempt((attempt) => attempt + 1)} type="button">
+              <button onClick={() => setChokepointAttempt((attempt) => attempt + 1)} type="button">
                 다시 시도
               </button>
               <p className="network-detail-panel__note">AIS 기반 참고 지표입니다.</p>
@@ -1422,7 +1550,7 @@ export function NetworkPageClient({
           ) : null}
           {panel.kind === "weather" && selectedWeather ? (
             <>
-              <p className="network-eyebrow">LIVE WEATHER · {resourceLabel(weatherResource)}</p>
+              <p className="network-eyebrow">WEATHER · {resourceLabel(weatherResource)}</p>
               <h2>
                 {APPROVED_NETWORK_LABELS.weather[selectedWeather.id]?.ko ??
                   selectedWeather.id}
@@ -1438,7 +1566,7 @@ export function NetworkPageClient({
                 <div><dt>파고·주기</dt><dd>—</dd></div>
                 <div><dt>해수면 온도</dt><dd>—</dd></div>
               </dl>
-              <button onClick={() => setGatewayAttempt((attempt) => attempt + 1)} type="button">
+              <button onClick={() => setWeatherAttempt((attempt) => attempt + 1)} type="button">
                 다시 시도
               </button>
               <p className="network-detail-panel__note">

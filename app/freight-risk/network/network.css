@@ -515,6 +515,39 @@ button,
   margin: 0;
 }
 
+.network-chart-placeholder svg {
+  display: block;
+  height: 116px;
+  margin-top: 12px;
+  overflow: visible;
+  width: 100%;
+}
+
+.network-chart-placeholder svg path {
+  fill: none;
+  filter: drop-shadow(0 2px 5px rgba(26, 126, 153, 0.28));
+  stroke: #1683a2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.network-chart-rows {
+  display: grid;
+  gap: 5px;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.network-chart-rows li {
+  color: #496a77;
+  display: flex;
+  font-size: 11px;
+  justify-content: space-between;
+}
+
 .network-chart-placeholder > p:last-child {
   color: #617b86;
   font-size: 11px;
@@ -578,6 +611,15 @@ button,
   vector-effect: non-scaling-stroke;
 }
 
+.network-static-map__connectors {
+  fill: none;
+  pointer-events: none;
+  stroke: rgba(85, 168, 189, 0.62);
+  stroke-dasharray: 3 4;
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
 .network-static-map__route {
   fill: none;
   filter: url(#network-route-glow);
@@ -617,8 +659,8 @@ button,
 }
 
 .network-static-map__weather > path {
-  fill: #5ad3ae;
-  stroke: #072d2b;
+  fill: #8aa6b2;
+  stroke: #123748;
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
 }

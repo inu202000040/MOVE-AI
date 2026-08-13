@@ -38,6 +38,7 @@ const palette: NetworkMapPalette = {
   weatherNormal: "#101010",
   weatherWarning: "#111111",
   weatherSevere: "#121212",
+  weatherUnavailable: "#131313",
 };
 
 function createCatalog(): NetworkCatalogSeam {
@@ -164,6 +165,12 @@ test("catalog projects 13 routes, 44 connectors, 57 ports, 11 chokes and 82 weat
   assert.equal(sources["network-ports"].features.length, 57);
   assert.equal(sources["network-chokepoints"].features.length, 11);
   assert.equal(sources["network-weather"].features.length, 82);
+  assert.equal(
+    sources["network-weather"].features.every(
+      ({ properties }) => properties.risk === "unavailable",
+    ),
+    true,
+  );
   assert.deepEqual(
     sources["network-connectors"].features.map(({ id }) => id),
     Array.from({ length: 44 }, (_, index) => `connector:port-${index + 13}`),
