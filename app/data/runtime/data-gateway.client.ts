@@ -158,7 +158,11 @@ export class SameOriginHttpDataGateway implements SharedDataGatewayV1 {
 
   private async request(path: string, init?: RequestInit): Promise<unknown> {
     if (!path.startsWith("/api/") || /^\/\//u.test(path)) throw new Error("Gateway request must use a same-origin API path");
-    const response = await this.fetchSameOrigin(path, init);
+    // Invoke the browser fetch function without rebinding its receiver to this
+    // gateway instance. Some browser runtimes reject a branded Window.fetch
+    // when it is called as an object method ("Illegal invocation").
+    const fetchSameOrigin = this.fetchSameOrigin;
+    const response = await fetchSameOrigin(path, init);
     const contentType = response.headers.get("content-type") ?? "";
     if (!/^application\/json(?:;|$)/iu.test(contentType)) throw new Error("Gateway response must be JSON");
     const body: unknown = await response.json();

@@ -81,7 +81,16 @@ test("market exact query rejects missing, duplicate, extra, wrong version, and r
 });
 
 test("news compatibility route normalizes legacy input but never fabricates articles", async () => {
-  const { response, body } = await call(newsGet, "http://localhost/api/freight-risk/news?route=UNKNOWN&asOf=bad&providerVersion=7&unknown=1");
+  const previousMode = process.env.MOVE_AI_DATA_MODE;
+  process.env.MOVE_AI_DATA_MODE = "fixture";
+  let result: Awaited<ReturnType<typeof call>>;
+  try {
+    result = await call(newsGet, "http://localhost/api/freight-risk/news?route=UNKNOWN&asOf=bad&providerVersion=7&unknown=1");
+  } finally {
+    if (previousMode === undefined) delete process.env.MOVE_AI_DATA_MODE;
+    else process.env.MOVE_AI_DATA_MODE = previousMode;
+  }
+  const { response, body } = result;
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   assertEnvelope(body);
