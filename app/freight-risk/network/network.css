@@ -1,14 +1,26 @@
-:root {
-  color-scheme: dark;
-}
-
 body:has(.network-page) {
+  color-scheme: light;
   margin: 0;
   overflow: hidden;
 }
 
 body:has(.network-page) > nav {
   display: none;
+}
+
+.workspace-shell[data-page="network"] .workspace-route-select {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .workspace-shell[data-page="network"] .workspace-brand-copy {
+    display: none;
+  }
+
+  .workspace-shell[data-page="network"] .workspace-sidebar:hover .workspace-brand-copy,
+  .workspace-shell[data-page="network"] .workspace-sidebar:focus-within .workspace-brand-copy {
+    display: flex;
+  }
 }
 
 button,
@@ -23,14 +35,16 @@ button,
   --network-ink: #071d2d;
   --network-surface: rgba(239, 249, 252, 0.93);
   background:
-    radial-gradient(circle at 45% 42%, rgba(31, 112, 144, 0.42), transparent 33%),
-    linear-gradient(155deg, #041c2c 0%, #020d17 72%);
+    radial-gradient(circle at 46% 44%, rgba(31, 112, 144, 0.24), transparent 38%),
+    linear-gradient(rgba(1, 8, 20, 0.1), rgba(1, 8, 20, 0.24)),
+    url("/network/assets/starfield.png") center / cover no-repeat,
+    #010814;
   color: #e9f9ff;
   font-family: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif;
-  inset: 0;
-  min-height: 620px;
+  height: calc(100dvh - 77px);
+  min-height: 560px;
   overflow: hidden;
-  position: fixed;
+  position: relative;
 }
 
 .network-map-host,
@@ -45,12 +59,25 @@ button,
 
 .network-map-host .maplibregl-ctrl-top-right {
   right: 16px;
-  top: 136px;
+  top: 62px;
 }
 
 .network-map-host .maplibregl-ctrl-bottom-left {
   bottom: 18px;
-  left: 228px;
+  left: 108px;
+}
+
+.network-map-host .maplibregl-ctrl-bottom-right {
+  bottom: 8px;
+  right: 10px;
+}
+
+.network-map-host .maplibregl-ctrl-attrib {
+  background: rgba(235, 248, 250, 0.76);
+  color: #173747;
+  font-size: 9px;
+  max-width: min(620px, calc(100vw - 180px));
+  white-space: normal;
 }
 
 .network-map-host .maplibregl-ctrl-group,
@@ -66,7 +93,7 @@ button,
   background: linear-gradient(90deg, rgba(2, 20, 32, 0.88), rgba(2, 20, 32, 0.38));
   border-bottom: 1px solid rgba(110, 212, 240, 0.2);
   box-sizing: border-box;
-  display: flex;
+  display: none;
   height: 68px;
   justify-content: space-between;
   left: 0;
@@ -118,18 +145,18 @@ button,
   align-items: center;
   display: flex;
   gap: 8px;
-  position: absolute;
-  right: 18px;
-  top: 82px;
-  z-index: 12;
+  position: fixed;
+  right: clamp(18px, 3vw, 44px);
+  top: 8px;
+  z-index: 60;
 }
 
 .network-focus {
   backdrop-filter: blur(16px);
-  background: rgba(4, 27, 42, 0.78);
-  border: 1px solid rgba(116, 204, 228, 0.25);
-  border-radius: 14px;
-  box-shadow: 0 14px 34px rgba(0, 8, 16, 0.24);
+  background: rgba(234, 242, 248, 0.94);
+  border: 1px solid rgba(56, 84, 174, 0.2);
+  border-radius: 12px;
+  box-shadow: 5px 5px 12px rgba(21, 38, 157, 0.12), -4px -4px 10px #fff;
   display: flex;
   padding: 4px;
 }
@@ -147,24 +174,24 @@ button,
 .network-focus button {
   background: transparent;
   border-radius: 10px;
-  color: #9ec2cf;
-  font-size: 11px;
+  color: #5c6684;
+  font-size: 10px;
   font-weight: 800;
   padding: 0 12px;
-  text-transform: uppercase;
 }
 
 .network-focus button.is-active {
-  background: linear-gradient(135deg, rgba(66, 196, 230, 0.28), rgba(42, 124, 158, 0.4));
-  box-shadow: inset 0 0 0 1px rgba(89, 218, 246, 0.32);
-  color: #f2fcff;
+  background: #15269d;
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.18), 3px 3px 8px rgba(21, 38, 157, 0.18);
+  color: #fff;
 }
 
 .network-reset {
-  background: var(--network-surface);
+  background: #eef1f8;
   border-radius: 12px;
-  color: var(--network-ink);
-  font-size: 11px;
+  box-shadow: 5px 5px 12px rgba(21, 38, 157, 0.12), -4px -4px 10px #fff;
+  color: #15269d;
+  font-size: 10px;
   font-weight: 850;
   padding: 0 16px;
 }
@@ -174,19 +201,30 @@ button,
   background: rgba(3, 24, 38, 0.8);
   border: 1px solid rgba(102, 196, 220, 0.22);
   border-radius: 16px;
-  bottom: 88px;
+  bottom: auto;
+  clip-path: inset(50%);
   box-shadow: 0 24px 50px rgba(0, 7, 14, 0.32);
   display: flex;
   flex-direction: column;
   gap: 3px;
   left: 18px;
-  max-height: min(51vh, 460px);
-  overflow: auto;
+  height: 1px;
+  max-height: min(62vh, 560px);
+  overflow: hidden;
   padding: 7px;
   position: absolute;
   scrollbar-color: rgba(100, 206, 232, 0.45) transparent;
-  width: 196px;
+  top: 18px;
+  white-space: nowrap;
+  width: 1px;
   z-index: 10;
+}
+
+.network-explorer:focus-within {
+  clip-path: none;
+  height: auto;
+  overflow: auto;
+  width: 210px;
 }
 
 .network-explorer label {
@@ -335,6 +373,144 @@ button,
   z-index: 9;
 }
 
+.network-weather-status {
+  align-items: center;
+  backdrop-filter: blur(14px);
+  background: rgba(239, 242, 249, 0.94);
+  border: 1px solid rgba(111, 131, 183, 0.2);
+  border-radius: 15px;
+  box-shadow: 6px 7px 18px rgba(0, 7, 18, 0.3), -3px -3px 10px rgba(255, 255, 255, 0.7);
+  color: #16274a;
+  display: grid;
+  font-size: 10px;
+  gap: 1px 8px;
+  grid-template-columns: 8px auto;
+  margin: 0;
+  min-height: 54px;
+  padding: 0 13px;
+  pointer-events: none;
+  position: absolute;
+  right: 20px;
+  top: 44px;
+  z-index: 11;
+}
+
+.network-weather-status span {
+  background: #58d9ba;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(88, 217, 186, 0.14), 0 0 12px rgba(88, 217, 186, 0.75);
+  height: 7px;
+  width: 7px;
+}
+
+.network-weather-status strong {
+  align-self: end;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.network-weather-status small {
+  align-self: start;
+  color: #6a748e;
+  font-size: 8px;
+  grid-column: 2;
+  max-width: 170px;
+  white-space: nowrap;
+}
+
+.network-weather-marker {
+  align-items: center;
+  animation: network-weather-drift 4.8s ease-in-out infinite alternate;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 3px 14px rgba(0, 7, 17, 0.4), 0 0 16px rgba(94, 209, 239, 0.15);
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  height: 48px;
+  justify-content: center;
+  padding: 2px;
+  position: absolute;
+  transition: filter 160ms ease, opacity 160ms ease, transform 160ms ease;
+  width: 48px;
+}
+
+.network-weather-marker img {
+  display: block;
+  height: 48px;
+  filter: drop-shadow(0 5px 7px rgba(0, 5, 14, 0.62));
+  pointer-events: none;
+  width: 48px;
+}
+
+.network-weather-marker[data-kind="route"] {
+  height: 62px;
+  width: 62px;
+}
+
+.network-weather-marker[data-kind="route"] img {
+  height: 62px;
+  width: 62px;
+}
+
+.network-weather-marker[data-risk="warning"] {
+  border-color: rgba(255, 190, 75, 0.84);
+  box-shadow: 0 0 0 4px rgba(255, 190, 75, 0.14), 0 0 22px rgba(255, 190, 75, 0.52);
+}
+
+.network-weather-marker[data-risk="severe"] {
+  border-color: rgba(255, 93, 98, 0.92);
+  box-shadow: 0 0 0 5px rgba(255, 93, 98, 0.14), 0 0 26px rgba(255, 93, 98, 0.62);
+}
+
+.network-weather-marker[data-visible="false"] {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+.network-weather-marker[data-visible="false"]:focus-visible {
+  opacity: 1 !important;
+  pointer-events: auto;
+}
+
+.network-weather-marker[data-selected="true"],
+.network-weather-marker:hover,
+.network-weather-marker:focus-visible {
+  filter: brightness(1.16) saturate(1.12);
+  outline: 3px solid #ffb64c;
+  outline-offset: 3px;
+  z-index: 4;
+}
+
+.network-weather-marker__caption {
+  background: rgba(239, 249, 252, 0.96);
+  border-radius: 8px;
+  bottom: -25px;
+  box-shadow: 0 6px 16px rgba(0, 8, 18, 0.32);
+  color: #102d3d;
+  font-size: 9px;
+  font-weight: 800;
+  left: 50%;
+  opacity: 0;
+  padding: 4px 7px;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  transition: opacity 140ms ease;
+  white-space: nowrap;
+}
+
+.network-weather-marker:hover .network-weather-marker__caption,
+.network-weather-marker:focus-visible .network-weather-marker__caption,
+.network-weather-marker[data-selected="true"] .network-weather-marker__caption {
+  opacity: 1;
+}
+
+@keyframes network-weather-drift {
+  to { margin-top: -3px; }
+}
+
 .network-legend {
   bottom: 22px;
   left: 18px;
@@ -344,10 +520,11 @@ button,
 
 .network-legend > button {
   backdrop-filter: blur(16px);
-  background: rgba(4, 27, 42, 0.86);
-  border: 1px solid rgba(110, 206, 232, 0.28);
+  background: rgba(239, 242, 249, 0.94);
+  border: 1px solid rgba(111, 131, 183, 0.2);
   border-radius: 12px;
-  color: #e5f8fd;
+  box-shadow: 5px 5px 14px rgba(0, 7, 18, 0.28), -3px -3px 9px rgba(255, 255, 255, 0.45);
+  color: #16269d;
   font-size: 11px;
   font-weight: 800;
   padding: 0 16px;
@@ -393,6 +570,7 @@ button,
 .legend-strait { background: #ff8b46; }
 .legend-canal { background: #f4be65; }
 .legend-weather { background: #5ad3ae; box-shadow: 0 0 0 3px #176a62; }
+.legend-help { background: #8194a1; }
 
 .network-detail-panel {
   background: var(--network-surface);
@@ -485,6 +663,21 @@ button,
   margin: 16px 0 0;
   padding: 12px;
 }
+
+.network-weather-alert {
+  background: #fff2da;
+  border: 1px solid rgba(197, 118, 18, 0.2);
+  border-radius: 10px;
+  color: #7a4308;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.5;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+}
+
+.network-weather-grid dd[data-risk="warning"] { color: #b26505; }
+.network-weather-grid dd[data-risk="severe"] { color: #c32d37; }
 
 .network-kpi-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -720,11 +913,25 @@ button,
 @media (max-width: 900px) {
   .network-header { padding-inline: 16px; }
   .network-actions { right: 14px; }
-  .network-explorer { left: 14px; width: 178px; }
+  .network-explorer { left: 14px; }
+  .network-explorer:focus-within { width: 210px; }
   .network-detail-panel { right: 16px; }
 }
 
 @media (max-width: 640px) {
+  .workspace-shell[data-page="network"] .workspace-content {
+    padding: 0;
+  }
+
+  .workspace-shell[data-page="network"] .workspace-header-copy {
+    display: none;
+  }
+
+  .network-page {
+    height: calc(100dvh - 78px);
+    min-height: 480px;
+  }
+
   .network-header {
     height: 60px;
     padding: 8px 12px;
@@ -732,22 +939,16 @@ button,
 
   .network-header h1 { font-size: 18px; }
   .network-renderer-status { font-size: 9px; max-width: 168px; padding-inline: 9px; }
-  .network-actions { left: 12px; right: 12px; top: 70px; }
+  .network-actions { left: 64px; right: 8px; top: 8px; }
   .network-focus { flex: 1; }
-  .network-focus button { flex: 1; min-width: 0; padding-inline: 6px; }
-  .network-reset { padding-inline: 12px; }
+  .network-focus button { flex: 1; min-width: 0; padding-inline: 4px; }
+  .network-reset { padding-inline: 9px; }
   .network-explorer {
-    bottom: auto;
-    flex-direction: row;
     left: 12px;
-    max-height: none;
-    overflow-x: auto;
-    right: 12px;
-    top: 123px;
-    width: auto;
+    top: 12px;
   }
-  .network-explorer label { flex: 0 0 166px; }
-  .network-fallback-notice { left: 12px; right: 12px; top: 174px; }
+  .network-explorer:focus-within { width: min(210px, calc(100vw - 24px)); }
+  .network-fallback-notice { left: 12px; right: 12px; top: 58px; }
   .network-detail-panel {
     bottom: 58px;
     left: 18px;
@@ -764,11 +965,18 @@ button,
   .network-legend { bottom: 10px; left: 12px; }
   .network-static-map__controls { bottom: 9px; right: 12px; }
   .network-map-footer { bottom: 10px; max-width: 160px; text-align: center; }
-  .network-map-host .maplibregl-ctrl-top-right { right: 10px; top: 172px; }
+  .network-weather-status { left: 12px; right: auto; top: 12px; }
+  .network-map-host .maplibregl-ctrl-top-right { right: 10px; top: 58px; }
   .network-map-host .maplibregl-ctrl-bottom-left { bottom: 8px; left: 106px; }
+  .network-map-host .maplibregl-ctrl-attrib { max-width: calc(100vw - 24px); }
+}
+
+@media (max-width: 420px) {
+  .network-weather-status { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .network-loading span { animation: none; }
+  .network-weather-marker { animation: none; }
   *, *::before, *::after { scroll-behavior: auto !important; }
 }

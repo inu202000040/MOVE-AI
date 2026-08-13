@@ -86,6 +86,13 @@ test("declutter threshold is stable at 2.14/2.15 and preserves risk priority", (
     selectVisibleWeather(candidates, WEATHER_DECLUTTER_ZOOM, 20).map(({ id }) => id),
     ["selected", "warning"],
   );
+  assert.deepEqual(
+    selectVisibleWeather([
+      weatherCandidate({ id: "normal" }),
+      weatherCandidate({ id: "route-weather", pinned: true, role: "primary", x: 11 }),
+    ], 2.14, 20).map(({ id }) => id),
+    ["route-weather"],
+  );
 });
 
 test("overlapping port hit targets receive deterministic one-to-one positions", () => {

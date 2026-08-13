@@ -97,7 +97,13 @@ test("one exported factory supplies validated in-process snapshot/catalog and al
   assert.equal((await access.typedGateway.portDetail({ id: "KUWI-LAX", days: 30 })).data?.detail?.portId, "KUWI-LAX");
   assert.equal((await access.gateway.chokeSummary()).state, "STALE");
   assert.equal((await access.typedGateway.chokeDetail({ id: "korea-strait" })).data?.detail?.chokepointId, "korea-strait");
-  assert.equal((await access.gateway.weather()).state, "UNAVAILABLE");
+  const weather = await access.gateway.weather();
+  assert.ok(["LIVE", "PARTIAL", "UNAVAILABLE"].includes(weather.state));
+  if (weather.state === "UNAVAILABLE") {
+    assert.equal(weather.data, null);
+  } else {
+    assert.equal((weather.data as { readonly locationCount: number }).locationCount, 82);
+  }
 
   assert.ok(observed.some((entry) => entry.includes("refresh=nonce-123")));
   assert.deepEqual(new Set(observed.map((entry) => new URL(`http://localhost${entry.slice(entry.indexOf(" ") + 1)}`).pathname)), new Set([

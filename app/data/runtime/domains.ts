@@ -111,6 +111,12 @@ const chokeIdentityById = new Map(
     { id, portWatchId },
   ] as const),
 );
+const weatherIdentityIds = [
+  ...Object.keys(CHOKEPOINT_IDENTITY_POLICY_V1).map((id) => `chokepoint:${id}`),
+  "port:BUSAN",
+  ...Object.keys(PORT_IDENTITY_POLICY_V1).map((id) => `port:${id}`),
+  ...ROUTE_IDS.map((id) => `route:${id}`),
+].sort();
 
 export interface SnapshotDataV1 extends Readonly<Record<string, unknown>> {
   readonly schemaVersion: "glovis-freight-risk/v3";
@@ -227,6 +233,71 @@ export interface ChokepointTrafficDataV1 extends Readonly<Record<string, unknown
   readonly methodologyNote: string;
   readonly summaries: Readonly<Record<string, ChokepointSummaryV1>>;
   readonly detail?: ChokepointDetailV1;
+}
+
+export const WEATHER_CONDITIONS_V1 = [
+  "clear",
+  "night",
+  "rain",
+  "snow",
+  "storm",
+  "wind",
+  "wave",
+  "cloud",
+  "fog",
+  "unavailable",
+] as const;
+export type WeatherConditionV1 = (typeof WEATHER_CONDITIONS_V1)[number];
+
+export const WEATHER_RISKS_V1 = [
+  "normal",
+  "warning",
+  "severe",
+] as const;
+export type WeatherRiskV1 = (typeof WEATHER_RISKS_V1)[number];
+
+export interface WeatherObservationV1 {
+  readonly key: string;
+  readonly kind: "port" | "chokepoint" | "route";
+  readonly entityId: string;
+  readonly nameKo: string;
+  readonly subtitleKo: string;
+  readonly routeCode: RouteId | null;
+  readonly longitude: number;
+  readonly latitude: number;
+  readonly observedAt: string | null;
+  readonly condition: WeatherConditionV1;
+  readonly conditionLabel: string;
+  readonly risk: WeatherRiskV1;
+  readonly riskLabel: string;
+  readonly riskReasons: readonly string[];
+  readonly temperatureC: NullableNumberV1;
+  readonly precipitationMm: NullableNumberV1;
+  readonly visibilityM: NullableNumberV1;
+  readonly visibilityIsMinimum: boolean;
+  readonly visibilityObservedAt: string | null;
+  readonly visibilityStationId: string | null;
+  readonly visibilityStationDistanceKm: NullableNumberV1;
+  readonly windSpeedKn: NullableNumberV1;
+  readonly windDirectionDeg: NullableNumberV1;
+  readonly windGustKn: NullableNumberV1;
+  readonly isDay: boolean | null;
+  readonly waveHeightM: NullableNumberV1;
+  readonly waveDirectionDeg: NullableNumberV1;
+  readonly wavePeriodS: NullableNumberV1;
+  readonly seaSurfaceTemperatureC: NullableNumberV1;
+  readonly oceanCurrentKmh: NullableNumberV1;
+  readonly oceanCurrentDirectionDeg: NullableNumberV1;
+}
+
+export interface WeatherDataV1 extends Readonly<Record<string, unknown>> {
+  readonly fetchedAt: string;
+  readonly source: string;
+  readonly attribution: string;
+  readonly locationCount: 82;
+  readonly visibilityObservationCount: number;
+  readonly observations: Readonly<Record<string, WeatherObservationV1>>;
+  readonly warnings: readonly string[];
 }
 
 export interface InsightFactorV1 {
@@ -692,6 +763,185 @@ export function chokeFromArtifact(value: unknown, detailId?: string): Chokepoint
   const base = { fetchedAt: root.fetchedAt, latestObservationDate: root.latestObservationDate, source: root.source, attribution: root.attribution, methodologyNote: root.methodologyNote, summaries: root.summaries };
   if (!detailId) return decodeChokepointTrafficDataV1(base);
   return decodeChokepointTrafficDataV1({ ...base, detail: record(record(root.details, "details")[detailId], `details.${detailId}`) });
+}
+
+function nullableTimestamp(value: unknown, path: string): string | null {
+  return value === null ? null : isoTimestamp(value, path);
+}
+
+function decodeWeatherObservation(value: unknown, expectedId: string): WeatherObservationV1 {
+  const path = `$weatherData.observations.${expectedId}`;
+  const root = record(value, path);
+  exactKeys(root, [
+    "key",
+    "kind",
+    "entityId",
+    "nameKo",
+    "subtitleKo",
+    "routeCode",
+    "longitude",
+    "latitude",
+    "observedAt",
+    "condition",
+    "conditionLabel",
+    "risk",
+    "riskLabel",
+    "riskReasons",
+    "temperatureC",
+    "precipitationMm",
+    "visibilityM",
+    "visibilityIsMinimum",
+    "visibilityObservedAt",
+    "visibilityStationId",
+    "visibilityStationDistanceKm",
+    "windSpeedKn",
+    "windDirectionDeg",
+    "windGustKn",
+    "isDay",
+    "waveHeightM",
+    "waveDirectionDeg",
+    "wavePeriodS",
+    "seaSurfaceTemperatureC",
+    "oceanCurrentKmh",
+    "oceanCurrentDirectionDeg",
+  ], path);
+  const key = string(root.key, `${path}.key`);
+  if (key !== expectedId) throw new Error(`${path}.key does not match its record key`);
+  const kind = oneOf(root.kind, ["port", "chokepoint", "route"] as const, `${path}.kind`);
+  const expectedPrefix = `${kind}:`;
+  if (!key.startsWith(expectedPrefix)) throw new Error(`${path}.kind does not match its key`);
+  const entityId = string(root.entityId, `${path}.entityId`);
+  if (key !== `${kind}:${entityId}`) throw new Error(`${path}.entityId does not match its key`);
+  const routeCode = root.routeCode === null
+    ? null
+    : oneOf(root.routeCode, ROUTE_IDS, `${path}.routeCode`);
+  if (kind === "route" && routeCode !== entityId) throw new Error(`${path}.routeCode must identify the route observation`);
+  const condition = oneOf(root.condition, WEATHER_CONDITIONS_V1, `${path}.condition`);
+  const risk = oneOf(root.risk, WEATHER_RISKS_V1, `${path}.risk`);
+  const riskReasons = stringArray(root.riskReasons, `${path}.riskReasons`);
+  const observedAt = nullableTimestamp(root.observedAt, `${path}.observedAt`);
+  const temperatureC = nullableFinite(root.temperatureC, `${path}.temperatureC`);
+  const precipitationMm = nullableNonnegative(root.precipitationMm, `${path}.precipitationMm`);
+  const visibilityM = nullableNonnegative(root.visibilityM, `${path}.visibilityM`);
+  const visibilityObservedAt = nullableTimestamp(root.visibilityObservedAt, `${path}.visibilityObservedAt`);
+  const visibilityStationId = nullableString(root.visibilityStationId, `${path}.visibilityStationId`);
+  const visibilityStationDistanceKm = nullableNonnegative(root.visibilityStationDistanceKm, `${path}.visibilityStationDistanceKm`);
+  const windSpeedKn = nullableNonnegative(root.windSpeedKn, `${path}.windSpeedKn`);
+  const windDirectionDeg = nullableNonnegative(root.windDirectionDeg, `${path}.windDirectionDeg`);
+  const windGustKn = nullableNonnegative(root.windGustKn, `${path}.windGustKn`);
+  const waveHeightM = nullableNonnegative(root.waveHeightM, `${path}.waveHeightM`);
+  const waveDirectionDeg = nullableNonnegative(root.waveDirectionDeg, `${path}.waveDirectionDeg`);
+  const wavePeriodS = nullableNonnegative(root.wavePeriodS, `${path}.wavePeriodS`);
+  const seaSurfaceTemperatureC = nullableFinite(root.seaSurfaceTemperatureC, `${path}.seaSurfaceTemperatureC`);
+  const oceanCurrentKmh = nullableNonnegative(root.oceanCurrentKmh, `${path}.oceanCurrentKmh`);
+  const oceanCurrentDirectionDeg = nullableNonnegative(root.oceanCurrentDirectionDeg, `${path}.oceanCurrentDirectionDeg`);
+  const isDay = root.isDay === null ? null : boolean(root.isDay, `${path}.isDay`);
+  for (const [name, value] of [
+    ["windDirectionDeg", windDirectionDeg],
+    ["waveDirectionDeg", waveDirectionDeg],
+    ["oceanCurrentDirectionDeg", oceanCurrentDirectionDeg],
+  ] as const) {
+    if (value !== null && value >= 360) throw new Error(`${path}.${name} must be below 360 degrees`);
+  }
+  const visibilityFields = [visibilityM, visibilityObservedAt, visibilityStationId, visibilityStationDistanceKm];
+  if (visibilityFields.some((field) => field === null) && visibilityFields.some((field) => field !== null)) {
+    throw new Error(`${path} METAR visibility fields must be present together`);
+  }
+  if (visibilityStationDistanceKm !== null && visibilityStationDistanceKm > 75) {
+    throw new Error(`${path}.visibilityStationDistanceKm exceeds the approved 75km boundary`);
+  }
+  const metricValues = [
+    temperatureC,
+    precipitationMm,
+    windSpeedKn,
+    windGustKn,
+    visibilityM,
+    waveHeightM,
+    wavePeriodS,
+    seaSurfaceTemperatureC,
+    oceanCurrentKmh,
+  ];
+  const hasData = observedAt !== null || metricValues.some((item) => item !== null);
+  if (condition === "unavailable") {
+    const hasAtmosphere = observedAt !== null || temperatureC !== null || precipitationMm !== null || windSpeedKn !== null || windDirectionDeg !== null || isDay !== null;
+    if (hasAtmosphere) throw new Error(`${path} unavailable condition cannot contain atmosphere observations`);
+  } else {
+    if (!hasData) throw new Error(`${path} available state requires an observation`);
+    if (risk === "normal" && riskReasons.length > 0) {
+      throw new Error(`${path} normal risk cannot contain risk reasons`);
+    }
+    if ((risk === "warning" || risk === "severe") && riskReasons.length === 0) {
+      throw new Error(`${path} elevated risk requires at least one reason`);
+    }
+  }
+  return {
+    key,
+    kind,
+    entityId,
+    nameKo: string(root.nameKo, `${path}.nameKo`),
+    subtitleKo: string(root.subtitleKo, `${path}.subtitleKo`),
+    routeCode,
+    longitude: finite(root.longitude, `${path}.longitude`),
+    latitude: finite(root.latitude, `${path}.latitude`),
+    observedAt,
+    condition,
+    conditionLabel: string(root.conditionLabel, `${path}.conditionLabel`),
+    risk,
+    riskLabel: string(root.riskLabel, `${path}.riskLabel`),
+    riskReasons,
+    temperatureC,
+    precipitationMm,
+    visibilityM,
+    visibilityIsMinimum: boolean(root.visibilityIsMinimum, `${path}.visibilityIsMinimum`),
+    visibilityObservedAt,
+    visibilityStationId,
+    visibilityStationDistanceKm,
+    windSpeedKn,
+    windDirectionDeg,
+    windGustKn,
+    isDay,
+    waveHeightM,
+    waveDirectionDeg,
+    wavePeriodS,
+    seaSurfaceTemperatureC,
+    oceanCurrentKmh,
+    oceanCurrentDirectionDeg,
+  };
+}
+
+export function decodeWeatherDataV1(value: unknown): WeatherDataV1 {
+  const root = record(value, "$weatherData");
+  exactKeys(root, [
+    "fetchedAt",
+    "source",
+    "attribution",
+    "locationCount",
+    "visibilityObservationCount",
+    "observations",
+    "warnings",
+  ], "$weatherData");
+  const locationCount = literal(integer(root.locationCount, "$weatherData.locationCount"), 82, "$weatherData.locationCount");
+  const rawObservations = record(root.observations, "$weatherData.observations");
+  const observationIds = Object.keys(rawObservations).sort();
+  if (observationIds.join("\0") !== weatherIdentityIds.join("\0")) {
+    throw new Error("Weather observations must contain the exact canonical 82 IDs");
+  }
+  const observations: Record<string, WeatherObservationV1> = {};
+  for (const id of weatherIdentityIds) {
+    observations[id] = decodeWeatherObservation(rawObservations[id], id);
+  }
+  const visibilityObservationCount = integer(root.visibilityObservationCount, "$weatherData.visibilityObservationCount");
+  const decodedVisibilityCount = Object.values(observations).filter(({ visibilityM }) => visibilityM !== null).length;
+  if (visibilityObservationCount < 0 || visibilityObservationCount > locationCount || visibilityObservationCount !== decodedVisibilityCount) throw new Error("Weather visibility observation count does not match decoded observations");
+  return {
+    fetchedAt: isoTimestamp(root.fetchedAt, "$weatherData.fetchedAt"),
+    source: string(root.source, "$weatherData.source"),
+    attribution: string(root.attribution, "$weatherData.attribution"),
+    locationCount,
+    visibilityObservationCount,
+    observations,
+    warnings: stringArray(root.warnings, "$weatherData.warnings"),
+  };
 }
 
 function decodeInsightFactor(value: unknown, path: string, allowedEvidenceIds: ReadonlySet<string>): InsightFactorV1 {

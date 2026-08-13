@@ -1,4 +1,6 @@
 export * from "./catalog-consumer";
+export * from "./camera-fit";
+export * from "./chokepoint-geometry";
 export * from "./declutter";
 export * from "./focus-mode";
 export * from "./geometry";

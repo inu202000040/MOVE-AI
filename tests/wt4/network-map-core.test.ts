@@ -243,7 +243,7 @@ test("promotion installs controls, sources, layers, interactions and exposure on
   assert.equal(promotion.promote(map), true);
   assert.equal(promotion.promote(map), false);
   assert.equal(promotion.promoted(), true);
-  assert.deepEqual(map.controls, ["navigation:top-right", "scale:bottom-left"]);
+  assert.deepEqual(map.controls, ["navigation:bottom-right", "scale:bottom-left"]);
   assert.equal(map.sources.size, 8);
   assert.deepEqual(map.layers, NETWORK_LAYER_IDS);
   assert.equal(interactions, 1);

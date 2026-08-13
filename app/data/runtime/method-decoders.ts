@@ -9,6 +9,7 @@ import {
   decodeTuneSuccessV1,
   decodeTuningHealthDataV1,
   decodeUnavailableData,
+  decodeWeatherDataV1,
   type ChokepointTrafficDataV1,
   type InsightDataV1,
   type InsightRequestV1,
@@ -23,6 +24,7 @@ import {
   type TuneRequestV1,
   type TuneSuccessV1,
   type TuningHealthDataV1,
+  type WeatherDataV1,
 } from "./domains";
 import { parseGatewayResultV1 } from "./result";
 
@@ -34,6 +36,7 @@ export type TuningHealthStateV1 = "LIVE" | "PARTIAL" | "UNAVAILABLE";
 export type TuningRunStateV1 = "READY" | "UNAVAILABLE";
 export type PortStateV1 = "LIVE" | "PARTIAL" | "STALE" | "UNAVAILABLE";
 export type ChokepointStateV1 = "LIVE" | "STALE" | "UNAVAILABLE";
+export type WeatherStateV1 = "LIVE" | "PARTIAL" | "UNAVAILABLE";
 
 function isSnapshotState(value: unknown): value is SnapshotStateV1 {
   return value === "READY" || value === "UNAVAILABLE";
@@ -58,6 +61,9 @@ function isPortState(value: unknown): value is PortStateV1 {
 }
 function isChokepointState(value: unknown): value is ChokepointStateV1 {
   return value === "LIVE" || value === "STALE" || value === "UNAVAILABLE";
+}
+function isWeatherState(value: unknown): value is WeatherStateV1 {
+  return value === "LIVE" || value === "PARTIAL" || value === "UNAVAILABLE";
 }
 function isUnavailableState(value: unknown): value is "UNAVAILABLE" {
   return value === "UNAVAILABLE";
@@ -236,6 +242,36 @@ export function decodeChokepointDetailResultV1(
 export function decodeWeatherUnavailableResultV1(value: unknown): GatewayResultV1<never, "UNAVAILABLE"> {
   return parseGatewayResultV1(value, decodeUnavailableData, isUnavailableState, () => {
     throw new Error("Weather unavailable result cannot contain data");
+  });
+}
+
+export function decodeWeatherResultV1(
+  value: unknown,
+): GatewayResultV1<WeatherDataV1, WeatherStateV1> {
+  return parseGatewayResultV1(value, decodeWeatherDataV1, isWeatherState, (state, data, meta) => {
+    requireUnit(meta, "mixed_SI_and_knots");
+    const availableCount = Object.values(data.observations).filter((observation) =>
+      observation.observedAt !== null
+      || observation.visibilityObservedAt !== null
+      || observation.waveHeightM !== null
+      || observation.seaSurfaceTemperatureC !== null
+      || observation.oceanCurrentKmh !== null,
+    ).length;
+    if (availableCount === 0) throw new Error("Weather success requires at least one observation");
+    if (state === "LIVE") {
+      if (availableCount !== data.locationCount || meta.cache.stale || meta.mode === "fixture") {
+        throw new Error("LIVE weather requires fresh complete live or fresh cached coverage");
+      }
+    } else if (state === "PARTIAL") {
+      if (availableCount >= data.locationCount && !meta.cache.stale && data.warnings.length === 0) {
+        throw new Error("PARTIAL weather requires reduced coverage, a provider warning, or stale cache");
+      }
+      if (meta.cache.stale && meta.mode !== "cached") {
+        throw new Error("Stale weather cache must use cached mode");
+      }
+    } else {
+      throw new Error("Weather data has an invalid success state");
+    }
   });
 }
 

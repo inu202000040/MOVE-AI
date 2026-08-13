@@ -19,6 +19,7 @@ import {
   type TuneRequestV1,
   type TuneSuccessV1,
   type TuningHealthDataV1,
+  type WeatherDataV1,
   decodeInsightRequestV1,
   decodeTuneRequestV1,
 } from "./domains";
@@ -33,7 +34,7 @@ import {
   decodeSnapshotResultV1,
   decodeTuningHealthResultV1,
   decodeTuningRunResultV1,
-  decodeWeatherUnavailableResultV1,
+  decodeWeatherResultV1,
   type ChokepointStateV1,
   type InsightStateV1,
   type MarketStateV1,
@@ -42,6 +43,7 @@ import {
   type SnapshotStateV1,
   type TuningHealthStateV1,
   type TuningRunStateV1,
+  type WeatherStateV1,
 } from "./method-decoders";
 import {
   decodeChokepointDetailQueryV1,
@@ -62,7 +64,7 @@ export interface SharedDataGatewayV1 {
   portDetail(query: PortDetailQueryV1, signal?: AbortSignal): Promise<GatewayResultV1<PortTrafficDataV1, PortStateV1>>;
   chokeSummary(signal?: AbortSignal): Promise<GatewayResultV1<ChokepointTrafficDataV1, ChokepointStateV1>>;
   chokeDetail(query: ChokepointDetailQueryV1, signal?: AbortSignal): Promise<GatewayResultV1<ChokepointTrafficDataV1, ChokepointStateV1>>;
-  weather(signal?: AbortSignal): Promise<GatewayResultV1<never, "UNAVAILABLE">>;
+  weather(signal?: AbortSignal): Promise<GatewayResultV1<WeatherDataV1, WeatherStateV1>>;
 }
 
 export type SnapshotGatewayResultV1 = GatewayResultV1<SnapshotDataV1, SnapshotStateV1>;
@@ -152,8 +154,8 @@ export class SameOriginHttpDataGateway implements SharedDataGatewayV1 {
     );
   }
 
-  async weather(signal?: AbortSignal): Promise<GatewayResultV1<never, "UNAVAILABLE">> {
-    return decodeWeatherUnavailableResultV1(await this.request("/api/globe-weather", { signal }));
+  async weather(signal?: AbortSignal): Promise<GatewayResultV1<WeatherDataV1, WeatherStateV1>> {
+    return decodeWeatherResultV1(await this.request("/api/globe-weather", { signal }));
   }
 
   private async request(path: string, init?: RequestInit): Promise<unknown> {

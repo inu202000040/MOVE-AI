@@ -71,7 +71,7 @@ function installControls(
   const controls = [
     {
       id: "navigation",
-      position: "top-right" as const,
+      position: "bottom-right" as const,
       create: options.createNavigationControl,
     },
     {

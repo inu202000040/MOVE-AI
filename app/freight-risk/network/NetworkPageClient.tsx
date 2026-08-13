@@ -10,8 +10,8 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
-import type { Map as MapLibreMap } from "maplibre-gl";
-import type { DataGatewayV1 } from "../../contracts/gateway";
+import type { Map as MapLibreMap, Marker as MapLibreMarker } from "maplibre-gl";
+import type { DataGatewayV1, GatewayResultV1 } from "../../contracts/gateway";
 import { useFreightRiskRoute } from "../../components/shell";
 import { createSameOriginDataGatewayV1 } from "../../data/runtime/data-gateway.client";
 import {
@@ -22,12 +22,15 @@ import {
 import type {
   ChokepointTrafficDataV1,
   PortTrafficDataV1,
+  WeatherDataV1,
+  WeatherObservationV1,
 } from "../../data/runtime/domains";
 
 type MapLibrePaintProperty = Parameters<MapLibreMap["setPaintProperty"]>[1];
 
 import {
   catalogToNetworkGeoJson,
+  createNetworkCameraFit,
   createNetworkFeatureStateController,
   createNetworkMapLayers,
   createNetworkMapPromotion,
@@ -44,6 +47,7 @@ import {
   reduceRendererState,
   resetStaticViewport,
   resolveNetworkPointerIntent,
+  selectVisibleWeather,
   splitAntimeridian,
   startNetworkMapLibreGlobe,
   staticViewportToViewBox,
@@ -57,6 +61,7 @@ import {
   type StaticFallbackReason,
   type StaticViewport,
 } from "./core";
+import { installNetworkMapScene } from "./core/network-map-scene";
 import {
   APPROVED_NETWORK_LABELS,
   buildNetworkChartPath,
@@ -76,12 +81,12 @@ import {
 } from "./data";
 
 const MAP_PALETTE = {
-  ocean: "#031827",
+  ocean: "rgba(3, 24, 39, 0.66)",
   sky: "#020b15",
   horizon: "#68d8ff",
   atmosphere: "#0d7dac",
-  route: "#57d8f4",
-  routeShadow: "#01111e",
+  route: "#195ca7",
+  routeShadow: "#061b36",
   selection: "#ffb64c",
   chokepoint: "#ff8b46",
   port: "#eafcff",
@@ -95,7 +100,7 @@ function initialSelection(routeId: RouteId): NetworkSelectionState {
   return {
     navigationRouteId: routeId,
     portId: null,
-    mapRouteId: routeId,
+    mapRouteId: null,
     chokepointId: null,
     weatherId: null,
     overlapRouteIds: [],
@@ -121,6 +126,20 @@ type CatalogClientState =
 interface NetworkPageClientProps {
   readonly dataGateway?: DataGatewayV1;
   readonly initialCatalogArtifacts: NetworkCatalogArtifactPropsV1;
+  readonly initialPortResult?: GatewayResultV1<PortTrafficDataV1, PortStateV1>;
+  readonly initialChokepointResult?: GatewayResultV1<
+    ChokepointTrafficDataV1,
+    ChokepointStateV1
+  >;
+  readonly initialWeatherResult?: GatewayResultV1<WeatherDataV1, WeatherStateV1>;
+}
+
+interface WeatherMarkerHandle {
+  readonly id: string;
+  readonly element: HTMLButtonElement;
+  readonly marker: MapLibreMarker;
+  readonly observation: WeatherObservationV1;
+  readonly role: "secondary" | "primary" | "chokepoint";
 }
 
 const FALLBACK_LABELS: Readonly<Record<StaticFallbackReason, string>> = {
@@ -168,6 +187,97 @@ function resourceData<TData, TState extends string>(
 ): TData | null {
   if (resource.status !== "ready" && resource.status !== "empty") return null;
   return resource.result.data;
+}
+
+const WEATHER_ICON_BY_CONDITION: Readonly<Record<WeatherObservationV1["condition"], string>> = {
+  clear: "/network/icons/weather/clear-day.svg",
+  night: "/network/icons/weather/clear-day.svg",
+  rain: "/network/icons/weather/rain.svg",
+  snow: "/network/icons/weather/rain.svg",
+  storm: "/network/icons/weather/rain.svg",
+  wind: "/network/icons/weather/partly-cloudy-day.svg",
+  wave: "/network/icons/weather/partly-cloudy-day.svg",
+  cloud: "/network/icons/weather/cloudy.svg",
+  fog: "/network/icons/weather/cloudy.svg",
+  unavailable: "/network/icons/weather/cloudy.svg",
+};
+
+const WEATHER_CONDITION_LABELS: Readonly<Record<WeatherObservationV1["condition"], string>> = {
+  clear: "맑음",
+  night: "맑은 밤",
+  rain: "비",
+  snow: "눈",
+  storm: "폭풍",
+  wind: "강풍",
+  wave: "높은 파고",
+  cloud: "흐림",
+  fog: "안개",
+  unavailable: "관측 연결 중",
+};
+
+function formatMetric(value: number | null | undefined, suffix: string, digits = 1): string {
+  return value === null || value === undefined ? "—" : `${value.toFixed(digits)}${suffix}`;
+}
+
+function formatWeatherTime(value: string | null | undefined): string {
+  if (!value) return "관측 시각 확인 중";
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
+}
+
+function formatVisibility(value: number | null | undefined, minimum = false): string {
+  if (value === null || value === undefined) return "—";
+  const prefix = minimum ? "최소 " : "";
+  return value >= 1_000
+    ? `${prefix}${(value / 1_000).toFixed(1)}km`
+    : `${prefix}${Math.round(value).toLocaleString("ko-KR")}m`;
+}
+
+function weatherRole(
+  observation: WeatherObservationV1,
+  primaryPortIds: ReadonlySet<string>,
+): WeatherMarkerHandle["role"] {
+  if (observation.kind === "chokepoint") return "chokepoint";
+  if (
+    observation.kind === "route" ||
+    observation.entityId === "BUSAN" ||
+    primaryPortIds.has(observation.entityId)
+  ) {
+    return "primary";
+  }
+  return "secondary";
+}
+
+function fitNetworkMap(
+  map: MapLibreMap | null,
+  coordinates: readonly (readonly [number, number])[],
+  panelOpen: boolean,
+  preferredDurationMs: number,
+): void {
+  if (!map || coordinates.length === 0) return;
+  const canvas = map.getCanvas();
+  const fit = createNetworkCameraFit({
+    coordinates,
+    viewportWidth: Math.max(canvas.clientWidth, 1),
+    viewportHeight: Math.max(canvas.clientHeight, 1),
+    mobile: canvas.clientWidth <= 640,
+    panelOpen,
+    reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    preferredDurationMs,
+  });
+  map.fitBounds([[...fit.bounds[0]], [...fit.bounds[1]]], {
+    padding: fit.padding,
+    duration: fit.duration,
+    maxZoom: 5.2,
+    bearing: 0,
+    pitch: 0,
+  });
 }
 
 function detailCloseLabel(kind: ReturnType<typeof visibleNetworkPanel>["kind"]): string {
@@ -484,11 +594,17 @@ function StaticNetworkMap({
 export function NetworkPageClient({
   dataGateway,
   initialCatalogArtifacts,
+  initialPortResult,
+  initialChokepointResult,
+  initialWeatherResult,
 }: NetworkPageClientProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const mapLibreModuleRef = useRef<typeof import("maplibre-gl") | null>(null);
+  const weatherMarkersRef = useRef<readonly WeatherMarkerHandle[]>([]);
+  const selectedWeatherIdRef = useRef<string | null>(null);
+  const sceneControllerRef = useRef<ReturnType<typeof installNetworkMapScene> | null>(null);
   const selectionTriggerRef = useRef<HTMLElement | SVGElement | null>(null);
-  const navigationInitializedRef = useRef(false);
   const {
     routeId: navigationRouteId,
     changeRoute,
@@ -532,13 +648,23 @@ export function NetworkPageClient({
   });
   const [portResource, setPortResource] = useState<
     NetworkResourceState<PortTrafficDataV1, PortStateV1>
-  >({ status: "idle" });
+  >(() =>
+    initialPortResult ? resolveNetworkResource(initialPortResult, 1) : { status: "idle" },
+  );
   const [chokepointResource, setChokepointResource] = useState<
     NetworkResourceState<ChokepointTrafficDataV1, ChokepointStateV1>
-  >({ status: "idle" });
+  >(() =>
+    initialChokepointResult
+      ? resolveNetworkResource(initialChokepointResult, 1)
+      : { status: "idle" },
+  );
   const [weatherResource, setWeatherResource] = useState<
-    NetworkResourceState<never, WeatherStateV1>
-  >({ status: "idle" });
+    NetworkResourceState<WeatherDataV1, WeatherStateV1>
+  >(() =>
+    initialWeatherResult
+      ? resolveNetworkResource(initialWeatherResult, 1)
+      : { status: "idle" },
+  );
   const [portDetailResource, setPortDetailResource] = useState<
     NetworkResourceState<PortTrafficDataV1, PortStateV1>
   >({ status: "idle" });
@@ -556,13 +682,29 @@ export function NetworkPageClient({
     "idle",
   );
   const [mapLibreVersion, setMapLibreVersion] = useState("pending");
+  const [mapInstance, setMapInstance] = useState<MapLibreMap | null>(null);
   const catalog =
     catalogResource.status === "ready" ? catalogResource.value.catalog : null;
+  const weatherData = resourceData(weatherResource);
+  const weatherObservations = weatherData?.observations ?? null;
   const sources = useMemo(
     () => (catalog ? catalogToNetworkGeoJson(catalog) : null),
     [catalog],
   );
   const layers = useMemo(() => createNetworkMapLayers(MAP_PALETTE), []);
+  const weatherGeoJson = useMemo(() => {
+    if (!catalog || !weatherObservations) return null;
+    const visualState = Object.fromEntries(
+      Object.entries(weatherObservations).map(([id, observation]) => [id, {
+        condition: observation.condition,
+        risk: observation.risk,
+        riskLabel: observation.riskLabel,
+        riskReason: observation.riskReasons.join(" · ") || null,
+        observedAt: observation.observedAt,
+      }]),
+    );
+    return catalogToNetworkGeoJson(catalog, { weatherById: visualState })["network-weather"];
+  }, [catalog, weatherObservations]);
   const panel = visibleNetworkPanel(selection);
   const selectedRoute =
     panel.kind === "route"
@@ -580,6 +722,12 @@ export function NetworkPageClient({
     panel.kind === "weather"
       ? catalog?.weather.find(({ id }) => id === panel.id) ?? null
       : null;
+  const selectedWeatherObservation = selectedWeather && weatherObservations
+    ? weatherObservations[selectedWeather.id] ?? null
+    : null;
+  const weatherStatusLabel = weatherData
+    ? `${resourceLabel(weatherResource)} · ${weatherData.locationCount}개 지점 · ${formatWeatherTime(weatherData.fetchedAt)}`
+    : resourceLabel(weatherResource);
   const portPanelData = selectedPort
     ? resolvePortPanelDataV1(
         selectedPort.id,
@@ -612,14 +760,7 @@ export function NetworkPageClient({
       if (trigger) selectionTriggerRef.current = trigger;
       dispatchSelection({ type: "SELECT_ROUTE", routeId });
       const route = catalog?.routes.find(({ id }) => id === routeId);
-      const center = route?.waypointCoordinates[
-        Math.floor(route.waypointCoordinates.length / 2)
-      ];
-      mapRef.current?.easeTo({
-        center: center ? [...center] : [126.2, 27.5],
-        zoom: 1.55,
-        duration: 800,
-      });
+      if (route) fitNetworkMap(mapRef.current, route.waypointCoordinates, true, 800);
     },
     [catalog],
   );
@@ -638,9 +779,7 @@ export function NetworkPageClient({
     const port = catalog?.ports.find(({ id }) => id === portId);
     if (!port) return;
     dispatchSelection({ type: "SELECT_PORT", portId, routeId: port.routeId });
-    if (port) {
-      mapRef.current?.easeTo({ center: [port.longitude, port.latitude], zoom: 4.6, duration: 700 });
-    }
+    fitNetworkMap(mapRef.current, [[port.longitude, port.latitude]], true, 700);
   }, [catalog]);
   const selectChokepoint = useCallback((
     chokepointId: string,
@@ -652,11 +791,7 @@ export function NetworkPageClient({
       ({ id }) => id === chokepointId,
     );
     if (chokepoint) {
-      mapRef.current?.easeTo({
-        center: [chokepoint.longitude, chokepoint.latitude],
-        zoom: 4,
-        duration: 700,
-      });
+      fitNetworkMap(mapRef.current, [[chokepoint.longitude, chokepoint.latitude]], true, 700);
     }
   }, [catalog]);
 
@@ -668,25 +803,35 @@ export function NetworkPageClient({
     dispatchSelection({ type: "SELECT_WEATHER", weatherId });
     const weather = catalog?.weather.find(({ id }) => id === weatherId);
     if (weather) {
-      mapRef.current?.easeTo({
-        center: [weather.longitude, weather.latitude],
-        zoom: 4.2,
-        duration: 650,
-      });
+      fitNetworkMap(mapRef.current, [[weather.longitude, weather.latitude]], true, 650);
     }
   }, [catalog]);
 
   const closeDetail = useCallback((): void => {
+    const trigger = selectionTriggerRef.current;
+    const restoredPortId = panel.kind === "weather" ? selection.portId : null;
     dispatchSelection({
       type: panel.kind === "weather" ? "CLOSE_WEATHER" : "CLOSE_DETAIL",
     });
-    queueMicrotask(() => selectionTriggerRef.current?.focus());
-  }, [panel.kind]);
+    queueMicrotask(() => {
+      if (trigger?.isConnected) {
+        trigger.focus();
+        return;
+      }
+      if (restoredPortId) {
+        document
+          .querySelector<HTMLElement>(`[data-weather-trigger="${restoredPortId}"]`)
+          ?.focus();
+      }
+    });
+  }, [panel.kind, selection.portId]);
 
   const resetView = useCallback((): void => {
     setViewport(resetStaticViewport());
-    mapRef.current?.easeTo({ center: [126.2, 27.5], zoom: 1.42, bearing: -7, duration: 700 });
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    mapRef.current?.easeTo({ center: [126.2, 27.5], zoom: 1.42, bearing: -7, pitch: 0, duration: reducedMotion ? 0 : 700 });
   }, []);
+
 
   useEffect(() => {
     const controller = new AbortController();
@@ -705,6 +850,13 @@ export function NetworkPageClient({
 
   useEffect(() => {
     if (!catalog) return;
+    if (
+      initialPortResult &&
+      dataGateway === undefined &&
+      portAttempt === 0
+    ) {
+      return;
+    }
     const attempt = portAttempt + 1;
     const gateway = runtimeAdapters.gateway;
     if (!gateway) {
@@ -738,10 +890,17 @@ export function NetworkPageClient({
       },
     );
     return () => controller.abort();
-  }, [catalog, portAttempt, runtimeAdapters]);
+  }, [catalog, dataGateway, initialPortResult, portAttempt, runtimeAdapters]);
 
   useEffect(() => {
     if (!catalog) return;
+    if (
+      initialChokepointResult &&
+      dataGateway === undefined &&
+      chokepointAttempt === 0
+    ) {
+      return;
+    }
     const attempt = chokepointAttempt + 1;
     const gateway = runtimeAdapters.gateway;
     if (!gateway) {
@@ -775,10 +934,17 @@ export function NetworkPageClient({
       },
     );
     return () => controller.abort();
-  }, [catalog, chokepointAttempt, runtimeAdapters]);
+  }, [catalog, chokepointAttempt, dataGateway, initialChokepointResult, runtimeAdapters]);
 
   useEffect(() => {
     if (!catalog) return;
+    if (
+      initialWeatherResult &&
+      dataGateway === undefined &&
+      weatherAttempt === 0
+    ) {
+      return;
+    }
     const attempt = weatherAttempt + 1;
     const gateway = runtimeAdapters.gateway;
     if (!gateway) {
@@ -792,27 +958,42 @@ export function NetworkPageClient({
       return;
     }
     const controller = new AbortController();
-    setWeatherResource({ status: "loading", attempt });
+    setWeatherResource((current) =>
+      current.status === "ready" || current.status === "empty"
+        ? current
+        : { status: "loading", attempt },
+    );
     void gateway.weather(controller.signal).then(
       (result) => {
         if (!controller.signal.aborted) {
-          setWeatherResource(resolveNetworkResource(result, attempt));
+          const resolved = resolveNetworkResource(result, attempt);
+          setWeatherResource((current) =>
+            resolved.status === "ready" || resolved.status === "empty"
+              ? resolved
+              : current.status === "ready" || current.status === "empty"
+                ? current
+                : resolved,
+          );
         }
       },
       () => {
         if (!controller.signal.aborted) {
-          setWeatherResource({
-            status: "error",
-            attempt,
-            result: null,
-            retryable: true,
-            message: "데이터를 불러올 수 없습니다.",
-          });
+          setWeatherResource((current) =>
+            current.status === "ready" || current.status === "empty"
+              ? current
+              : {
+                  status: "error",
+                  attempt,
+                  result: null,
+                  retryable: true,
+                  message: "데이터를 불러올 수 없습니다.",
+                },
+          );
         }
       },
     );
     return () => controller.abort();
-  }, [catalog, runtimeAdapters, weatherAttempt]);
+  }, [catalog, dataGateway, initialWeatherResult, runtimeAdapters, weatherAttempt]);
 
   useEffect(() => {
     if (!selectedPort) {
@@ -903,10 +1084,6 @@ export function NetworkPageClient({
       type: "CHANGE_NAVIGATION_ROUTE",
       routeId: navigationRouteId,
     });
-    if (!navigationInitializedRef.current) {
-      navigationInitializedRef.current = true;
-      dispatchSelection({ type: "SELECT_ROUTE", routeId: navigationRouteId });
-    }
   }, [navigationRouteId]);
 
   useEffect(() => {
@@ -922,6 +1099,146 @@ export function NetworkPageClient({
   useEffect(() => {
     featureStateRef.current?.apply(selection);
   }, [selection]);
+
+  useEffect(() => {
+    selectedWeatherIdRef.current = selection.weatherId;
+    for (const handle of weatherMarkersRef.current) {
+      const selected = handle.id === selection.weatherId;
+      handle.element.dataset.selected = String(selected);
+      handle.element.setAttribute("aria-pressed", String(selected));
+    }
+  }, [selection.weatherId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapInstance || renderer.kind !== "globe_ready" || !weatherGeoJson) return;
+    const source = map.getSource("network-weather") as
+      | { setData: (data: unknown) => void }
+      | undefined;
+    try {
+      source?.setData(weatherGeoJson);
+    } catch {
+      dispatchRenderer({ type: "DEGRADE", degradation: "CATALOG_UNAVAILABLE" });
+    }
+  }, [mapInstance, renderer.kind, weatherGeoJson]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const mapLibre = mapLibreModuleRef.current;
+    for (const handle of weatherMarkersRef.current) handle.marker.remove();
+    weatherMarkersRef.current = [];
+    if (
+      !map ||
+      !mapInstance ||
+      !mapLibre ||
+      !catalog ||
+      !weatherObservations ||
+      renderer.kind !== "globe_ready"
+    ) {
+      return;
+    }
+
+    const primaryPortIds = new Set(
+      catalog.ports.filter(({ primary }) => primary).map(({ id }) => id),
+    );
+    const handles = catalog.weather.flatMap((weather): WeatherMarkerHandle[] => {
+      const observation = weatherObservations[weather.id];
+      if (!observation) return [];
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "network-weather-marker";
+      button.dataset.kind = observation.kind;
+      button.dataset.risk = observation.risk;
+      button.dataset.selected = String(selectedWeatherIdRef.current === observation.key);
+      button.setAttribute(
+        "aria-label",
+        `${observation.nameKo}, ${observation.conditionLabel || WEATHER_CONDITION_LABELS[observation.condition]}, ${observation.riskLabel}`,
+      );
+      button.setAttribute(
+        "aria-pressed",
+        String(selectedWeatherIdRef.current === observation.key),
+      );
+      button.title = `${observation.nameKo} · ${observation.conditionLabel}`;
+
+      const image = document.createElement("img");
+      image.src = WEATHER_ICON_BY_CONDITION[observation.condition];
+      image.alt = "";
+      image.ariaHidden = "true";
+      image.draggable = false;
+      const caption = document.createElement("span");
+      caption.className = "network-weather-marker__caption";
+      caption.textContent = observation.conditionLabel || WEATHER_CONDITION_LABELS[observation.condition];
+      button.append(image, caption);
+
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        selectWeather(observation.key, button);
+      });
+      const marker = new mapLibre.Marker({
+        anchor: "center",
+        element: button,
+      })
+        .setLngLat([observation.longitude, observation.latitude])
+        .addTo(map);
+      return [{
+        id: observation.key,
+        element: button,
+        marker,
+        observation,
+        role: weatherRole(observation, primaryPortIds),
+      }];
+    });
+    weatherMarkersRef.current = handles;
+
+    const updateVisibility = (): void => {
+      const minimumDistance = map.getCanvas().clientWidth <= 640 ? 36 : 46;
+      const visible = new Set(
+        selectVisibleWeather(
+          handles.map((handle) => {
+            const point = map.project([
+              handle.observation.longitude,
+              handle.observation.latitude,
+            ]);
+            return {
+              id: handle.id,
+              x: point.x,
+              y: point.y,
+              risk: handle.observation.risk,
+              role: handle.role,
+              selected: selectedWeatherIdRef.current === handle.id,
+              hovered: handle.element.matches(":hover"),
+              pinned: handle.observation.kind === "route",
+            };
+          }),
+          map.getZoom(),
+          minimumDistance,
+        ).map(({ id }) => id),
+      );
+      for (const handle of handles) {
+        const isVisible = visible.has(handle.id);
+        handle.element.dataset.visible = String(isVisible);
+      }
+    };
+
+    map.on("move", updateVisibility);
+    map.on("resize", updateVisibility);
+    for (const handle of handles) {
+      handle.element.addEventListener("pointerenter", updateVisibility);
+      handle.element.addEventListener("pointerleave", updateVisibility);
+    }
+    updateVisibility();
+
+    return () => {
+      map.off("move", updateVisibility);
+      map.off("resize", updateVisibility);
+      for (const handle of handles) {
+        handle.element.removeEventListener("pointerenter", updateVisibility);
+        handle.element.removeEventListener("pointerleave", updateVisibility);
+        handle.marker.remove();
+      }
+      if (weatherMarkersRef.current === handles) weatherMarkersRef.current = [];
+    };
+  }, [catalog, mapInstance, renderer.kind, selectWeather, weatherObservations]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -974,6 +1291,7 @@ export function NetworkPageClient({
         import("maplibre-gl/dist/maplibre-gl-worker.mjs?url"),
       ]);
       if (disposed) return;
+      mapLibreModuleRef.current = mapLibre;
 
       const promotion = createNetworkMapPromotion({
         sources,
@@ -985,6 +1303,22 @@ export function NetworkPageClient({
         exposeMap: (candidate) => {
           const map = candidate as MapLibreMap;
           mapRef.current = map;
+          setMapInstance(map);
+          try {
+            map.addControl(
+              new mapLibre.AttributionControl({ compact: true }),
+              "bottom-right",
+            );
+          } catch {
+            dispatchRenderer({ type: "DEGRADE", degradation: "BASEMAP_UNAVAILABLE" });
+          }
+          sceneControllerRef.current?.dispose();
+          sceneControllerRef.current = installNetworkMapScene(map, {
+            onDegradation: ({ code }) => {
+              setDiagnosticCode(`DEGRADED_${code}`);
+              dispatchRenderer({ type: "DEGRADE", degradation: "BASEMAP_UNAVAILABLE" });
+            },
+          });
           const markLoaded = (): void => {
             if (disposed || loadReported) return;
             loadReported = true;
@@ -1033,13 +1367,15 @@ export function NetworkPageClient({
                 .map((feature) => String(feature.properties?.routeId ?? feature.id ?? "")),
             };
             const intent = resolveNetworkPointerIntent(hits);
-            if (intent.kind === "weather") selectWeather(intent.id);
-            if (intent.kind === "port") selectPort(intent.id);
-            if (intent.kind === "chokepoint") selectChokepoint(intent.id);
+            const trigger = map.getCanvas();
+            if (intent.kind === "weather") selectWeather(intent.id, trigger);
+            if (intent.kind === "port") selectPort(intent.id, trigger);
+            if (intent.kind === "chokepoint") selectChokepoint(intent.id, trigger);
             if (intent.kind === "route" && isRouteId(intent.id)) {
-              selectMapRoute(intent.id);
+              selectMapRoute(intent.id, trigger);
             }
             if (intent.kind === "overlap") {
+              selectionTriggerRef.current = trigger;
               dispatchSelection({ type: "SHOW_OVERLAP", routeIds: intent.routeIds });
             }
           });
@@ -1102,9 +1438,15 @@ export function NetworkPageClient({
 
     return () => {
       disposed = true;
+      sceneControllerRef.current?.dispose();
+      sceneControllerRef.current = null;
+      for (const handle of weatherMarkersRef.current) handle.marker.remove();
+      weatherMarkersRef.current = [];
       featureStateRef.current?.dispose();
       featureStateRef.current = null;
       mapRef.current = null;
+      setMapInstance(null);
+      mapLibreModuleRef.current = null;
       controller?.dispose();
     };
   }, [
@@ -1165,8 +1507,14 @@ export function NetworkPageClient({
         <span className="network-renderer-status">{rendererLabel(renderer)}</span>
       </header>
 
+      <p className="network-weather-status" role="status">
+        <span aria-hidden="true" />
+        <strong>기상 실황</strong>
+        <small>{weatherStatusLabel}</small>
+      </p>
+
       <section aria-label="네트워크 작업 도구" className="network-actions">
-        <div aria-label="Focus mode" className="network-focus" role="radiogroup">
+        <div aria-label="지도 초점" className="network-focus" role="radiogroup">
           {(["routes", "chokepoints", "combined"] as const).map((mode) => (
             <button
               aria-checked={focusMode === mode}
@@ -1197,12 +1545,16 @@ export function NetworkPageClient({
               tabIndex={focusMode === mode ? 0 : -1}
               type="button"
             >
-              {mode}
+              {{
+                routes: "노선 중심",
+                chokepoints: "초크포인트 중심",
+                combined: "함께 보기",
+              }[mode]}
             </button>
           ))}
         </div>
         <button className="network-reset" onClick={resetView} type="button">
-          Reset
+          초기 위치
         </button>
       </section>
 
@@ -1261,6 +1613,23 @@ export function NetworkPageClient({
                     chokepoint.id}
                 </option>
               ))}
+            </select>
+          </label>
+          <label>
+            기상 관측
+            <select
+              onChange={(event) =>
+                selectWeather(event.currentTarget.value, event.currentTarget)
+              }
+              value={selection.weatherId ?? ""}
+            >
+              <option value="">관측 지점 선택</option>
+              {Object.values(weatherObservations ?? {})
+                .map((observation) => (
+                  <option key={observation.key} value={observation.key}>
+                    {observation.nameKo} · {observation.conditionLabel}
+                  </option>
+                ))}
             </select>
           </label>
         </nav>
@@ -1324,11 +1693,12 @@ export function NetworkPageClient({
             <li><i className="legend-origin" /> 부산항</li>
             <li><i className="legend-port" /> 목적항 57개</li>
             <li><i className="legend-route" /> 대표 해상 회랑</li>
-            <li><i className="legend-connector" /> 동일 route 권역 연결</li>
+            <li><i className="legend-connector" /> 동일 노선 권역</li>
             <li><i className="legend-strait" /> 해협</li>
             <li><i className="legend-canal" /> 운하</li>
-            <li><i className="legend-weather" /> 기상 상태</li>
-            <li><i className="legend-choke" /> 초크포인트 회랑 11개</li>
+            <li><i className="legend-weather" /> 기상 애니메이션</li>
+            <li><i className="legend-choke" /> AIS 7일 추정 통과량</li>
+            <li><i className="legend-help" /> 사용법: 표식을 선택하세요</li>
           </ul>
         ) : null}
       </section>
@@ -1454,6 +1824,7 @@ export function NetworkPageClient({
                   다시 시도
                 </button>
                 <button
+                  data-weather-trigger={selectedPort.id}
                   onClick={(event) =>
                     selectWeather(`port:${selectedPort.id}`, event.currentTarget)
                   }
@@ -1555,27 +1926,92 @@ export function NetworkPageClient({
           ) : null}
           {panel.kind === "weather" && selectedWeather ? (
             <>
-              <p className="network-eyebrow">WEATHER · {resourceLabel(weatherResource)}</p>
+              <p className="network-eyebrow">
+                LIVE WEATHER · {formatWeatherTime(selectedWeatherObservation?.observedAt)}
+              </p>
               <h2>
-                {APPROVED_NETWORK_LABELS.weather[selectedWeather.id]?.ko ??
+                {selectedWeatherObservation?.nameKo ??
+                  APPROVED_NETWORK_LABELS.weather[selectedWeather.id]?.ko ??
                   selectedWeather.id}
               </h2>
-              <p>{APPROVED_NETWORK_LABELS.weather[selectedWeather.id]?.subtitleKo}</p>
+              <p>
+                {selectedWeatherObservation?.subtitleKo ??
+                  APPROVED_NETWORK_LABELS.weather[selectedWeather.id]?.subtitleKo}
+              </p>
               <dl className="network-kpi-grid network-weather-grid">
-                <div><dt>상태</dt><dd>UNAVAILABLE</dd></div>
-                <div><dt>위험</dt><dd>UNAVAILABLE</dd></div>
-                <div><dt>기온</dt><dd>—</dd></div>
-                <div><dt>강수</dt><dd>—</dd></div>
-                <div><dt>풍속·돌풍</dt><dd>—</dd></div>
-                <div><dt>가시거리 실측</dt><dd>—</dd></div>
-                <div><dt>파고·주기</dt><dd>—</dd></div>
-                <div><dt>해수면 온도</dt><dd>—</dd></div>
+                <div>
+                  <dt>상태</dt>
+                  <dd>{selectedWeatherObservation?.conditionLabel ?? "관측 연결 중"}</dd>
+                </div>
+                <div>
+                  <dt>위험</dt>
+                  <dd data-risk={selectedWeatherObservation?.risk ?? "normal"}>
+                    {selectedWeatherObservation?.riskLabel ?? "확인 중"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>기온</dt>
+                  <dd>{formatMetric(selectedWeatherObservation?.temperatureC, "℃")}</dd>
+                </div>
+                <div>
+                  <dt>강수</dt>
+                  <dd>{formatMetric(selectedWeatherObservation?.precipitationMm, "mm")}</dd>
+                </div>
+                <div>
+                  <dt>풍속·돌풍</dt>
+                  <dd>
+                    {formatMetric(selectedWeatherObservation?.windSpeedKn, "kn")}
+                    {selectedWeatherObservation?.windGustKn !== null &&
+                    selectedWeatherObservation?.windGustKn !== undefined
+                      ? ` · ${formatMetric(selectedWeatherObservation.windGustKn, "kn")}`
+                      : ""}
+                  </dd>
+                </div>
+                <div>
+                  <dt>가시거리 실측</dt>
+                  <dd>
+                    {formatVisibility(
+                      selectedWeatherObservation?.visibilityM,
+                      selectedWeatherObservation?.visibilityIsMinimum,
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>파고·주기</dt>
+                  <dd>
+                    {formatMetric(selectedWeatherObservation?.waveHeightM, "m")}
+                    {selectedWeatherObservation?.wavePeriodS !== null &&
+                    selectedWeatherObservation?.wavePeriodS !== undefined
+                      ? ` · ${formatMetric(selectedWeatherObservation.wavePeriodS, "s")}`
+                      : ""}
+                  </dd>
+                </div>
+                <div>
+                  <dt>해수면 온도</dt>
+                  <dd>
+                    {formatMetric(selectedWeatherObservation?.seaSurfaceTemperatureC, "℃")}
+                  </dd>
+                </div>
+                <div>
+                  <dt>해류</dt>
+                  <dd>{formatMetric(selectedWeatherObservation?.oceanCurrentKmh, "km/h")}</dd>
+                </div>
+                <div>
+                  <dt>가시거리 관측소</dt>
+                  <dd>{selectedWeatherObservation?.visibilityStationId ?? "—"}</dd>
+                </div>
               </dl>
+              {selectedWeatherObservation?.riskReasons.length ? (
+                <p className="network-weather-alert">
+                  {selectedWeatherObservation.riskReasons.join(" · ")}
+                </p>
+              ) : null}
               <button onClick={() => setWeatherAttempt((attempt) => attempt + 1)} type="button">
-                다시 시도
+                실황 새로고침
               </button>
               <p className="network-detail-panel__note">
-                운항 승인용이 아닌 노선 위험 모니터링용 참고 실황입니다.
+                {weatherData?.attribution ?? "MET Norway · Open-Meteo · AviationWeather"}
+                <br />운항 승인용이 아닌 노선 위험 모니터링용 참고 실황입니다.
               </p>
             </>
           ) : null}

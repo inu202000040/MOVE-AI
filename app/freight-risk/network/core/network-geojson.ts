@@ -5,6 +5,7 @@ import type {
   NetworkRouteRecord,
   NetworkWeatherRecord,
 } from "./catalog-consumer";
+import { createNetworkChokepointGeometry } from "./chokepoint-geometry";
 import { splitAntimeridian } from "./geometry";
 
 export type GeoJsonGeometry =
@@ -54,8 +55,26 @@ export interface NetworkGeometryCatalog {
   readonly weather: readonly NetworkWeatherRecord[];
 }
 
-function emptyFeatureCollection(): GeoJsonFeatureCollection {
-  return { type: "FeatureCollection", features: [] };
+export type NetworkWeatherRisk =
+  | "normal"
+  | "warning"
+  | "severe"
+  | "unavailable";
+
+export interface NetworkWeatherVisualState {
+  readonly risk: NetworkWeatherRisk;
+  readonly condition: string | null;
+  readonly riskLabel?: string | null;
+  readonly riskReason?: string | null;
+  readonly observedAt?: string | null;
+}
+
+export type NetworkWeatherVisualStateLookup =
+  | ReadonlyMap<string, NetworkWeatherVisualState>
+  | Readonly<Record<string, NetworkWeatherVisualState | undefined>>;
+
+export interface NetworkGeoJsonRuntimeState {
+  readonly weatherById?: NetworkWeatherVisualStateLookup;
 }
 
 function point(longitude: number, latitude: number): GeoJsonGeometry {
@@ -132,8 +151,22 @@ function connectorFeature(
   };
 }
 
+function lookupWeatherVisualState(
+  lookup: NetworkWeatherVisualStateLookup | undefined,
+  weatherId: string,
+): NetworkWeatherVisualState | undefined {
+  if (!lookup) return undefined;
+  if (typeof (lookup as ReadonlyMap<string, NetworkWeatherVisualState>).get === "function") {
+    return (lookup as ReadonlyMap<string, NetworkWeatherVisualState>).get(weatherId);
+  }
+  return (lookup as Readonly<Record<string, NetworkWeatherVisualState | undefined>>)[
+    weatherId
+  ];
+}
+
 export function catalogToNetworkGeoJson(
   catalog: NetworkGeometryCatalog,
+  runtimeState: NetworkGeoJsonRuntimeState = {},
 ): NetworkGeoJsonSources {
   const primaryPortByRoute = new Map(
     catalog.ports
@@ -149,6 +182,10 @@ export function catalogToNetworkGeoJson(
       }
       return connectorFeature(port, primaryPort);
     });
+  const chokepointGeometry = catalog.chokepoints.map((chokepoint) => ({
+    record: chokepoint,
+    geometry: createNetworkChokepointGeometry(chokepoint),
+  }));
 
   return {
     "network-globe-graticule": createGlobeGraticule(),
@@ -160,8 +197,46 @@ export function catalogToNetworkGeoJson(
       type: "FeatureCollection",
       features: connectors,
     },
-    "network-chokepoint-corridors": emptyFeatureCollection(),
-    "network-chokepoint-gates": emptyFeatureCollection(),
+    "network-chokepoint-corridors": {
+      type: "FeatureCollection",
+      features: chokepointGeometry.map(({ record, geometry }) => ({
+        type: "Feature",
+        id: record.id,
+        geometry: {
+          type: "MultiLineString",
+          coordinates: splitAntimeridian(geometry.corridorCoordinates),
+        },
+        properties: {
+          id: record.id,
+          chokepointId: record.id,
+          kind: geometry.profile.kind,
+          bearingDegrees: geometry.profile.bearingDegrees,
+          corridorLengthKm: geometry.profile.corridorLengthKm,
+          corridorWidthKm: geometry.profile.corridorWidthKm,
+          upstreamPortWatchId: record.upstreamPortWatchId,
+        },
+      })),
+    },
+    "network-chokepoint-gates": {
+      type: "FeatureCollection",
+      features: chokepointGeometry.map(({ record, geometry }) => ({
+        type: "Feature",
+        id: record.id,
+        geometry: {
+          type: "MultiLineString",
+          coordinates: geometry.gates.flatMap((gate) =>
+            splitAntimeridian(gate.coordinates),
+          ),
+        },
+        properties: {
+          id: record.id,
+          chokepointId: record.id,
+          gateCount: geometry.gates.length,
+          kind: geometry.profile.kind,
+          upstreamPortWatchId: record.upstreamPortWatchId,
+        },
+      })),
+    },
     "network-chokepoints": {
       type: "FeatureCollection",
       features: catalog.chokepoints.map((chokepoint) => ({
@@ -192,18 +267,28 @@ export function catalogToNetworkGeoJson(
     },
     "network-weather": {
       type: "FeatureCollection",
-      features: catalog.weather.map((weather) => ({
-        type: "Feature",
-        id: weather.id,
-        geometry: point(weather.longitude, weather.latitude),
-        properties: {
+      features: catalog.weather.map((weather) => {
+        const visualState = lookupWeatherVisualState(
+          runtimeState.weatherById,
+          weather.id,
+        );
+        return {
+          type: "Feature",
           id: weather.id,
-          weatherId: weather.id,
-          kind: weather.kind,
-          entityId: weather.entityId,
-          risk: "unavailable",
-        },
-      })),
+          geometry: point(weather.longitude, weather.latitude),
+          properties: {
+            id: weather.id,
+            weatherId: weather.id,
+            kind: weather.kind,
+            entityId: weather.entityId,
+            risk: visualState?.risk ?? "unavailable",
+            condition: visualState?.condition ?? null,
+            riskLabel: visualState?.riskLabel ?? null,
+            riskReason: visualState?.riskReason ?? null,
+            observedAt: visualState?.observedAt ?? null,
+          },
+        };
+      }),
     },
   };
 }

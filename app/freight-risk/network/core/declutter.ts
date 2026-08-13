@@ -13,6 +13,7 @@ export interface WeatherDeclutterCandidate {
   readonly role: WeatherRole;
   readonly selected: boolean;
   readonly hovered: boolean;
+  readonly pinned?: boolean;
   readonly globeFacing?: boolean;
 }
 
@@ -89,6 +90,7 @@ function priority(candidate: WeatherDeclutterCandidate): number {
   if (candidate.hovered) return 500;
   if (candidate.risk === "severe") return 400;
   if (candidate.risk === "warning") return 300;
+  if (candidate.pinned) return 250;
   if (candidate.role === "chokepoint") return 200;
   if (candidate.role === "primary") return 100;
   return 0;
@@ -99,7 +101,8 @@ function isProtected(candidate: WeatherDeclutterCandidate): boolean {
     candidate.selected ||
     candidate.hovered ||
     candidate.risk === "severe" ||
-    candidate.risk === "warning"
+    candidate.risk === "warning" ||
+    candidate.pinned === true
   );
 }
 

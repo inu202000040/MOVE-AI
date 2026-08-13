@@ -7,19 +7,20 @@ import type {
   ChokepointTrafficDataV1,
   PortDetailQueryV1,
   PortTrafficDataV1,
+  WeatherDataV1,
 } from "../../../data/runtime/domains";
 import {
   decodeChokepointDetailResultV1,
   decodeChokepointSummaryResultV1,
   decodePortDetailResultV1,
   decodePortSummaryResultV1,
-  decodeWeatherUnavailableResultV1,
+  decodeWeatherResultV1,
   type ChokepointStateV1,
   type PortStateV1,
+  type WeatherStateV1,
 } from "../../../data/runtime/method-decoders";
 
-export type { ChokepointStateV1, PortStateV1 };
-export type WeatherStateV1 = "UNAVAILABLE";
+export type { ChokepointStateV1, PortStateV1, WeatherStateV1 };
 
 export interface NetworkDomainGatewayV1 {
   portSummary(
@@ -38,7 +39,7 @@ export interface NetworkDomainGatewayV1 {
   ): Promise<GatewayResultV1<ChokepointTrafficDataV1, ChokepointStateV1>>;
   weather(
     signal?: AbortSignal,
-  ): Promise<GatewayResultV1<never, WeatherStateV1>>;
+  ): Promise<GatewayResultV1<WeatherDataV1, WeatherStateV1>>;
 }
 
 export function adaptNetworkDataGatewayV1(
@@ -69,7 +70,7 @@ export function adaptNetworkDataGatewayV1(
       );
     },
     async weather(signal) {
-      return decodeWeatherUnavailableResultV1(await gateway.weather(signal));
+      return decodeWeatherResultV1(await gateway.weather(signal));
     },
   };
 }

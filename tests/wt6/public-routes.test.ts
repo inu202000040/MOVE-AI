@@ -229,6 +229,20 @@ test("chokepoint route rejects days and weather rejects every query key", async 
   const weather = await call(weatherGet, "http://localhost/api/globe-weather");
   assert.equal(weather.response.status, 200);
   assertEnvelope(weather.body);
-  assert.equal(weather.body.state, "UNAVAILABLE");
-  assert.equal(weather.body.data, null);
+  assert.ok(["LIVE", "PARTIAL", "UNAVAILABLE"].includes(weather.body.state));
+  if (weather.body.state === "UNAVAILABLE") {
+    assert.equal(weather.body.data, null);
+    assert.equal(weather.response.headers.get("cache-control"), "no-store");
+  } else {
+    const data = weather.body.data as {
+      readonly locationCount: number;
+      readonly observations: Readonly<Record<string, unknown>>;
+    };
+    assert.equal(data.locationCount, 82);
+    assert.equal(Object.keys(data.observations).length, 82);
+    assert.equal(
+      weather.response.headers.get("cache-control"),
+      "public, max-age=300, s-maxage=1800, stale-while-revalidate=7200",
+    );
+  }
 });
