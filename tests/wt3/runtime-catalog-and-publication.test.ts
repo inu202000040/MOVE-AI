@@ -236,8 +236,8 @@ test("Models runtime owns no private route or network boundary", () => {
   const gatewaySource = readFileSync(new URL("../../app/freight-risk/models/tuning-gateway.ts", import.meta.url), "utf8");
   const pageSource = readFileSync(new URL("../../app/freight-risk/models/page.tsx", import.meta.url), "utf8");
   assert.match(clientSource, /useFreightRiskRoute/u);
-  assert.match(clientSource, /createSameOriginDataGatewayV1/u);
   assert.match(clientSource, /modelsTuningGatewayFromDataGateway/u);
+  assert.doesNotMatch(clientSource, /data\/runtime\/data-gateway/u);
   assert.doesNotMatch(clientSource, /history\.replaceState|\bfetch\s*\(|"KNEI"/u);
   assert.doesNotMatch(gatewaySource, /\bfetch\s*\(|\/api\/freight-risk/u);
   assert.doesNotMatch(pageSource, /tuningGateway=/u);

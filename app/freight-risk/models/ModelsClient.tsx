@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useFreightRiskRoute } from "../../components/shell";
 import { ROUTE_IDS, ROUTE_LABELS, type DataGatewayV1, type DataModeV1, type RouteId } from "../../contracts";
-import { createSameOriginDataGatewayV1 } from "../../data/runtime/data-gateway";
 import { ForecastComparisonChart } from "./ForecastComparisonChart";
 import { EvidenceDialog, type EvidenceMetricV1 } from "./EvidenceDialog";
 import { TuningComparisonDialog } from "./TuningComparisonDialog";
@@ -33,7 +32,7 @@ import {
   rollbackModelsTuningCandidateInternal,
   setManualModelsRepresentativeInternal,
 } from "./representative-mutations";
-import { modelsTuningGatewayFromDataGateway } from "./tuning-gateway";
+import { modelsTuningGatewayFromDataGateway, unavailableModelsTuningGateway } from "./tuning-gateway";
 import {
   displayModelVersion,
   modelBadge,
@@ -85,7 +84,9 @@ export default function ModelsClient({ catalog, dataGateway }: ModelsClientProps
   const { routeId, changeRoute } = useFreightRiskRoute();
   const routeData = catalog[routeId];
   const tuningGateway = useMemo(
-    () => modelsTuningGatewayFromDataGateway(dataGateway ?? createSameOriginDataGatewayV1()),
+    () => dataGateway === undefined
+      ? unavailableModelsTuningGateway
+      : modelsTuningGatewayFromDataGateway(dataGateway),
     [dataGateway],
   );
   const [horizon, setHorizon] = useState<HorizonWeeks>(1);
