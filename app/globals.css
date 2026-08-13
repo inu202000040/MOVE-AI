@@ -160,12 +160,46 @@ a {
   background: #010f2c;
 }
 
-.landing-media-pending {
+.landing-media,
+.landing-poster,
+.landing-video {
+  display: block;
   width: 100%;
   height: 100%;
-  background:
-    radial-gradient(circle at 50% 44%, rgba(9, 104, 232, 0.1), transparent 34%),
-    linear-gradient(180deg, #010f2c, #010f2c);
+}
+
+.landing-media {
+  position: relative;
+  background: #010f2c;
+}
+
+.landing-poster,
+.landing-video {
+  position: absolute;
+  inset: 0;
+  background: #010f2c;
+  object-fit: cover;
+  object-position: center 50%;
+}
+
+.landing-poster { z-index: 0; }
+.landing-video { z-index: 1; }
+.landing-video[data-media-state="error"] { visibility: hidden; }
+
+.landing-media-error {
+  position: absolute;
+  z-index: 2;
+  right: 18px;
+  bottom: 16px;
+  max-width: calc(100% - 36px);
+  margin: 0;
+  padding: 8px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(0, 15, 44, 0.8);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .landing-features {
