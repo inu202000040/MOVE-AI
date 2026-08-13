@@ -1,3 +1,6 @@
+import { AllocationClient } from "./AllocationClient";
+import { KNEI_REPRESENTATIVE_SELECTION } from "./fixture";
+
 export default function AllocationPage() {
-  return <main aria-label="Allocation" />;
+  return <AllocationClient selection={KNEI_REPRESENTATIVE_SELECTION} />;
 }

@@ -21,6 +21,7 @@ import {
   type CvarWorkerMessage,
   type RepresentativeSelectionV1,
 } from "../../app/freight-risk/allocation";
+import { KNEI_REPRESENTATIVE_SELECTION } from "../../app/freight-risk/allocation/fixture";
 import {
   canonicalJsonForValidation,
   sha256HexForValidation,
@@ -155,6 +156,17 @@ const KNEI_INPUT: CvarSimulationInput = {
   seed: 2_401_817_482,
   rho: CVAR_WEEKLY_CORRELATION,
 };
+
+test("validates the approved KNEI representative fixture without issuing a revision", () => {
+  const adapted = adaptRepresentativeSelection(KNEI_REPRESENTATIVE_SELECTION);
+  assert.strictEqual(adapted.selection, KNEI_REPRESENTATIVE_SELECTION);
+  assert.equal(adapted.route, "KNEI");
+  assert.equal(adapted.selection.modelId, "sarimax");
+  assert.equal(
+    adapted.selection.representativeRevision,
+    "rep-v1:a615fa0b9ffbcecc1ec48e724b896bdf8e2c3e33aca3ff8a4f880270a84495b4",
+  );
+});
 
 test("validates and projects the canonical representative without regenerating identity", () => {
   const representative = createRepresentative();
