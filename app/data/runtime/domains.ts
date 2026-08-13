@@ -1,6 +1,4 @@
 import { ROUTE_IDS, type RouteId } from "../../contracts/routes";
-import networkCatalogArtifact from "../generated/network-catalog-seam-v1.json";
-import tuningConfigArtifact from "../generated/tuning-config-v1.json";
 import {
   array,
   boolean,
@@ -23,10 +21,13 @@ import {
   assertChokepointTrafficFixtureV1,
   assertForecastSnapshotV3,
   assertMarketReferenceV1,
-  assertNetworkCatalogSeamV1,
   assertPortTrafficFixtureV1,
-  assertTuningConfigV1,
 } from "../artifacts/decoders";
+import {
+  CHOKEPOINT_IDENTITY_POLICY_V1,
+  PORT_IDENTITY_POLICY_V1,
+  TUNING_PARAMETER_POLICY_V1,
+} from "./client-domain-policy";
 
 export const MODEL_IDS_V1 = [
   "naive",
@@ -98,25 +99,17 @@ function gradeLabel(grade: NewsArticleV1["grade"]): NewsArticleV1["gradeLabel"] 
   return "B 시장 참고";
 }
 
-assertNetworkCatalogSeamV1(networkCatalogArtifact);
-const networkRoot = record(networkCatalogArtifact, "$networkCatalog");
 const portIdentityById = new Map(
-  array(networkRoot.ports, "$networkCatalog.ports").map((value, index) => {
-    const item = record(value, `$networkCatalog.ports[${index}]`);
-    const id = string(item.id, "id");
-    return [id, {
-      id,
-      routeId: oneOf(item.routeId, ROUTE_IDS, "routeId"),
-      portWatchId: string(item.upstreamPortWatchId, "upstreamPortWatchId"),
-    }] as const;
-  }),
+  Object.entries(PORT_IDENTITY_POLICY_V1).map(([id, [routeId, portWatchId]]) => [
+    id,
+    { id, routeId, portWatchId },
+  ] as const),
 );
 const chokeIdentityById = new Map(
-  array(networkRoot.chokepoints, "$networkCatalog.chokepoints").map((value, index) => {
-    const item = record(value, `$networkCatalog.chokepoints[${index}]`);
-    const id = string(item.id, "id");
-    return [id, { id, portWatchId: string(item.upstreamPortWatchId, "upstreamPortWatchId") }] as const;
-  }),
+  Object.entries(CHOKEPOINT_IDENTITY_POLICY_V1).map(([id, portWatchId]) => [
+    id,
+    { id, portWatchId },
+  ] as const),
 );
 
 export interface SnapshotDataV1 extends Readonly<Record<string, unknown>> {
@@ -823,27 +816,17 @@ export function decodeTuningHealthDataV1(value: unknown): TuningHealthDataV1 {
   return { serviceVersion: string(root.serviceVersion, "serviceVersion"), capabilities: [decoded[0], decoded[1], decoded[2], decoded[3], decoded[4], decoded[5], decoded[6], decoded[7]] };
 }
 
-assertTuningConfigV1(tuningConfigArtifact);
-const tuningRoot = record(tuningConfigArtifact, "$tuningConfig");
-const tuningParameterCatalog = record(tuningRoot.parameterCatalog, "$tuningConfig.parameterCatalog");
-
 function decodeTuningParameters(value: unknown, modelId: ModelIdV1): Readonly<Record<string, string | number>> {
   const input = record(value, "parameters");
-  const definitions = tuningParameterCatalog[modelId] === undefined ? [] : array(tuningParameterCatalog[modelId], `parameterCatalog.${modelId}`);
-  const definitionByKey = new Map(definitions.map((value, index) => {
-    const definition = record(value, `parameterCatalog.${modelId}[${index}]`);
-    return [string(definition.key, "parameter.key"), definition] as const;
-  }));
+  const definitions = TUNING_PARAMETER_POLICY_V1[modelId] ?? [];
+  const definitionByKey = new Map(definitions.map((definition) => [definition[0], definition] as const));
   const output: Record<string, string | number> = {};
   for (const [key, parameter] of Object.entries(input)) {
     const definition = definitionByKey.get(key);
     if (!definition) throw new Error(`Unknown parameter ${modelId}.${key}`);
-    const inputType = string(definition.inputType, `parameterCatalog.${modelId}.${key}.inputType`);
+    const [, inputType, minimum, maximum, step, options] = definition;
     if (inputType === "number") {
       if (typeof parameter !== "number" || !Number.isFinite(parameter)) throw new Error(`Parameter ${modelId}.${key} must be a number`);
-      const minimum = nullableFinite(definition.minimum, "minimum");
-      const maximum = nullableFinite(definition.maximum, "maximum");
-      const step = nullableFinite(definition.step, "step");
       if ((minimum !== null && parameter < minimum) || (maximum !== null && parameter > maximum)) throw new Error(`Parameter ${modelId}.${key} is outside its range`);
       if (step !== null && minimum !== null) {
         const steps = (parameter - minimum) / step;
@@ -852,13 +835,7 @@ function decodeTuningParameters(value: unknown, modelId: ModelIdV1): Readonly<Re
       output[key] = parameter;
     } else if (inputType === "select") {
       if (typeof parameter !== "string") throw new Error(`Parameter ${modelId}.${key} must be a string`);
-      const optionsText = nullableString(definition.optionsJson, "optionsJson");
-      const options = array(optionsText ? JSON.parse(optionsText) : [], "options").map((value, index) => {
-        const option = record(value, `options[${index}]`);
-        exactKeys(option, ["value", "label"], `options[${index}]`);
-        return string(option.value, `options[${index}].value`);
-      });
-      if (!options.includes(parameter)) throw new Error(`Parameter ${modelId}.${key} is not an allowed option`);
+      if (options === null || !options.includes(parameter)) throw new Error(`Parameter ${modelId}.${key} is not an allowed option`);
       output[key] = parameter;
     } else {
       throw new Error(`Unknown input type for ${modelId}.${key}`);
@@ -1028,7 +1005,7 @@ export function decodeTuneRequestV1(value: unknown): TuneRequestV1 {
   if (dates.length !== values.length || dates.length < 108 || dates.length > 10_000) throw new Error("Invalid training series length");
   for (let index = 1; index < dates.length; index += 1) {
     const intervalMs = Date.parse(`${dates[index]}T00:00:00Z`) - Date.parse(`${dates[index - 1]}T00:00:00Z`);
-    if (intervalMs !== 7 * 86_400_000) throw new Error("Dates must be unique weekly observations");
+    if (intervalMs <= 0) throw new Error("Dates must be unique and strictly increasing");
   }
   if (values.some((number) => number <= 0)) throw new Error("Values must be positive");
   const trainingWindow = oneOf(root.trainingWindow, ["expanding", "rolling_104", "rolling_52"] as const, "trainingWindow");
