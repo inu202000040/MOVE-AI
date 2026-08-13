@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   MODEL_IDS,
+  createInsightRequest,
+  decodeNewsData,
   decodeRepresentativeSelection,
   selectRepresentativeHorizon,
 } from "../../app/freight-risk/dashboard/domain";
@@ -138,4 +140,58 @@ test("representative decoder rejects non-exact objects and invalid source identi
   const badTuned = representativeFixture();
   badTuned.forecastSource = "tuned";
   assert.equal(decodeRepresentativeSelection(badTuned), null);
+});
+
+test("insight request consumes the selected representative row and excludes look-ahead news", () => {
+  const selection = decodeRepresentativeSelection(representativeFixture(), "KNEI");
+  const article = (id: string, publishedAt: string) => ({
+    id,
+    title: `검증 기사 ${id}`,
+    summary: "승인된 요약",
+    originalTitle: `Approved article ${id}`,
+    source: "Approved News",
+    publishedAt,
+    effectiveAt: null,
+    url: `https://example.com/news/${id}`,
+    direction: "하락 압력",
+    directionCode: "DOWN",
+    factor: "수요 변화",
+    relevance: "ROUTE",
+    impactScore: 3,
+    impactSignals: ["수요 변화"],
+    grade: "B",
+    gradeLabel: "B 시장 참고",
+    reason: "항로와 시장을 직접 언급",
+    isBoundary: false,
+    provenance: "VERIFIED",
+  });
+  const news = decodeNewsData({
+    routeId: "KNEI",
+    stage: "FILTERED",
+    llmAnalyzed: false,
+    window: { requestedAsOf: "latest", primaryDays: 30, fallbackDays: 90 },
+    policy: { providerVersion: 18, maximumArticles: 5 },
+    stats: {
+      fetchedCandidates: 2,
+      filteredCandidates: 2,
+      duplicatesRemoved: 0,
+      selectedArticles: 2,
+      successfulProviders: 1,
+      candidateBreakdown: { directImpact: 0, contextual: 2, routeFallback: 0 },
+    },
+    articles: [article("past", "2026-08-01T00:00:00.000Z"), article("future", "2026-08-04T00:00:00.000Z")],
+    attempts: [{ provider: "approved fixture", resultCode: "OK", elapsedMs: 1 }],
+  }, "KNEI");
+  assert.notEqual(selection, null);
+  assert.notEqual(news, null);
+  if (selection === null || news === null) {
+    return;
+  }
+  const request = createInsightRequest(selection, 3, news);
+  assert.equal(request.selectedHorizon, 3);
+  assert.equal(request.forecast.value, selection.forecasts[2].point);
+  assert.equal(request.forecast.coveragePct, selection.metricsByHorizon[2].coverage.pct);
+  assert.deepEqual(request.modelAgreement, { up: 3, down: 2, flat: 3, total: 8 });
+  assert.deepEqual(request.news.map((item) => item.id), ["past"]);
+  assert.equal(request.direction, "하락");
 });

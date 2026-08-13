@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   INSIGHT_CACHE_SCHEMA_VERSION,
   NEWS_CACHE_SCHEMA_VERSION,
+  collectNews,
   createMarketQuery,
   decodeInsightGatewayResult,
   decodeMarketGatewayResult,
@@ -16,6 +17,7 @@ import {
   writeInsightCache,
   writeNewsCache,
   type InsightCacheIdentityV1,
+  type DashboardDataGatewayV1,
   type StorageLike,
 } from "../../app/freight-risk/dashboard/domain";
 
@@ -109,8 +111,8 @@ function newsData() {
 
 function newsResult() {
   return {
-    schemaVersion: "move-ai/gateway/v1",
-    state: "LIVE",
+    schemaVersion: "move-ai/gateway/v1" as const,
+    state: "LIVE" as const,
     data: newsData(),
     meta: gatewayMeta(),
     error: null,
@@ -339,4 +341,28 @@ test("cache writers reject unavailable or malformed values and tolerate quota er
     setItem: () => { throw new Error("quota"); },
   };
   assert.equal(writeNewsCache(quotaStorage, "KNEI", newsResult(), NOW), false);
+});
+
+test("public DataGateway seam sends canonical news queries and preserves first payload on a retry tie", async () => {
+  const queries: Readonly<Record<string, unknown>>[] = [];
+  const first = newsResult();
+  first.meta.source = "first provider result";
+  const retried = newsResult();
+  retried.meta.source = "retry provider result";
+  const gateway: DashboardDataGatewayV1 = {
+    market: async () => { throw new Error("not used"); },
+    insight: async () => { throw new Error("not used"); },
+    news: async (query) => {
+      queries.push(query);
+      return query.retry === 0 ? first : retried;
+    },
+  };
+
+  const result = await collectNews(gateway, "KNEI", undefined);
+  assert.equal(result?.kind, "READY");
+  assert.equal(result?.result.meta.source, "first provider result");
+  assert.deepEqual(queries, [
+    { route: "KNEI", asOf: "latest", providerVersion: 18, retry: 0 },
+    { route: "KNEI", asOf: "latest", providerVersion: 18, retry: 1 },
+  ]);
 });
