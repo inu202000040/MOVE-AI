@@ -75,7 +75,7 @@ test("representative subscription publishes only completely decoded matching rev
   let subscribed = false;
   const source: DashboardRepresentativeSourceV1 = {
     current: () => current,
-    subscribe: (next) => {
+    subscribe: (_routeId, next) => {
       emit = next;
       subscribed = true;
       return () => {
@@ -123,7 +123,9 @@ test("production page mounts the client runtime with required, fail-closed seams
   assert.equal(runtime.includes("data-gateway.client"), true);
   assert.equal(runtime.includes("data-gateway.server"), false);
   assert.equal(runtime.includes('data/runtime/data-gateway"'), false);
-  assert.equal(runtime.includes("UNAVAILABLE_REPRESENTATIVE_SOURCE"), true);
+  assert.equal(runtime.includes("MODELS_REPRESENTATIVE_SOURCE"), true);
+  assert.equal(runtime.includes("UNAVAILABLE_REPRESENTATIVE_SOURCE"), false);
+  assert.equal(runtime.includes("models-representative-source"), false);
   assert.equal(runtime.includes("useSyncExternalStore"), true);
   assert.equal(runtime.includes("initialSnapshotResult"), true);
   assert.equal(app.includes("gateway?:"), false);

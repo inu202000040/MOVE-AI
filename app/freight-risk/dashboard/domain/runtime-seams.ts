@@ -8,7 +8,7 @@ import {
 
 export interface DashboardRepresentativeSourceV1 {
   current(routeId: RouteId): unknown;
-  subscribe(listener: () => void): () => void;
+  subscribe(routeId: RouteId, listener: () => void): () => void;
 }
 
 export function readRepresentativeSource(
@@ -55,10 +55,11 @@ export function createRepresentativeSnapshotReader(
 
 export function subscribeRepresentativeSource(
   source: DashboardRepresentativeSourceV1,
+  routeId: RouteId,
   notify: () => void,
 ): () => void {
   try {
-    return source.subscribe(notify);
+    return source.subscribe(routeId, notify);
   } catch {
     return () => undefined;
   }
@@ -72,7 +73,7 @@ export function bindRepresentativeSource(
   const readSnapshot = createRepresentativeSnapshotReader(source, routeId);
   const synchronize = () => publish(readSnapshot());
   synchronize();
-  return subscribeRepresentativeSource(source, synchronize);
+  return subscribeRepresentativeSource(source, routeId, synchronize);
 }
 
 function unavailableResult(domain: "snapshot" | "market" | "news" | "insight"): PendingGatewayResultV1 {
