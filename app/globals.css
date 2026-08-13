@@ -160,12 +160,13 @@ a {
   background: #010f2c;
 }
 
-.landing-media-pending {
+.landing-video {
+  display: block;
   width: 100%;
   height: 100%;
-  background:
-    radial-gradient(circle at 50% 44%, rgba(9, 104, 232, 0.1), transparent 34%),
-    linear-gradient(180deg, #010f2c, #010f2c);
+  background: #010f2c;
+  object-fit: cover;
+  object-position: center 50%;
 }
 
 .landing-features {

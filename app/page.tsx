@@ -1,3 +1,4 @@
+import { LandingHero } from "./components/landing/LandingHero";
 import { PAGE_PATHS } from "./contracts";
 
 const DASHBOARD_HREF = `${PAGE_PATHS.dashboard}?route=KNEI`;
@@ -24,11 +25,7 @@ export default function LandingPage() {
         className="landing-hero"
         id="top"
       >
-        <div
-          aria-label="승인된 11초 인트로 영상과 poster 자산 대기 중"
-          className="landing-media-pending"
-          role="img"
-        />
+        <LandingHero />
       </section>
 
       <section
