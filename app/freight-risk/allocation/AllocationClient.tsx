@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { isRouteId, ROUTE_IDS, type RouteId } from "../../contracts";
+import { ROUTE_IDS, type RouteId } from "../../contracts";
 import { ComparisonChart, compactMoney, displayDate, money, SpectrumChart } from "./charts";
 import { DetailDialog } from "./DetailDialog";
 import type { CvarProgress, CvarSimulationResult, RiskWeight } from "./engine";
@@ -16,6 +16,7 @@ import {
   type RepresentativeSelectionV1,
 } from "./representative";
 import { CvarRunCoordinator } from "./runtime";
+import { calculateSpotExceedProbability, publishAllocationRoute, riskBarWidth } from "./view-model";
 import styles from "./allocation.module.css";
 
 const ROUTE_NAMES: Readonly<Record<RouteId, string>> = {
@@ -65,7 +66,7 @@ function InputDrawer({
       <aside aria-label="배분 분석 데이터 입력" aria-modal="true" className={styles.drawer} onMouseDown={(event) => event.stopPropagation()} role="dialog">
         <header className={styles.drawerHeader}><div><span className={styles.eyebrow}>DECISION INPUT</span><h2>배분 분석 데이터 입력</h2><p>고정 물동량과 고정운임, 판단 시점 및 추천 성향을 입력합니다.</p></div><button aria-label="데이터 입력 닫기" className={styles.iconButton} onClick={onClose} type="button">×</button></header>
         <div className={styles.drawerBody}>
-          <label className={styles.field}><span>항로</span><select onChange={(event) => { if (isRouteId(event.target.value)) onRouteChange?.(event.target.value); }} value={representative.route}>{ROUTE_IDS.map((route) => <option key={route} value={route}>{ROUTE_NAMES[route]} · {route}</option>)}</select></label>
+          <label className={styles.field}><span>항로</span><select onChange={(event) => publishAllocationRoute(event.target.value, onRouteChange)} value={representative.route}>{ROUTE_IDS.map((route) => <option key={route} value={route}>{ROUTE_NAMES[route]} · {route}</option>)}</select></label>
           <label className={styles.field}><span>판단 시점</span><select onChange={(event) => { const selectedHorizon = Number(event.target.value) as 1 | 2 | 3 | 4; onChange({ ...draft, selectedHorizon, fixed: Math.max(1, Math.round(representative.forecasts[selectedHorizon - 1].point * 1.035)) }); }} value={draft.selectedHorizon}>{[1, 2, 3, 4].map((week) => <option key={week} value={week}>{week}주</option>)}</select></label>
           <label className={styles.field}><span>고정 물동량</span><div className={styles.unitInput}><input min="1" onChange={(event) => onChange({ ...draft, volume: Math.max(1, Number(event.target.value)) })} step="10" type="number" value={draft.volume} /><b>FEU</b></div></label>
           <label className={styles.field}><span>고정계약 운임</span><div className={styles.unitInput}><input min="1" onChange={(event) => onChange({ ...draft, fixed: Math.max(1, Number(event.target.value)) })} step="1" type="number" value={draft.fixed} /><b>USD/FEU</b></div></label>
@@ -135,7 +136,7 @@ export function AllocationClient({
   const displayInput = lastInput?.simulation ?? createAllocationRunInput(selection, draft).simulation;
   const share = result?.best.share ?? 0;
   const spotShare = result?.best.spotShare ?? 0;
-  const exceedProbability = result && lastInput ? 100 * (Array.from(result.spots).filter((spot) => spot > lastInput.simulation.fixed).length / result.spots.length) : null;
+  const exceedProbability = result && lastInput ? 100 * calculateSpotExceedProbability(result.spots, lastInput.simulation.fixed) : null;
   const status = error ? "계산 오류" : running ? "계산 중" : result ? "계산 완료" : "준비 중";
   const profile = RISK_PROFILES[(lastInput?.simulation.riskWeight ?? draft.riskWeight)];
   const routeName = ROUTE_NAMES[representative.route];
@@ -190,7 +191,7 @@ export function AllocationClient({
       <section className={`${styles.card} ${styles.riskSection}`}><SectionHeading eyebrow="TAIL RISK BREAKDOWN" title="상승·하락 위험 분해" description="추천 후보의 CVaR90을 손실 방향별로 나눕니다." /><div className={styles.riskGrid}>{[
         ["Spot 상승손실", "Spot 운임이 고정운임보다 높을 때 Spot 배분에서 발생하는 추가비용", result?.best.upward ?? 0, "up"],
         ["Spot 하락손실", "Spot 운임이 낮을 때 고정 배분으로 놓친 비용절감 기회", result?.best.downward ?? 0, "down"],
-      ].map(([title, description, numeric, tone]) => { const value = Number(numeric); const width = result && result.best.cvar > 0 && value > 0 ? Math.max(4, (value / result.best.cvar) * 100) : 0; return <article key={String(title)}><div><span>{title}</span><strong>{compactMoney(value)}</strong></div><p>{description}</p><i><b data-tone={tone} style={{ width: `${width}%` }} /></i><small>{result?.best.cvar ? `${((value / result.best.cvar) * 100).toFixed(1)}%` : "0%"}</small></article>; })}</div></section>
+      ].map(([title, description, numeric, tone]) => { const value = Number(numeric); const width = riskBarWidth(value, result?.best.cvar ?? 0); return <article key={String(title)}><div><span>{title}</span><strong>{compactMoney(value)}</strong></div><p>{description}</p><i><b data-tone={tone} style={{ width: `${width}%` }} /></i><small>{result?.best.cvar ? `${((value / result.best.cvar) * 100).toFixed(1)}%` : "0%"}</small></article>; })}</div></section>
 
       <InputDrawer draft={draft} onChange={setDraft} onClose={() => setDrawerOpen(false)} onRouteChange={onRouteChange} onRun={() => runDraft(draft, true)} open={drawerOpen} representative={representative} running={running} />
       {result && lastInput ? <DetailDialog onClose={() => setDetailOpen(false)} open={detailOpen} result={result} routeName={routeName} runInput={lastInput} /> : null}

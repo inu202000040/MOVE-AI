@@ -8,6 +8,7 @@ import type {
   CvarSimulationResult,
 } from "./engine";
 import type { AllocationRepresentativeInput } from "./representative";
+import { createComparisonGeometry, createSpectrumGeometry } from "./view-model";
 import styles from "./allocation.module.css";
 
 export function money(value: number): string {
@@ -51,32 +52,7 @@ export function ComparisonChart({
   readonly representative: AllocationRepresentativeInput;
 }) {
   const forecast = input.forecasts[input.selectedHorizon - 1];
-  const rawValues = [forecast.lower90, forecast.point, forecast.upper90, input.fixed];
-  const rawMin = Math.min(...rawValues);
-  const rawMax = Math.max(...rawValues);
-  const padding = Math.max(8, (rawMax - rawMin) * 0.24, rawMax * 0.035);
-  const domainMin = Math.max(0, rawMin - padding);
-  const domainMax = rawMax + padding;
-  const plotTop = 30;
-  const plotBottom = 248;
-  const yFor = (value: number) =>
-    plotBottom - ((value - domainMin) / (domainMax - domainMin)) * (plotBottom - plotTop);
-  const series = [
-    { name: "상한", value: forecast.upper90, color: "#d64545", dashed: true },
-    { name: "점예측", value: forecast.point, color: "#3fa1eb", dashed: false },
-    { name: "하한", value: forecast.lower90, color: "#087352", dashed: true },
-    { name: "고정운임", value: input.fixed, color: "#7c3aed", dashed: false },
-  ].map((item) => ({ ...item, y: yFor(item.value), labelY: yFor(item.value) }));
-  const sorted = [...series].sort((left, right) => left.y - right.y);
-  sorted.forEach((item, index) => {
-    item.labelY = Math.max(item.y, index === 0 ? 34 : sorted[index - 1].labelY + 25);
-  });
-  const overflow = sorted.at(-1)?.labelY ?? 0;
-  if (overflow > 242) {
-    sorted.forEach((item) => {
-      item.labelY -= overflow - 242;
-    });
-  }
+  const geometry = createComparisonGeometry(forecast, input.fixed);
 
   return (
     <div className={styles.chartScroll}>
@@ -86,9 +62,7 @@ export function ComparisonChart({
         role="img"
         viewBox="0 0 720 300"
       >
-        {[0, 1, 2, 3, 4].map((index) => {
-          const y = plotTop + ((plotBottom - plotTop) * index) / 4;
-          const value = domainMax - ((domainMax - domainMin) * index) / 4;
+        {geometry.ticks.map(({ y, value }, index) => {
           return (
             <g key={index}>
               <line className={styles.gridLine} x1="72" x2="500" y1={y} y2={y} />
@@ -98,7 +72,7 @@ export function ComparisonChart({
             </g>
           );
         })}
-        {series.map((item) => (
+        {geometry.series.map((item) => (
           <g key={item.name}>
             <line
               stroke={item.color}
@@ -138,16 +112,10 @@ export function SpectrumChart({ result }: { readonly result: CvarSimulationResul
   const right = 844;
   const top = 42;
   const bottom = 312;
-  const allLeft = result.results.flatMap((item) => [item.expected, item.objective]);
-  const rawLeftMin = Math.min(...allLeft);
-  const rawLeftMax = Math.max(...allLeft);
-  const leftPadding = (rawLeftMax - rawLeftMin) * 0.12;
-  const leftMin = rawLeftMin - leftPadding;
-  const leftMax = rawLeftMax + leftPadding;
-  const rightMax = Math.max(...result.results.map((item) => item.cvar)) * 1.12;
+  const geometry = createSpectrumGeometry(result.results, result.best.share);
   const xFor = (share: number) => left + (share / 100) * (right - left);
-  const leftY = (value: number) => bottom - ((value - leftMin) / (leftMax - leftMin)) * (bottom - top);
-  const rightY = (value: number) => bottom - (value / rightMax) * (bottom - top);
+  const leftY = (value: number) => bottom - ((value - geometry.leftMin) / (geometry.leftMax - geometry.leftMin)) * (bottom - top);
+  const rightY = (value: number) => bottom - (value / geometry.rightMax) * (bottom - top);
   const expectedPath = polylinePath(result.results.map((item) => item.expected), xFor, leftY);
   const objectivePath = polylinePath(result.results.map((item) => item.objective), xFor, leftY);
   const cvarPath = polylinePath(result.results.map((item) => item.cvar), xFor, rightY);
@@ -187,8 +155,8 @@ export function SpectrumChart({ result }: { readonly result: CvarSimulationResul
           <rect
             className={styles.recommendationBand}
             height={bottom - top}
-            width={xFor(5) - xFor(0)}
-            x={xFor(Math.max(0, result.best.share - 2.5))}
+            width={xFor(geometry.recommendationBandEnd) - xFor(geometry.recommendationBandStart)}
+            x={xFor(geometry.recommendationBandStart)}
             y={top}
           />
           <path className={styles.downArea} d={downArea} />

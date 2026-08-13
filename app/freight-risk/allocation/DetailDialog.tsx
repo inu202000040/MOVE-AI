@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { serializeRecommendedCvarCsv } from "./csv";
-import { economicLoss, type CvarSimulationResult } from "./engine";
+import type { CvarSimulationResult } from "./engine";
 import type { AllocationRunInput } from "./representative";
 import { money, PathsChart } from "./charts";
+import { createPercentileRows } from "./view-model";
 import styles from "./allocation.module.css";
 
 type DetailTab = "allocation" | "paths" | "method";
@@ -74,34 +75,7 @@ export function DetailDialog({
 
   const percentiles = useMemo(() => {
     if (!open || tab !== "paths") return [];
-    const sorted = Array.from(result.spots).sort((left, right) => left - right);
-    return [1, 5, 10, 25, 50, 75, 90, 95, 99].map((percentile) => {
-      const spot = sorted[Math.round((sorted.length - 1) * (percentile / 100))];
-      const fixedShare = result.best.share / 100;
-      const totalCost =
-        runInput.simulation.volume *
-        (fixedShare * runInput.simulation.fixed + (1 - fixedShare) * spot);
-      const difference = spot - runInput.simulation.fixed;
-      return {
-        percentile,
-        spot,
-        difference,
-        totalCost,
-        unitCost: totalCost / runInput.simulation.volume,
-        loss: economicLoss(
-          spot,
-          runInput.simulation.fixed,
-          fixedShare,
-          runInput.simulation.volume,
-        ),
-        direction:
-          Math.abs(difference) < 0.005
-            ? "가격 동일"
-            : difference < 0
-              ? "Spot 하락손실"
-              : "Spot 상승손실",
-      };
-    });
+    return createPercentileRows(result.spots, runInput.simulation, result.best);
   }, [open, result, runInput, tab]);
 
   if (!open || typeof document === "undefined") return null;
