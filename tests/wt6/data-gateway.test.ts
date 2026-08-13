@@ -82,7 +82,14 @@ test("one exported factory supplies validated in-process snapshot/catalog and al
   assert.equal(observed.length, 0, "snapshot/catalog must not create public HTTP requests");
 
   assert.equal((await access.gateway.market({ series: "harpex", from: "2026-07-01", to: "2026-08-31", providerVersion: 3 })).state, "REFERENCE");
-  assert.equal((await access.gateway.news({ route: "KNEI", asOf: "2026-08-13", providerVersion: 18, retry: 0, refresh: "nonce-123" })).state, "UNAVAILABLE");
+  const previousMode = process.env.MOVE_AI_DATA_MODE;
+  process.env.MOVE_AI_DATA_MODE = "fixture";
+  try {
+    assert.equal((await access.gateway.news({ route: "KNEI", asOf: "2026-08-13", providerVersion: 18, retry: 0, refresh: "nonce-123" })).state, "UNAVAILABLE");
+  } finally {
+    if (previousMode === undefined) delete process.env.MOVE_AI_DATA_MODE;
+    else process.env.MOVE_AI_DATA_MODE = previousMode;
+  }
   assert.equal((await access.gateway.insight({ ...validInsightRequest() })).state, "DERIVED");
   assert.equal((await access.gateway.tuningHealth()).state, "UNAVAILABLE");
   assert.equal((await access.gateway.tuningRun({ ...validTuneRequest() })).state, "UNAVAILABLE");
