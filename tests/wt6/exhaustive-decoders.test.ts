@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import portArtifact from "../../app/data/generated/port-traffic-fixture-v1.json";
 import chokeArtifact from "../../app/data/generated/chokepoint-traffic-fixture-v1.json";
+import snapshotArtifact from "../../app/data/generated/forecast-snapshot-v3.json";
 import {
   chokeFromArtifact,
   decodeInsightRequestV1,
@@ -193,10 +194,25 @@ test("tuning request, health, and success decoders enforce exact model policy an
   assert.throws(() => decodeTuneRequestV1(unknown), /Unknown parameter/u);
   assert.throws(() => decodeTuneRequestV1({ ...request, parameters: { p: 4 } }), /range/u);
   assert.throws(() => decodeTuneRequestV1({ ...request, parameters: { p: true } }), /number/u);
-  const brokenDates = [...request.dates];
-  brokenDates[2] = new Date(Date.parse(`${brokenDates[1]}T00:00:00Z`) + 8 * 86_400_000).toISOString().slice(0, 10);
-  const brokenWeek = { ...request, dates: brokenDates };
-  assert.throws(() => decodeTuneRequestV1(brokenWeek), /weekly/u);
+  const approvedDates = snapshotArtifact.dates;
+  const adjustedGaps = approvedDates.slice(1).filter((date, index) => (
+    Date.parse(`${date}T00:00:00Z`) - Date.parse(`${approvedDates[index]}T00:00:00Z`) !== 7 * 86_400_000
+  ));
+  assert.equal(adjustedGaps.length, 27);
+  assert.equal(decodeTuneRequestV1({
+    routeCode: "KNEI", modelId: "naive", dates: approvedDates, values: snapshotArtifact.routes.KNEI.values,
+    trainingWindow: "expanding", evaluationOrigins: 52, parameters: {},
+  }).dates.length, 187);
+
+  const duplicateDates = [...approvedDates];
+  duplicateDates[11] = duplicateDates[10];
+  assert.throws(() => decodeTuneRequestV1({ ...request, dates: duplicateDates, values: snapshotArtifact.routes.KNEI.values }), /strictly increasing/u);
+  const outOfOrderDates = [...approvedDates];
+  [outOfOrderDates[10], outOfOrderDates[11]] = [outOfOrderDates[11], outOfOrderDates[10]];
+  assert.throws(() => decodeTuneRequestV1({ ...request, dates: outOfOrderDates, values: snapshotArtifact.routes.KNEI.values }), /strictly increasing/u);
+  const invalidDates = [...approvedDates];
+  invalidDates[11] = "2026-02-31";
+  assert.throws(() => decodeTuneRequestV1({ ...request, dates: invalidDates, values: snapshotArtifact.routes.KNEI.values }), /date/u);
 
   const health = validTuningHealth();
   assert.equal(decodeTuningHealthDataV1(health).capabilities.length, 8);

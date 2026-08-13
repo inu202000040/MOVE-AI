@@ -9,13 +9,15 @@ import { GET as chokeGet } from "../../app/api/globe-chokepoint-traffic/route";
 import { GET as weatherGet } from "../../app/api/globe-weather/route";
 import {
   adaptDataGatewayV1,
-  createFixtureDataAccessV1,
-  createFixtureDataGatewayV1,
-  createSameOriginDataAccessV1,
   createSameOriginDataGatewayV1,
   SameOriginHttpDataGateway,
   type SameOriginFetchV1,
-} from "../../app/data/runtime/data-gateway";
+} from "../../app/data/runtime/data-gateway.client";
+import {
+  createFixtureDataAccessV1,
+  createFixtureDataGatewayV1,
+  createSameOriginDataAccessV1,
+} from "../../app/data/runtime/data-gateway.server";
 import type { DataGatewayV1 } from "../../app/contracts/gateway";
 import { FixtureDataGateway } from "../../app/data/runtime/fixture-gateway";
 import { decodeInsightRequestV1, decodeTuneRequestV1 } from "../../app/data/runtime/domains";
@@ -119,4 +121,16 @@ test("same-origin client never blesses malformed HTTP JSON as caller-selected do
   );
   const canonicalMarket = await canonicalFixture.market({ series: "harpex", from: "2026-07-01", to: "2026-08-31", providerVersion: 3 });
   assert.equal(canonicalMarket.state, "REFERENCE");
+});
+
+test("client snapshot is truthful UNAVAILABLE unless a validated provider is injected", async () => {
+  const clientOnly = createSameOriginDataGatewayV1(async () => Response.json({}));
+  const unavailable = await clientOnly.snapshot();
+  assert.equal(unavailable.state, "UNAVAILABLE");
+  assert.equal(unavailable.data, null);
+  assert.equal(unavailable.meta.mode, "unavailable");
+
+  const validated = await createSameOriginDataAccessV1(async () => Response.json({}));
+  const injected = createSameOriginDataGatewayV1(async () => Response.json({}), () => validated.artifacts.snapshot);
+  assert.equal((await injected.snapshot()).state, "READY");
 });
