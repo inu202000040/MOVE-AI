@@ -10,16 +10,16 @@
 
 | 입력 | 상태 | 동결 조건 |
 |---|---|---|
-| Figma UI 원본 | `PENDING_USER_SUPPLY` | 실제 Figma 파일 또는 공유 링크, 버전 기록, 디자인 소유권 확인 |
-| UI PNG exports | `PENDING_USER_SUPPLY` | 원본 파일, viewport/state/page 식별자, bytes, SHA-256 |
+| Figma UI 원본 | `APPROVED_CLEAN_ROOM_V1` | `MOVE AI Clean-room UI`, file key `RvydVRm2bD59KlTzfemK7F`, [Figma 파일](https://www.figma.com/design/RvydVRm2bD59KlTzfemK7F), 실제 생성 시각과 frame ID는 `03_FIGMA_DESIGN_BASELINE.md`에 기록 |
+| UI PNG exports | `APPROVED_PRIMARY_V1` | `design/exports/`의 1440×900·375×812 주 화면, Allocation drawer, runtime states, Network 2D fallback; bytes·SHA-256 동결 |
 | Landing 영상·poster·로고 | `PENDING_USER_SUPPLY` | 원본 파일, 사용 권한, bytes, SHA-256 |
 
-아침에 제작된 Figma와 PNG는 실제 파일 또는 Figma 버전 기록을 받은 뒤 그 실제 정보로 동결한다. 파일이 없는 상태에서 생성 시각·hash·버전을 추정하지 않는다.
+현재 승인된 Figma와 PNG는 `2026-08-13`에 새로 생성한 clean-room 디자인이다. 이를 과거 시각에 만들어진 파일로 소급 표기하지 않는다. 별도의 이전 디자인 파일을 추가하려면 실제 파일·버전·생성 기록을 별도 입력으로 등록해야 한다.
 
 필수 PNG 최소 세트:
 
-- Landing, Dashboard, Models, Network, Allocation의 `1440x900` 및 `375x812` ready 화면
-- `900x900`, `640x900` breakpoint smoke 화면
+- Landing, Dashboard, Models, Network, Allocation의 `1440x900` 및 `375x812` ready 화면 — 현재 승인 완료
+- `900x900`, `640x900`은 구현 후 breakpoint smoke로 검증하며 primary Figma source는 1440·375로 고정
 - loading, empty/unavailable, error, 주요 modal/drawer/panel
 - hover, focus, selected 상태
 - Network WebGL2 3D 정상 상태와 장애 시 2D fallback
@@ -28,15 +28,17 @@
 
 다음 clean-room 문서는 WT별 정제가 완료되고 금지 참조 검사를 통과한 버전만 허용한다.
 
-| 문서 | 상태 |
-|---|---|
-| `README.md` 공통 운영 규칙 | `PENDING_QA` |
-| `WT1_FOUNDATION_LANDING.md` | `PENDING_QA` |
-| `WT2_DASHBOARD.md` | `PENDING_QA` |
-| `WT3_MODELS.md` | `PENDING_QA` |
-| `WT4_NETWORK.md` | `PENDING_QA` |
-| `WT5_ALLOCATION.md` | `PENDING_QA` |
-| `WT6_DATA_API.md` | `PENDING_QA` |
+| 문서 | 상태 | SHA-256 |
+|---|---|---|
+| `docs/specs/README.md` 공통 운영 규칙 | `APPROVED` | `be766e2c3cc60406ad60d64e8fad9ec3c92867a8ed72a51142761b703d4aa5fd` |
+| `docs/specs/WT1_FOUNDATION_LANDING.md` | `APPROVED` | `e09a7d55a11f71cee1bd7408c1531c1c57b2673964759536dccafd7333473531` |
+| `docs/specs/WT2_DASHBOARD.md` | `APPROVED` | `a611a9712ede969e7e88537777983cde59c26136294dacdb6ead6baa4ce4659f` |
+| `docs/specs/WT3_MODELS.md` | `APPROVED` | `702e611a4017eeb9b3a50708f2fcc31098c86a20c731cc6e4debfbf7a3f3d6c6` |
+| `docs/specs/WT4_NETWORK.md` | `APPROVED` | `632790a809dbcc59944a91be8dedd696433317324019701549d6d2281da63809` |
+| `docs/specs/WT5_ALLOCATION.md` | `APPROVED` | `a7e78e3e8850689216ce37966bdf53ee120d2abe166d87c63f0d073f2a8b34d5` |
+| `docs/specs/WT6_DATA_API.md` | `APPROVED` | `4fca56132506218b8e8a4fe287889ad1e3eac295bce38bffa9516ea833597ef0` |
+
+WT7 clean-room provenance/visual-input 검사와 WT8 cross-contract/data-lineage 검사는 위 exact bytes에서 모두 `P0=0, P1=0`으로 종료됐다. 문서를 수정하면 해당 SHA와 두 PASS는 즉시 무효가 된다.
 
 허용 문서는 기능, 표시 문구, 수식, DTO, 데이터 변환 규칙, 디자인 치수, 상태 전이, acceptance 조건만 포함해야 한다. 이전 구현의 저장소명·URL·커밋·파일 경로·행 번호·파일 hash·코드 비교 지시는 포함하지 않는다.
 
@@ -67,7 +69,7 @@
 | 16 | `16_ROUTE_EVENTS_AND_CORRIDORS.xlsx` | 67,294 | `2bfe8ed28f43baf82268ae012d228c6051fb47898548a719afbcb07f3322fe02` | WT2·WT4·WT6 |
 | 17 | `17_RUNTIME_PROVIDER_CATALOG.xlsx` | 23,309 | `a11e7bff4bd204eb6daeb974630cd5d57fa6f0fec13da451b2815809c4b01e7f` | WT6·QA |
 | 18 | `18_CVAR_ALLOCATION_CONFIG.xlsx` | 19,735 | `9da8647b07057bee547d5b0d9c90369957b9534fa3e79f3d0b2877023b504652` | WT5·WT6 |
-| 19 | `19_KCCI_ROUTE_TRENDS_REFERENCE.html` | 42,093 | `ec9c2bac58ef66c65cb4822717f064027b9d40c9586d907dcde45b58e7cddacc` | WT2·WT7, UI reference only |
+| 19 | `19_KCCI_ROUTE_TRENDS_REFERENCE.html` | 42,093 | `ec9c2bac58ef66c65cb4822717f064027b9d40c9586d907dcde45b58e7cddacc` | `QUARANTINED`; package inventory에만 기록하며 구현·시각 QA 입력으로 직접 열람하지 않음 |
 
 패키지 검증 파일:
 
@@ -86,16 +88,22 @@
 
 - 이전 애플리케이션 저장소와 프로토타입 저장소의 TS, TSX, CSS, HTML, JS, test, fixture, generated JSON
 - 이전 저장소의 Git commit, branch, patch, cherry-pick, archive 또는 code export
+- 이전 저장소나 배포 사이트의 화면 캡처, DOM, computed style, 이미지, 영상, SVG, catalog 또는 시각 비교 결과
+- 이전 저장소의 clone, fetch, fork, import와 파일명·행 번호·함수 구조 열람
 - 이전 소스 파일 경로·행 번호·파일 hash를 구현 지시로 사용하는 문서
 - 이전 snapshot·catalog·news artifact 복사
 - 비밀키, `.env.local`, model cache, dependency cache, build output
 
+`19_KCCI_ROUTE_TRENDS_REFERENCE.html`의 허용 가능한 데이터·상호작용 요구는 승인된 WT2 명세에 독립 기술된 항목만 사용한다. HTML·CSS·JavaScript 자체는 구현 입력이 아니다.
+
 ## 6. 시작 게이트
 
-다음이 모두 충족되어야 애플리케이션 구현을 시작한다.
+다음 core 시작 게이트는 모두 충족됐다.
 
 - Figma 원본과 PNG export가 실제 파일/버전으로 등록됨
 - WT1~WT6 clean-room MD가 WT7 금지참조 검사 PASS
 - WT1~WT6 계약이 WT8 교차검사 PASS
 - 데이터 SHA-256 검증 PASS
-- `02_FROZEN_CONTRACTS_DRAFT.md`의 미결정 항목 0개
+- `02_FROZEN_CONTRACTS_DRAFT.md`의 core 계약 동결
+
+따라서 WT1~WT6의 독립 구현을 시작할 수 있다. 단, 승인 원본이 없는 Landing 영상·poster·logo는 새로 만들거나 대체했다고 속이지 않고 placeholder로 유지하며, 해당 자산 등록 전에는 WT1 PAGE_COMPLETE와 최종 release를 선언하지 않는다.
