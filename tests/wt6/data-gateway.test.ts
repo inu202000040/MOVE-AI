@@ -130,6 +130,21 @@ test("same-origin client never blesses malformed HTTP JSON as caller-selected do
   assert.equal(canonicalMarket.state, "REFERENCE");
 });
 
+test("same-origin client does not rebind the browser fetch receiver", async () => {
+  const fetchSameOrigin: SameOriginFetchV1 = async function (this: unknown, input, init) {
+    if (this !== undefined) throw new TypeError("Illegal invocation");
+    return marketGet(new Request(`http://localhost${input}`, init));
+  };
+  const gateway = new SameOriginHttpDataGateway(fetchSameOrigin);
+  const result = await gateway.market({
+    series: "harpex",
+    from: "2026-07-01",
+    to: "2026-08-31",
+    providerVersion: 3,
+  });
+  assert.equal(result.state, "REFERENCE");
+});
+
 test("client snapshot is truthful UNAVAILABLE unless a validated provider is injected", async () => {
   const clientOnly = createSameOriginDataGatewayV1(async () => Response.json({}));
   const unavailable = await clientOnly.snapshot();
