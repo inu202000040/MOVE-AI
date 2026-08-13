@@ -26,7 +26,7 @@ MOVE-AI/
 │  ├─ owned/                    # 권리 확인된 영상·poster·로고
 │  └─ vendor/                   # 공식 package에서 재추출, license 포함
 ├─ inputs/
-│  ├─ design/                   # Figma export·PNG manifest
+│  ├─ design/                   # REFERENCE_ONLY Figma export·PNG manifest
 │  └─ data/                     # 승인 데이터 package 또는 fetch pointer
 ├─ scripts/
 │  ├─ generate-data/            # WT6: XLSX → canonical JSON
@@ -51,13 +51,13 @@ MOVE-AI/
 
 | 담당 | 유일한 쓰기 범위 | 의존 입력 |
 |---|---|---|
-| WT1 | Landing, shared Shell·Sidebar·Topbar, 공통 visual tokens | Figma·PNG, route contract |
+| WT1 | Landing, shared Shell·Sidebar·Topbar, 공통 visual tokens | 담당 MD·route contract; Figma·PNG는 rough composition/flow 참고만 |
 | WT2 | Dashboard UI·chart·dialogs·news/insight client | WT1, WT3 projection, WT6 gateway |
 | WT3 | Models UI·metrics·tuning·representative producer | WT1, WT6 |
 | WT4 | MapLibre globe·2D fallback·network panels | WT1, WT6 catalog/gateway |
 | WT5 | CVaR engine·Worker·Allocation UI·CSV | WT1, WT3 selection, WT6 snapshot |
 | WT6 | source validation·data generator·gateway·API handlers | data pack·provider docs |
-| WT7 | Figma/PNG visual comparison과 4 viewport evidence | WT1~WT6 candidate |
+| WT7 | MD 기반 visual audit와 4 viewport screenshot·computed-geometry·state·interaction evidence | WT1~WT6 candidate |
 | WT8 | 기능·계산·데이터·cross-page 검사 | WT2~WT6 |
 | WT9 | PASS SHA 조립·production smoke·배포 준비 | WT7·WT8 PASS |
 | WT10 | scaffold·contracts·package/test manifest·독립성 검사 | CP0 contracts |
@@ -71,7 +71,9 @@ Master는 페이지 코드를 직접 수정하지 않고 계약 승인, exact SH
 3. 최소 scaffold가 typecheck 가능한 즉시 WT1~WT6 worktree를 동시에 연다.
 4. WT2~WT5는 live API를 기다리지 않고 WT6가 정의한 동일 DTO fixture로 구현한다.
 5. breaking contract change는 Master 승인 없이는 금지한다. optional field만 additive로 허용한다.
-6. Builder는 기존 저장소나 프로토타입을 열지 않고 담당 MD·Figma/PNG·data pack·공식 문서만 사용한다.
+6. Builder는 기존 저장소나 프로토타입을 열지 않고 담당 MD·data pack·동결 계약·공식 문서만 구현 권위로 사용한다. Figma/PNG는 rough composition/flow를 이해하는 `REFERENCE_ONLY` 자료이며 구현 누락이나 실패 판정의 근거가 아니다.
+
+담당 MD의 수치 geometry, content inventory, 기능, 상태, 반응형 계약이 유일한 화면 판정 권위다. Figma/PNG에 보이지 않는다는 이유로 MD 요구를 생략할 수 없고, Figma/PNG 차이·pixel·SSIM·mismatch 수치로 구현을 실패 처리하지 않는다.
 
 ## 4. 통합 순서
 
@@ -92,7 +94,7 @@ WT10 scaffold/contracts
 ## 5. 커밋 체크포인트
 
 - `structure`: 빈 route와 page IA
-- `visual`: Figma/PNG geometry와 responsive
+- `visual`: MD의 numeric geometry·content inventory·responsive를 구현
 - `core`: 페이지 핵심 기능
 - `data`: fixture/gateway/storage handoff
 - `states`: loading/empty/error/cached/fallback

@@ -4,7 +4,9 @@
 
 동결 시각: `2026-08-13 Asia/Seoul`
 
-권위 입력: 승인된 Figma·PNG, clean-room WT 명세, `MOVE_AI_DATA_PACK/APP_USED_DATA`
+권위 입력: clean-room WT 명세와 `MOVE_AI_DATA_PACK/APP_USED_DATA`. Figma·PNG는 rough composition/flow를 위한 `REFERENCE_ONLY` 자료이며 pixel·SSIM·mismatch parity 또는 실패 판정에 사용하지 않는다.
+
+화면의 수치 geometry, content inventory, 기능, 상태, 반응형 계약은 담당 WT 명세가 소유한다. Figma·PNG에 항목이 없더라도 명세 요구를 생략할 수 없다. 시각 검증은 명세 문구, computed geometry/style, 상태·상호작용 assertion과 1440×900·375×812 screenshot evidence 및 900×900·640×900 smoke로 수행한다.
 
 이 문서는 신규 구현의 공통 seam을 동결한다. 이전 애플리케이션의 타입·함수·storage key를 호환성 목적으로 복사하지 않는다.
 
@@ -65,17 +67,16 @@ route 변경은 URL `replaceState`, storage 저장, 동일 origin route event �
 모든 public gateway 결과는 다음 공통 envelope를 가진다.
 
 ```ts
-type DataMode = "live" | "cached" | "fixture" | "reference" | "unavailable";
+type DataMode = "live" | "fixture" | "cached" | "unavailable";
+
+type GatewayErrorDetailsV1 = {
+  reasonCode: string;
+};
 
 type GatewayResultV1<TData, TState extends string> = {
-  schemaVersion: "move-ai/gateway-v1";
+  schemaVersion: "move-ai/gateway/v1";
   state: TState;
   data: TData | null;
-  error: {
-    code: string;
-    message: string;
-    retryable: boolean;
-  } | null;
   meta: {
     mode: DataMode;
     source: string;
@@ -84,22 +85,35 @@ type GatewayResultV1<TData, TState extends string> = {
     fetchedAt: string;
     unit: string | null;
     isEstimate: boolean;
+    attribution: string;
+    warnings: string[];
+    provider: string | null;
     cache: {
       hit: boolean;
       stale: boolean;
       ageSeconds: number | null;
     };
   };
+  error: {
+    code: string;
+    message: string;
+    retryable: boolean;
+    upstreamStatus: number | null;
+    details: GatewayErrorDetailsV1 | null;
+  } | null;
 };
 ```
 
 규칙:
 
 - `mode=unavailable`이면 `data=null`, `error!=null`이다.
-- fixture/reference/cached 값을 UI에서 LIVE로 표시하지 않는다.
+- fixture/cached 값을 UI에서 LIVE로 표시하지 않는다.
+- `REFERENCE`는 market domain state이며 `meta.mode`가 아니다.
 - `state`는 method별 정확한 literal allowlist를 가진다.
 - public HTTP와 storage 경계에서 envelope와 domain data를 모두 구조 검증한다.
 - upstream JSON은 `unknown`으로 받고 검증 전 타입 단언하지 않는다.
+- `error.details`의 허용 key는 forward-additive string인 `reasonCode` 하나다.
+- stack, raw provider body, filesystem detail, credential은 error에 넣지 않는다.
 
 ## 5. DataGateway 메서드
 
@@ -110,7 +124,7 @@ interface DataGateway {
   news(query: NewsQuery, signal?: AbortSignal): Promise<NewsResult>;
   insight(query: InsightQuery, signal?: AbortSignal): Promise<InsightResult>;
   tuningHealth(signal?: AbortSignal): Promise<TuningHealthResult>;
-  tune(request: TuneRequest, signal?: AbortSignal): Promise<TuneResult>;
+  tuningRun(body: TuneRequest, signal?: AbortSignal): Promise<TuneResult>;
   portSummary(signal?: AbortSignal): Promise<PortSummaryResult>;
   portDetail(query: PortDetailQuery, signal?: AbortSignal): Promise<PortDetailResult>;
   chokeSummary(signal?: AbortSignal): Promise<ChokeSummaryResult>;
@@ -237,7 +251,7 @@ CVaR는 불리한 10%의 경제적 후회비용 평균이다. 총비용 percenti
 
 ## 13. 동결값과 남은 release 입력
 
-- Figma: `MOVE AI Clean-room UI`, file key `RvydVRm2bD59KlTzfemK7F`; frame ID와 PNG bytes/SHA-256은 `03_FIGMA_DESIGN_BASELINE.md`가 소유한다.
+- Figma reference: `MOVE AI Clean-room UI`, file key `RvydVRm2bD59KlTzfemK7F`; reference-only frame ID와 PNG bytes/SHA-256은 `03_FIGMA_DESIGN_BASELINE.md`가 소유하며 구현·실패 판정 권위가 아니다.
 - runtime: Node `>=22.13.0`, React/React DOM/RSC `19.2.8`, vinext `1.0.0-beta.5`, Vite `8.2.1`, TypeScript `6.0.3`; exact transitive graph는 `package-lock.json`이 소유한다.
 - public API paths: `/api/freight-risk/market`, `/api/freight-risk/news`, `/api/freight-risk/insight`, `/api/freight-risk/tune`, `/api/globe-port-traffic`, `/api/globe-chokepoint-traffic`, `/api/globe-weather`.
 - WT1~WT6 명세의 exact SHA-256은 `00_ALLOWED_INPUTS.md`가 소유하며 변경 시 WT7·WT8 PASS가 무효다.
