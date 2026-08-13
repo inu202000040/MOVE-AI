@@ -7,6 +7,7 @@ import {
   GATEWAY_ROOT_KEYS,
   GATEWAY_SCHEMA_VERSION,
   type GatewayMetaV1,
+  type DataGatewayV1,
   type PendingGatewayResultV1,
 } from "../../contracts";
 
@@ -131,6 +132,27 @@ export function decodeTuningGatewayResult(value: unknown): DecodedTuningGatewayR
 export interface ModelsTuningGatewayV1 {
   tuningHealth(signal?: AbortSignal): Promise<unknown>;
   tuningRun(request: TuneRequestV1, signal?: AbortSignal): Promise<unknown>;
+}
+
+export function modelsTuningGatewayFromDataGateway(
+  gateway: Pick<DataGatewayV1, "tuningHealth" | "tuningRun">,
+): ModelsTuningGatewayV1 {
+  return {
+    tuningHealth(signal) {
+      return gateway.tuningHealth(signal);
+    },
+    tuningRun(request, signal) {
+      return gateway.tuningRun({
+        routeCode: request.routeCode,
+        modelId: request.modelId,
+        dates: request.dates,
+        values: request.values,
+        trainingWindow: request.trainingWindow,
+        parameters: request.parameters,
+        evaluationOrigins: request.evaluationOrigins,
+      }, signal);
+    },
+  };
 }
 
 function unavailableEnvelope(): PendingGatewayResultV1 {

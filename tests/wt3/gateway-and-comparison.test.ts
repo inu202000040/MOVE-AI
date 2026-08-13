@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
   GATEWAY_SCHEMA_VERSION,
+  type DataGatewayV1,
   type GatewayMetaV1,
+  type PendingQueryContractV1,
 } from "../../app/contracts";
 import {
   TUNING_COMPARISON_ROW_ORDER,
@@ -18,6 +20,7 @@ import {
 import {
   TuningGatewayError,
   decodeTuningGatewayResult,
+  modelsTuningGatewayFromDataGateway,
   runTuningGateway,
 } from "../../app/freight-risk/models/tuning-gateway";
 import { makeBaselineModels, makeObservationDates, makeTuneSuccess } from "./fixtures";
@@ -78,8 +81,8 @@ test("accepts only a complete READY tuning gateway envelope", async () => {
     parameters: parametersForPreset("sarimax", "engine_default"),
   });
   let healthCalls = 0;
-  let receivedRequest: typeof request | null = null;
-  const decoded = await runTuningGateway(request, new AbortController().signal, {
+  let receivedRequest: PendingQueryContractV1 | null = null;
+  const canonicalGateway: Pick<DataGatewayV1, "tuningHealth" | "tuningRun"> = {
     async tuningHealth() {
       healthCalls += 1;
       return ready({ status: "ok" });
@@ -88,7 +91,12 @@ test("accepts only a complete READY tuning gateway envelope", async () => {
       receivedRequest = value;
       return ready({ ...result });
     },
-  });
+  };
+  const decoded = await runTuningGateway(
+    request,
+    new AbortController().signal,
+    modelsTuningGatewayFromDataGateway(canonicalGateway),
+  );
   assert.deepEqual(decoded.data, result);
   assert.equal(decoded.meta.mode, "live");
   assert.equal(healthCalls, 1);
