@@ -278,10 +278,13 @@ test("Models runtime owns no private route or network boundary", () => {
   const pageSource = readFileSync(new URL("../../app/freight-risk/models/page.tsx", import.meta.url), "utf8");
   assert.match(clientSource, /useFreightRiskRoute/u);
   assert.match(clientSource, /modelsTuningGatewayFromDataGateway/u);
-  assert.doesNotMatch(clientSource, /data\/runtime\/data-gateway/u);
+  assert.match(clientSource, /data\/runtime\/data-gateway\.client/u);
+  assert.doesNotMatch(clientSource, /data\/runtime\/data-gateway(?:"|')|data-gateway\.server/u);
   assert.doesNotMatch(clientSource, /history\.replaceState|\bfetch\s*\(|"KNEI"/u);
   assert.doesNotMatch(gatewaySource, /\bfetch\s*\(|\/api\/freight-risk/u);
   assert.doesNotMatch(pageSource, /tuningGateway=/u);
+  assert.match(pageSource, /data\/runtime\/data-gateway\.server/u);
+  assert.match(pageSource, /validatedSnapshotGatewayResultV1/u);
 });
 
 test("base states and narrow-screen accessibility rules remain explicit", () => {

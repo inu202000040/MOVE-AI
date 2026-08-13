@@ -23,6 +23,8 @@ import {
   modelsTuningGatewayFromDataGateway,
   runTuningGateway,
 } from "../../app/freight-risk/models/tuning-gateway";
+import { createSameOriginDataGatewayV1 } from "../../app/data/runtime/data-gateway.client";
+import { loadApprovedModelsCatalog } from "../../app/freight-risk/models/reference-catalog";
 import { makeBaselineModels, makeObservationDates, makeTuneSuccess } from "./fixtures";
 
 const META: GatewayMetaV1 = {
@@ -146,6 +148,38 @@ test("stops at truthful UNAVAILABLE health and never invokes tuningRun", async (
     (error) => error instanceof TuningGatewayError && error.code === "UNAVAILABLE",
   );
   assert.equal(runCalls, 0);
+});
+
+test("canonical client gateway accepts all 187 approved dates including holiday-adjusted gaps", async () => {
+  const route = loadApprovedModelsCatalog().KNEI;
+  const request = createTuneRequest({
+    routeCode: "KNEI",
+    modelId: "naive",
+    dates: route.history.map(({ date }) => date),
+    values: route.history.map(({ value }) => value),
+    trainingWindow: "expanding",
+    parameters: {},
+  });
+  const adjustedGaps = request.dates.slice(1).filter((date, index) => (
+    Date.parse(`${date}T00:00:00Z`) - Date.parse(`${request.dates[index]}T00:00:00Z`)
+  ) !== 7 * 86_400_000);
+  assert.equal(adjustedGaps.length, 27);
+
+  let receivedPath = "";
+  let receivedBody: unknown;
+  const gateway = createSameOriginDataGatewayV1(async (input, init) => {
+    receivedPath = input;
+    receivedBody = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify(unavailable()), {
+      headers: { "content-type": "application/json" },
+      status: 503,
+    });
+  });
+  const result = await gateway.tuningRun({ ...request });
+  assert.equal(receivedPath, "/api/freight-risk/tune");
+  assert.deepEqual(receivedBody, request);
+  assert.equal(result.state, "UNAVAILABLE");
+  assert.equal(result.meta.mode, "unavailable");
 });
 
 test("builds the exact seven-row before/after comparison without accepting the candidate", () => {
