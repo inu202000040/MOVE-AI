@@ -114,14 +114,18 @@ test("production page mounts the client runtime with required, fail-closed seams
   const runtime = await readFile(path.resolve("app/freight-risk/dashboard/DashboardRuntime.tsx"), "utf8");
   const app = await readFile(path.resolve("app/freight-risk/dashboard/DashboardApp.tsx"), "utf8");
 
-  assert.equal(page.includes("<DashboardRuntime />"), true);
+  assert.equal(page.includes("validatedSnapshotGatewayResultV1"), true);
+  assert.equal(page.includes("initialSnapshotResult={initialSnapshotResult}"), true);
+  assert.equal(page.includes("data-gateway.server"), true);
   assert.equal(runtime.includes('"use client"'), true);
   assert.equal(runtime.includes("DashboardRuntimeWithDependencies"), true);
-  assert.equal(runtime.includes("UNAVAILABLE_DASHBOARD_GATEWAY"), true);
+  assert.equal(runtime.includes("createSameOriginDataGatewayV1"), true);
+  assert.equal(runtime.includes("data-gateway.client"), true);
+  assert.equal(runtime.includes("data-gateway.server"), false);
+  assert.equal(runtime.includes('data/runtime/data-gateway"'), false);
   assert.equal(runtime.includes("UNAVAILABLE_REPRESENTATIVE_SOURCE"), true);
   assert.equal(runtime.includes("useSyncExternalStore"), true);
-  assert.equal(runtime.includes("createSameOriginDataGatewayV1"), false);
-  assert.equal(runtime.includes('data/runtime/data-gateway'), false);
+  assert.equal(runtime.includes("initialSnapshotResult"), true);
   assert.equal(app.includes("gateway?:"), false);
   assert.equal(app.includes("representative?:"), false);
   assert.equal(app.includes("localMarketSurface"), false);

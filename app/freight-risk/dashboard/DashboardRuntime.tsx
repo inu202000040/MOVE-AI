@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { useFreightRiskRoute } from "../../components/shell";
+import {
+  createSameOriginDataGatewayV1,
+  type SnapshotGatewayResultV1,
+} from "../../data/runtime/data-gateway.client";
 import { DashboardApp } from "./DashboardApp";
 import {
-  UNAVAILABLE_DASHBOARD_GATEWAY,
   UNAVAILABLE_REPRESENTATIVE_SOURCE,
   createRepresentativeSnapshotReader,
   requestDashboardSnapshot,
@@ -65,10 +68,18 @@ export function DashboardRuntimeWithDependencies({
   );
 }
 
-export default function DashboardRuntime() {
+export default function DashboardRuntime({
+  initialSnapshotResult,
+}: {
+  readonly initialSnapshotResult: SnapshotGatewayResultV1;
+}) {
+  const gateway = useMemo(
+    () => createSameOriginDataGatewayV1(globalThis.fetch, () => initialSnapshotResult),
+    [initialSnapshotResult],
+  );
   return (
     <DashboardRuntimeWithDependencies
-      gateway={UNAVAILABLE_DASHBOARD_GATEWAY}
+      gateway={gateway}
       representativeSource={UNAVAILABLE_REPRESENTATIVE_SOURCE}
     />
   );
