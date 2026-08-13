@@ -13,6 +13,7 @@ import {
 } from "../../app/freight-risk/network/core/map-promotion";
 import {
   catalogToNetworkGeoJson,
+  createGlobeGraticule,
   type GeoJsonFeatureCollection,
 } from "../../app/freight-risk/network/core/network-geojson";
 import {
@@ -152,6 +153,7 @@ test("minimal style is remote-free and starts with globe projection", () => {
 
 test("catalog projects 13 routes, 44 connectors, 57 ports, 11 chokes and 82 weather", () => {
   const sources = catalogToNetworkGeoJson(createCatalog());
+  assert.equal(sources["network-globe-graticule"].features.length, 1);
   assert.equal(sources["network-routes"].features.length, 13);
   assert.equal(sources["network-connectors"].features.length, 44);
   assert.equal(sources["network-ports"].features.length, 57);
@@ -161,6 +163,18 @@ test("catalog projects 13 routes, 44 connectors, 57 ports, 11 chokes and 82 weat
     sources["network-connectors"].features.map(({ id }) => id),
     Array.from({ length: 44 }, (_, index) => `connector:port-${index + 13}`),
   );
+});
+
+test("remote-free globe graticule makes the spherical projection legible", () => {
+  const graticule = createGlobeGraticule();
+  assert.equal(graticule.features.length, 1);
+  const geometry = graticule.features[0]?.geometry;
+  assert.equal(geometry?.type, "MultiLineString");
+  if (geometry?.type === "MultiLineString") {
+    assert.equal(geometry.coordinates.length, 19);
+    assert.deepEqual(geometry.coordinates[0]?.at(0), [-180, -80]);
+    assert.deepEqual(geometry.coordinates.at(-1)?.at(-1), [180, 60]);
+  }
 });
 
 test("network layers retain the specified depth order", () => {
@@ -218,7 +232,7 @@ test("promotion installs controls, sources, layers, interactions and exposure on
   assert.equal(promotion.promote(map), false);
   assert.equal(promotion.promoted(), true);
   assert.deepEqual(map.controls, ["navigation:top-right", "scale:bottom-left"]);
-  assert.equal(map.sources.size, 7);
+  assert.equal(map.sources.size, 8);
   assert.deepEqual(map.layers, NETWORK_LAYER_IDS);
   assert.equal(interactions, 1);
   assert.equal(exposures, 1);

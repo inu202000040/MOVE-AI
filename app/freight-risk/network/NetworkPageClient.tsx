@@ -308,6 +308,16 @@ export function NetworkPageClient() {
   const [viewport, setViewport] = useState(DEFAULT_STATIC_VIEWPORT);
   const [legendOpen, setLegendOpen] = useState(false);
   const [diagnosticCode, setDiagnosticCode] = useState("BOOT");
+  const [webGl2Capability, setWebGl2Capability] = useState<
+    "pending" | "supported" | "unsupported"
+  >("pending");
+  const [projection, setProjection] = useState<"pending" | "globe" | "static2d">(
+    "pending",
+  );
+  const [globeLoadState, setGlobeLoadState] = useState<"idle" | "style-ready" | "loaded">(
+    "idle",
+  );
+  const [mapLibreVersion, setMapLibreVersion] = useState("pending");
   const sources = useMemo(() => catalogToNetworkGeoJson(KNEI_REFERENCE_FIXTURE), []);
   const layers = useMemo(() => createNetworkMapLayers(MAP_PALETTE), []);
   const panel = visibleNetworkPanel(selection);
@@ -398,12 +408,20 @@ export function NetworkPageClient() {
     const host = hostRef.current;
     if (!host) return;
     let disposed = false;
+    let loadReported = false;
     let controller: ReturnType<typeof startNetworkMapLibreGlobe> = null;
     dispatchRenderer({ type: "START" });
     const diagnostics = createRendererDiagnostics();
 
     const start = async (): Promise<void> => {
       const webGl2Supported = supportsWebGl2();
+      setWebGl2Capability(webGl2Supported ? "supported" : "unsupported");
+      if (!webGl2Supported) {
+        setProjection("static2d");
+        setDiagnosticCode("WEBGL2_UNSUPPORTED");
+        dispatchRenderer({ type: "FALLBACK", reason: "WEBGL2_UNSUPPORTED" });
+        return;
+      }
       const [mapLibre, workerAsset] = await Promise.all([
         import("maplibre-gl"),
         import("maplibre-gl/dist/maplibre-gl-worker.mjs?url"),
@@ -420,6 +438,14 @@ export function NetworkPageClient() {
         exposeMap: (candidate) => {
           const map = candidate as MapLibreMap;
           mapRef.current = map;
+          const markLoaded = (): void => {
+            if (disposed || loadReported) return;
+            loadReported = true;
+            setGlobeLoadState("loaded");
+            setDiagnosticCode("GLOBE_LOADED");
+          };
+          map.once("load", markLoaded);
+          if (map.loaded()) queueMicrotask(markLoaded);
           featureStateRef.current = createNetworkFeatureStateController(map, () => {
             dispatchRenderer({ type: "DEGRADE", degradation: "CATALOG_UNAVAILABLE" });
           });
@@ -478,25 +504,32 @@ export function NetworkPageClient() {
         style: createRemoteFreeGlobeStyle(MAP_PALETTE),
         workerUrl: workerAsset.default,
         currentUrl: window.location.href,
-        webGl2Supported,
+        webGl2Supported: true,
         promotion,
         diagnostics,
-        onReady: () => {
+        onReady: (map, version) => {
           if (disposed) return;
+          setMapLibreVersion(version);
+          setProjection(map.getProjection().type === "globe" ? "globe" : "pending");
+          setGlobeLoadState("style-ready");
           setDiagnosticCode("GLOBE_READY");
           dispatchRenderer({ type: "READY" });
         },
         onFallback: (reason) => {
           if (disposed) return;
+          setProjection("static2d");
+          setGlobeLoadState("idle");
           setDiagnosticCode(reason);
           dispatchRenderer({ type: "FALLBACK", reason });
         },
         onPromotionFailure: () => {
           if (disposed) return;
+          setProjection("pending");
           setDiagnosticCode("GLOBE_PROMOTION_FAILED");
           dispatchRenderer({ type: "PROMOTION_FAILED" });
         },
         onRecoverableError: () => {
+          if (disposed) return;
           dispatchRenderer({ type: "DEGRADE", degradation: "BASEMAP_UNAVAILABLE" });
         },
       });
@@ -522,8 +555,12 @@ export function NetworkPageClient() {
       aria-label="글로벌 항만 네트워크"
       className="network-page"
       data-focus-mode={focusMode}
+      data-globe-load-state={globeLoadState}
+      data-maplibre-version={mapLibreVersion}
+      data-projection={projection}
       data-renderer-stage={renderer.kind}
       data-renderer-diagnostic={diagnosticCode}
+      data-webgl2-supported={webGl2Capability}
     >
       <div aria-hidden={staticMode} className="network-map-host" ref={hostRef} />
       {staticMode ? (

@@ -34,6 +34,7 @@ export interface GeoJsonFeatureCollection<
 }
 
 export type NetworkGeoJsonSourceId =
+  | "network-globe-graticule"
   | "network-routes"
   | "network-connectors"
   | "network-chokepoint-corridors"
@@ -59,6 +60,35 @@ function emptyFeatureCollection(): GeoJsonFeatureCollection {
 
 function point(longitude: number, latitude: number): GeoJsonGeometry {
   return { type: "Point", coordinates: [longitude, latitude] };
+}
+
+export function createGlobeGraticule(): GeoJsonFeatureCollection {
+  const lines: Coordinate[][] = [];
+  for (let longitude = -180; longitude < 180; longitude += 30) {
+    const meridian: Coordinate[] = [];
+    for (let latitude = -80; latitude <= 80; latitude += 2) {
+      meridian.push([longitude, latitude]);
+    }
+    lines.push(meridian);
+  }
+  for (let latitude = -60; latitude <= 60; latitude += 20) {
+    const parallel: Coordinate[] = [];
+    for (let longitude = -180; longitude <= 180; longitude += 2) {
+      parallel.push([longitude, latitude]);
+    }
+    lines.push(parallel);
+  }
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        id: "globe-graticule",
+        geometry: { type: "MultiLineString", coordinates: lines },
+        properties: { id: "globe-graticule", decorative: true },
+      },
+    ],
+  };
 }
 
 function routeFeature(
@@ -121,6 +151,7 @@ export function catalogToNetworkGeoJson(
     });
 
   return {
+    "network-globe-graticule": createGlobeGraticule(),
     "network-routes": {
       type: "FeatureCollection",
       features: catalog.routes.map(routeFeature),

@@ -168,6 +168,7 @@ function createModule(
 function emptyPromotion(): ReturnType<typeof createNetworkMapPromotion> {
   return createNetworkMapPromotion({
     sources: {
+      "network-globe-graticule": { type: "FeatureCollection", features: [] },
       "network-routes": { type: "FeatureCollection", features: [] },
       "network-connectors": { type: "FeatureCollection", features: [] },
       "network-chokepoint-corridors": { type: "FeatureCollection", features: [] },

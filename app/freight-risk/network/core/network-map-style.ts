@@ -37,6 +37,7 @@ export type NetworkMapLayer = (
 };
 
 export const NETWORK_LAYER_IDS = [
+  "network-globe-graticule",
   "network-chokepoint-corridor-halo",
   "network-chokepoint-corridor",
   "network-route-shadow",
@@ -79,7 +80,23 @@ export function createRemoteFreeGlobeStyle(
       "horizon-fog-blend": 0.32,
       "fog-color": palette.atmosphere,
       "fog-ground-blend": 0.58,
-      "atmosphere-blend": 1,
+      "atmosphere-blend": [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        0,
+        1,
+        5,
+        1,
+        7,
+        0,
+      ],
+    },
+    light: {
+      anchor: "map",
+      color: palette.horizon,
+      intensity: 0.36,
+      position: [1.5, 90, 80],
     },
     sources: {},
     layers: [
@@ -102,6 +119,16 @@ export function createNetworkMapLayers(
   palette: NetworkMapPalette,
 ): readonly NetworkMapLayer[] {
   return [
+    {
+      id: "network-globe-graticule",
+      type: "line",
+      source: "network-globe-graticule",
+      paint: {
+        "line-color": palette.horizon,
+        "line-width": 0.75,
+        "line-opacity": 0.13,
+      },
+    },
     {
       id: "network-chokepoint-corridor-halo",
       type: "line",
