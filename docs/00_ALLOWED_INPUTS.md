@@ -24,15 +24,15 @@
 
 | 문서 | 상태 | SHA-256 |
 |---|---|---|
-| `docs/specs/README.md` 공통 운영 규칙 | `APPROVED` | `be766e2c3cc60406ad60d64e8fad9ec3c92867a8ed72a51142761b703d4aa5fd` |
-| `docs/specs/WT1_FOUNDATION_LANDING.md` | `APPROVED` | `e09a7d55a11f71cee1bd7408c1531c1c57b2673964759536dccafd7333473531` |
-| `docs/specs/WT2_DASHBOARD.md` | `APPROVED` | `a611a9712ede969e7e88537777983cde59c26136294dacdb6ead6baa4ce4659f` |
-| `docs/specs/WT3_MODELS.md` | `APPROVED` | `702e611a4017eeb9b3a50708f2fcc31098c86a20c731cc6e4debfbf7a3f3d6c6` |
+| `docs/specs/README.md` 공통 운영 규칙 | `APPROVED` | `64d35ccb6dc5fe03f16d5f55d1724436b449f406a33df6d0c59a9b23bd03d978` |
+| `docs/specs/WT1_FOUNDATION_LANDING.md` | `APPROVED` | `294040bcb1bfcd523b20fee78c66270717ba197ab3e0cb1046715887ec80ded1` |
+| `docs/specs/WT2_DASHBOARD.md` | `APPROVED` | `26fbc2789da0c7a84acd2e967c52c0b8f26a571fdfb479f3a32d5dd9bea7d2ff` |
+| `docs/specs/WT3_MODELS.md` | `APPROVED` | `f82e5f23b4f9649a31dbdc5ef77d09e49e893c14954c0b93cc0a779f76e5b200` |
 | `docs/specs/WT4_NETWORK.md` | `APPROVED` | `632790a809dbcc59944a91be8dedd696433317324019701549d6d2281da63809` |
-| `docs/specs/WT5_ALLOCATION.md` | `APPROVED` | `a7e78e3e8850689216ce37966bdf53ee120d2abe166d87c63f0d073f2a8b34d5` |
+| `docs/specs/WT5_ALLOCATION.md` | `APPROVED` | `6cbadd0ecafd91d144770300cf03801cf36a80ce886237f494ce207e97ced2b3` |
 | `docs/specs/WT6_DATA_API.md` | `APPROVED` | `4fca56132506218b8e8a4fe287889ad1e3eac295bce38bffa9516ea833597ef0` |
 
-WT7 clean-room provenance/visual-input 검사와 WT8 cross-contract/data-lineage 검사는 위 exact bytes에서 모두 `P0=0, P1=0`으로 종료됐다. 문서를 수정하면 해당 SHA와 두 PASS는 즉시 무효가 된다.
+이 표의 exact bytes는 저장소와 공용 원본 명세가 동일해야 한다. 문서를 수정하면 이전 WT7/WT8 PASS는 즉시 무효가 되며, 변경된 SHA를 대상으로 focused delta 검사를 다시 통과해야 한다.
 
 허용 문서는 기능, 표시 문구, 수식, DTO, 데이터 변환 규칙, 디자인 치수, 상태 전이, acceptance 조건만 포함해야 한다. 이전 구현의 저장소명·URL·커밋·파일 경로·행 번호·파일 hash·코드 비교 지시는 포함하지 않는다.
 

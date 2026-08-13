@@ -9,10 +9,12 @@
 허용 입력은 다음으로 한정한다.
 
 1. 본 기능·디자인 명세
-2. 권리 확인과 사용 승인이 완료된 Figma 또는 PNG 디자인 증거
+2. 권리 확인과 사용 승인이 완료된 Figma 또는 PNG 참고자료. `REFERENCE_ONLY`로 rough composition과 flow만 참고한다.
 3. 권리 확인과 사용 승인이 완료된 poster·video·icon 등 소유 미디어
 4. `MOVE_AI_DATA_PACK`
 5. 사용하는 프레임워크·브라우저·접근성 API의 공식 제3자 문서
+
+구현과 QA의 유일한 판정 권위는 이 명세 텍스트다. Figma와 PNG는 `REFERENCE_ONLY`이며, 그 차이만으로 실패 또는 차단할 수 없다. pixel parity·image diff·SSIM·mismatch 비율은 구현 또는 QA 합격 기준으로 사용하지 않는다.
 
 허용 목록 밖의 코드, 저장소 정보, 배포 주소, 로컬 경로, 빌드 산출물은 입력으로 사용할 수 없다.
 
@@ -50,12 +52,12 @@ DONE 선언 시 모든 acceptance cell의 값은 `CHECKED`여야 한다.
 | 우선순위 | input | 이 문서에서의 역할 |
 |---:|---|---|
 | 1 | 본 `WT1_FOUNDATION_LANDING.md` | UI·기능·표시 문구·geometry·상태·acceptance 판정 |
-| 2 | 승인된 Figma 또는 PNG | 명세가 지정한 시각 배치와 asset crop 확인 |
+| 2 | `REFERENCE_ONLY` 승인 Figma 또는 PNG | rough composition과 flow 참고 전용. 구현·QA 판정에는 사용하지 않음 |
 | 3 | 승인된 소유 미디어와 권리·hash 등록부 | poster·video·icon의 동일성 및 사용 권한 확인 |
 | 4 | `MOVE_AI_DATA_PACK` | 허용된 데이터와 route identity 확인 |
 | 5 | 공식 제3자 문서 | 표준 API 사용법과 브라우저 동작 확인 |
 
-입력 간 충돌이 있으면 표시 문구·기능·상태·geometry는 본 문서를 따른다. 승인된 디자인 증거는 본 문서에 없는 미세한 시각 정렬만 보조한다.
+입력 간 충돌이 있으면 표시 문구·기능·상태·geometry는 본 문서를 따른다. Figma/PNG에는 본 문서에 없는 미세 정렬·수치·문구·동작을 보충하는 권위가 없다.
 
 승인된 미디어가 본 문서와 충돌하면 임의 보정하지 않고 asset owner의 재승인을 받는다.
 
@@ -83,7 +85,7 @@ DONE 선언 시 모든 acceptance cell의 값은 `CHECKED`여야 한다.
 - 세 card의 정적 illustration
 - 네 개의 trust item
 - 랜딩의 760px breakpoint
-- 랜딩 접근성의 parity 범위와 승인된 보강
+- 랜딩 접근성의 명세 준수 범위와 승인된 보강
 - 업무화면 공통 AppShell
 - 공통 Sidebar
 - 공통 topbar
@@ -131,15 +133,15 @@ DONE 선언 시 모든 acceptance cell의 값은 `CHECKED`여야 한다.
 | 계약 | 허용 입력 | 확인 포인트 |
 |---|---|---|
 | root surface | 본 문서 | viewport, scroll ownership, metadata, CTA navigation |
-| landing visual | 본 문서와 승인된 Figma/PNG | 표시 문구, section 순서, geometry, crop, responsive layout |
+| landing visual | 본 문서. Figma/PNG는 `REFERENCE_ONLY` | 표시 문구, section 순서, 수치 geometry, crop, responsive layout은 본 문서로 판정 |
 | landing media | 승인된 소유 poster와 MP4 | 권리 상태, SHA-256, dimensions, codec, duration, ended frame |
-| shared shell | 본 문서와 승인된 Figma/PNG | Sidebar, topbar, content slots, mobile drawer, focus state |
+| shared shell | 본 문서. Figma/PNG는 `REFERENCE_ONLY` | Sidebar, topbar, content slots, mobile drawer, focus state는 본 문서로 판정 |
 | route registry | `MOVE_AI_DATA_PACK`과 본 문서 | 13개 유효 route, 기본 route, 표시명 |
 | platform behavior | 공식 제3자 문서 | autoplay, storage, focus, reduced motion, history API |
 
 허용 입력에 없는 파일명, 디렉터리 구조, selector, class name, module 경계는 clean-room 입력이 아니다.
 
-승인된 Figma/PNG에서 보이지 않는 동작을 추론하지 않는다. 동작과 상태는 본 문서를 따른다.
+Figma/PNG는 rough composition과 flow 참고에만 사용한다. 보이거나 보이지 않는 세부에서 문구·수치·동작·상태를 추론하지 않고 본 문서를 따른다.
 
 표시 문구는 본 문서의 문자열을 사용하며, 다른 화면에서 추출하거나 요약·번역하지 않는다.
 
@@ -148,7 +150,7 @@ DONE 선언 시 모든 acceptance cell의 값은 `CHECKED`여야 한다.
 구현을 시작하기 전에 아래 항목을 먼저 고정한다.
 
 - clean-room input register의 승인 완료
-- 승인된 각 Figma/PNG/미디어의 owner와 사용 권리 확인
+- `REFERENCE_ONLY` Figma/PNG와 승인된 소유 미디어의 owner와 사용 권리 확인
 - 승인된 각 binary asset의 SHA-256, byte size, dimensions 기록
 - 미디어 codec, duration, frame rate 기록
 - 운영 기준 브라우저와 버전
@@ -164,9 +166,9 @@ DONE 선언 시 모든 acceptance cell의 값은 `CHECKED`여야 한다.
 - CTA navigation recording 계획
 - autoplay 허용과 차단 환경 recording 계획
 
-각 candidate capture에는 viewport, DPR, browser, 승인된 디자인 증거 ID, `capturedAt`, timezone을 기록한다.
+각 candidate capture에는 viewport, DPR, browser, 근거가 되는 본 문서 section ID, `capturedAt`, timezone을 기록한다.
 
-frame 비교 시 스크롤 위치도 기록한다.
+브라우저 screenshot에는 스크롤 위치도 기록한다.
 
 font가 달라진 capture는 acceptance 근거로 쓰지 않는다.
 
@@ -198,7 +200,7 @@ video frame은 임의 CSS fallback이 아니라 승인된 MP4의 decode 결과�
 
 업무 shell은 밝은 neumorphic canvas language다.
 
-두 visual language를 억지로 통일하면 parity 실패다.
+두 visual language를 억지로 통일하면 본 명세 위반이다.
 
 ## 7. 구현 순서 개요
 
@@ -213,7 +215,7 @@ video frame은 임의 CSS fallback이 아니라 승인된 MP4의 decode 결과�
 9. route query/localStorage를 연결한다.
 10. topbar/content frame/mobile drawer를 연결한다.
 11. 접근성과 reduced-motion을 검증한다.
-12. 시각 비교와 functional acceptance를 닫는다.
+12. 명세 기반 시각 증거와 functional acceptance를 닫는다.
 
 앞 단계의 acceptance가 끝나기 전 다음 단계의 스타일 보정으로 넘어가지 않는다.
 
@@ -473,11 +475,11 @@ asset register 필수 필드는 다음과 같다.
 - duration
 - frame rate
 - poster/video aspect ratio
-- approved baseline owner
+- approved asset owner
 
 “비슷한 지구 영상”으로 대체하지 않는다.
 
-AI로 새로 생성한 영상은 parity asset이 아니다.
+AI로 새로 생성한 영상은 승인된 소유 media asset이 아니다.
 
 poster를 video 첫 frame의 저해상도 screenshot으로 대체하지 않는다.
 
@@ -546,7 +548,7 @@ CACHED는 별도 badge를 화면에 추가하는 뜻이 아니다.
 
 | 단계 | actual visual checkpoint | 필수 evidence |
 |---:|---|---|
-| 1 | poster에서 한국이 보이는 지구 장면이 안정적으로 시작됨 | poster와 첫 decoded frame 비교 |
+| 1 | poster에서 한국이 보이는 지구 장면이 안정적으로 시작됨 | poster 뒤 첫 decoded frame evidence |
 | 2 | 한국 중심 지구가 화면의 중심 narrative로 드러남 | globe 위치·scale·crop frame |
 | 3 | 여러 글로벌 노선이 지구에서 펼쳐짐 | route가 충분히 식별되는 frame |
 | 4 | 노선 장면이 정리되고 지구가 logo의 O 위치로 흔들림 없이 수렴함 | docking 직전/직후 frame pair |
@@ -554,7 +556,7 @@ CACHED는 별도 badge를 화면에 추가하는 뜻이 아니다.
 
 모든 단계에서 desktop cover crop과 mobile 16:9 crop을 각각 확인한다.
 
-다섯 frame의 color, globe silhouette, route placement, final logo는 승인된 디자인 증거와 비교한다.
+다섯 frame의 color, globe silhouette, route placement, final logo는 본 절의 checkpoint와 승인 media의 SHA-256·metadata·timestamp 기록으로 검증한다.
 
 단계 3을 다섯 개 CSS route path draw로 대체하지 않는다.
 
@@ -808,7 +810,7 @@ symbol을 임의의 다른 icon library glyph로 바꾸지 않는다.
 - card width 약 253.83px
 - card 3 columns 유지
 - trust 4 columns 유지
-- card 표시 문구 wrapping은 승인된 디자인 증거와 비교
+- card 표시 문구 wrapping은 본 문서의 문자열·수치 geometry와 브라우저 screenshot으로 확인
 - horizontal overflow 0px
 
 ### 25.3 640px
@@ -875,7 +877,7 @@ symbol을 임의의 다른 icon library glyph로 바꾸지 않는다.
 
 ### 26.4 video
 
-- ready state에서 별도 visible control 없음이 parity 기본
+- ready state에서 별도 visible control 없음이 본 명세 기본
 - autoplay 차단 시 최초 pointerdown retry 1회
 - ended 후 loop 없음
 - page scroll과 pointer retry가 충돌하지 않음
@@ -896,7 +898,7 @@ dead final overlay animation도 정지한다.
 
 card hover transition도 reduced-motion에서 제거할 수 있다.
 
-5단계 MP4 parity는 일반 motion 환경에서 반드시 별도로 검수한다.
+5단계 MP4 명세 준수는 일반 motion 환경에서 반드시 별도로 검수한다.
 
 ## 28. Shared shell design tokens
 
@@ -1152,7 +1154,7 @@ Network는 별도 60px absolute header를 사용하므로 일반 topbar height�
 route input 우선순위는 다음과 같다.
 
 1. 현재 URL query의 유효 route
-2. `localStorage['freight-risk-route']`의 유효 route
+2. `localStorage['move-ai:route:v1']`의 유효 route
 3. fallback `KNEI`
 
 유효성은 13개 route registry로 판정한다.
@@ -1161,7 +1163,7 @@ invalid query를 page component에 전달하지 않는다.
 
 route 변경 시 in-memory route state를 갱신한다.
 
-route 변경 시 `freight-risk-route`를 갱신한다.
+route 변경 시 `move-ai:route:v1`을 갱신한다.
 
 route 변경 시 현재 URL의 query를 replace한다.
 
@@ -1183,8 +1185,8 @@ landing 자체에는 업무 route state를 주입하지 않는다.
 
 WT1은 다음 key의 namespace만 알고 seam을 보존한다.
 
-- `glovis-freight-risk:model-tuning:v2`
-- `glovis-freight-risk:representative-model:v1`
+- `move-ai:tuning:v1:`
+- `move-ai:representative:v1:`
 - shared contract가 정의한 route news cache namespace
 - shared contract가 정의한 forecast insight cache namespace
 
@@ -1281,9 +1283,9 @@ portal z-index는 Sidebar와 topbar 위에 올라갈 수 있는 scale을 제공�
 - Escape close
 - mobile drawer close 후 trigger focus return
 
-접근성 동작 때문에 표시 문구와 geometry가 바뀌면 design owner 승인이 필요하다.
+접근성 동작 때문에 표시 문구와 geometry가 바뀌면 명세 변경 승인을 받아 본 문서에 먼저 반영해야 한다.
 
-captions나 transcript를 추가하면 별도 design surface로 처리하고 parity screenshot을 오염시키지 않는다.
+captions나 transcript를 추가하면 별도 surface로 처리하고 필수 브라우저 screenshot의 명세 판정 조건과 섞지 않는다.
 
 ## 42. 성능과 caching
 
@@ -1348,7 +1350,7 @@ feature visual에 `4주 예측`, `PI90`, `정적 기능 예시`, `/ 예시` 같�
 산출물:
 
 - 승인된 input register
-- Figma/PNG owner와 rights 상태
+- `REFERENCE_ONLY` Figma/PNG owner와 rights 상태
 - media rights·SHA-256 register
 - 네 viewport의 candidate capture 계획
 - video 5단계 검증 계획
@@ -1463,14 +1465,14 @@ acceptance:
 - focus/reduced-motion rules
 - visual matrix
 - functional results
-- visual comparison report
+- spec-conformance visual evidence report
 - keyboard/mobile lifecycle recording
 
 acceptance:
 
 - every matrix cell CHECKED
 - no open P0/P1
-- known differences list empty or explicitly approved
+- known spec deviations list empty or explicitly approved
 
 각 단계는 앞 단계의 acceptance가 완료된 뒤 진행한다.
 
@@ -1482,23 +1484,23 @@ media asset과 비담당 page 기능을 같은 검증 단위에 섞지 않는다
 
 | surface | viewport/state | 비교 핵심 | 필수 evidence | 종료값 |
 |---|---|---|---|---|
-| landing | 1440×900 cold | header, 500px hero, 3 cards | approved design evidence + candidate capture | CHECKED |
-| landing | 900×900 cold | desktop 3 cards 유지 | approved design evidence + candidate capture | CHECKED |
-| landing | 640×900 cold | 16:9 hero, 1 card, 2 trust | approved design evidence + candidate capture | CHECKED |
-| landing | 375×812 cold | narrow 표시 문구, 2 trust, no overflow | approved design evidence + candidate capture | CHECKED |
-| video | poster | 2560×1080 crop/color | approved poster + decoded frame comparison | CHECKED |
-| video | stage 1 | first globe reveal | timestamped frame comparison | CHECKED |
-| video | stage 2 | Korea-centered globe | timestamped frame comparison | CHECKED |
-| video | stage 3 | global routes | timestamped frame comparison | CHECKED |
-| video | stage 4 | O docking | timestamped frame-pair comparison | CHECKED |
+| landing | 1440×900 cold | header, 500px hero, 3 cards | spec text/numeric geometry + browser screenshot | CHECKED |
+| landing | 900×900 cold | desktop 3 cards 유지 | spec text/numeric geometry + smoke screenshot | CHECKED |
+| landing | 640×900 cold | 16:9 hero, 1 card, 2 trust | spec text/numeric geometry + smoke screenshot | CHECKED |
+| landing | 375×812 cold | narrow 표시 문구, 2 trust, no overflow | spec text/numeric geometry + browser screenshot | CHECKED |
+| video | poster | 2560×1080 crop/color | spec checkpoint + media metadata + decoded frame | CHECKED |
+| video | stage 1 | first globe reveal | timestamped decoded frame evidence | CHECKED |
+| video | stage 2 | Korea-centered globe | timestamped decoded frame evidence | CHECKED |
+| video | stage 3 | global routes | timestamped decoded frame evidence | CHECKED |
+| video | stage 4 | O docking | timestamped decoded frame-pair evidence | CHECKED |
 | video | stage 5/ended | final lockup remains | ended recording | CHECKED |
 | video | autoplay blocked | poster then one retry | interaction recording | CHECKED |
 | video | error | poster/표시 문구/CTA usable | state screenshot | CHECKED |
-| shell | 1440 collapsed | 68px rail, main left68 | approved design evidence + candidate capture | CHECKED |
+| shell | 1440 collapsed | 68px rail, main left68 | spec numeric geometry + computed metric + browser screenshot | CHECKED |
 | shell | 1440 hover | 244px overlay, no reflow | before/after recording | CHECKED |
 | shell | 1440 focus-within | keyboard expansion | focus recording | CHECKED |
-| shell | 900 closed/open | 218px drawer | approved design evidence + candidate capture | CHECKED |
-| shell | 640 | 78px topbar, 12px content inset | approved design evidence + candidate capture | CHECKED |
+| shell | 900 closed/open | 218px drawer | spec numeric geometry + computed metric + smoke screenshot | CHECKED |
+| shell | 640 | 78px topbar, 12px content inset | spec numeric geometry + computed metric + smoke screenshot | CHECKED |
 | shell | 375 | no horizontal overflow | screenshot+metric | CHECKED |
 | shell | 375 drawer open | body overflow hidden, drawer x=0 | runtime metric + screenshot | CHECKED |
 | shell | 375 drawer close | prior body overflow/style restored, trigger focus | runtime metric + keyboard recording | CHECKED |
@@ -1547,21 +1549,15 @@ media asset과 비담당 page 기능을 같은 검증 단위에 섞지 않는다
 | WT1-F29 | storage unavailable | URL/fallback still works | CHECKED |
 | WT1-F30 | portal fixture | box sizing/font/focus inherited explicitly | CHECKED |
 
-## 48. Visual comparison acceptance
+## 48. 명세 기반 visual acceptance
 
-baseline과 candidate는 같은 viewport, DPR, zoom, font, data, scroll position을 쓴다.
+브라우저 screenshot은 선언된 viewport, DPR, zoom, font, data, state, scroll position을 기록한다.
 
-video 비교는 승인된 MP4의 같은 timestamp frame을 쓴다.
+판정 대상은 본 문서의 표시 문구·UI inventory·수치 geometry·computed style·상태·상호작용이다. geometry와 style은 DOM 측정값·computed style로, 상태와 상호작용은 browser screenshot·recording으로 증명한다.
 
-volatile browser rendering 차이는 별도 mask로 기록한다.
+Figma/PNG는 `REFERENCE_ONLY`로 rough composition과 flow만 참고한다. Figma/PNG 차이만으로 실패하거나 차단하지 않으며, pixel parity·image diff·SSIM·mismatch 비율을 만들거나 판정에 사용하지 않는다.
 
-표시 문구, logo, route, CTA, section, card boundary는 mask하지 않는다.
-
-권장 automated gate는 SSIM 0.995 이상이다.
-
-권장 mismatch pixel 비율은 0.5% 이하다.
-
-24×24px보다 큰 연속 mismatch 영역은 사람이 반드시 검토한다.
+video는 승인된 MP4의 SHA-256·metadata·같은 timestamp에서 본 절의 단계별 상태를 확인한다. Figma/PNG frame과 pixel 비교하지 않는다.
 
 header/hero 경계가 2px 이상 어긋나면 numeric score와 관계없이 fail이다.
 
@@ -1571,19 +1567,19 @@ font fallback으로 한글 line wrap이 바뀌면 fail이다.
 
 video frame이 다른 asset이면 비교 수치와 관계없이 fail이다.
 
-approved accessibility focus ring은 focus-state baseline과만 비교한다.
+승인된 accessibility focus ring은 본 문서의 focus-state 계약, computed style, browser screenshot으로 확인한다.
 
 ## 49. Required evidence pack
 
 - clean-room input register
-- Figma/PNG/media owner와 rights approval record
+- `REFERENCE_ONLY` Figma/PNG와 소유 media의 owner·rights approval record
 - 승인 asset과 포함 asset의 SHA-256 비교 보고서
 - 표시 문구 checklist
 - candidate computed-value report
 - width geometry measurement report
-- approved design evidence IDs
-- candidate screenshots
-- visual comparison report
+- 본 명세 authority section IDs
+- browser screenshots
+- spec-conformance visual evidence report
 - five-stage video frames
 - ended/autoplay-blocked recording
 - route persistence recording
@@ -1592,11 +1588,11 @@ approved accessibility focus ring은 focus-state baseline과만 비교한다.
 - mobile body-lock/close/focus-return recording
 - functional test report
 - browser console report
-- known difference report
+- known spec deviation report
 
-known difference report가 비어 있으면 `none`이라고 명시한다.
+known spec deviation report가 비어 있으면 `none`이라고 명시한다.
 
-미확인 항목을 known difference로 밀어 넣지 않는다.
+미확인 항목을 known spec deviation으로 밀어 넣지 않는다.
 
 ## 50. Self-review checklist
 
@@ -1607,7 +1603,7 @@ known difference report가 비어 있으면 `none`이라고 명시한다.
 | architecture | root outer/inner scroll 경계가 정확한가 | CHECKED |
 | hydration | root layout만 html/body를 소유하고 nested document element가 없는가 | CHECKED |
 | 표시 문구 | 모든 지정 text가 일치하는가 | CHECKED |
-| rights | 모든 Figma/PNG/media의 권리와 SHA-256이 승인됐는가 | CHECKED |
+| rights | `REFERENCE_ONLY` Figma/PNG와 소유 media의 권리·SHA-256이 승인됐는가 | CHECKED |
 | media | poster와 actual 11초 MP4가 연결됐는가 | CHECKED |
 | animation | 5단계가 MP4 frame으로 검수됐는가 | CHECKED |
 | states | LOADING/READY/ERROR/CACHED/EMPTY 경계가 명확한가 | CHECKED |
@@ -1618,7 +1614,7 @@ known difference report가 비어 있으면 `none`이라고 명시한다.
 | interaction | hover/focus/click/keyboard가 맞는가 | CHECKED |
 | drawer a11y | aria-expanded/body lock/Escape/focus return이 맞는가 | CHECKED |
 | motion | ended/reduced-motion 경계가 맞는가 | CHECKED |
-| evidence | visual comparison과 recording이 있는가 | CHECKED |
+| evidence | 명세 기반 browser screenshot·computed metric·recording이 있는가 | CHECKED |
 | regression | primary media EMPTY가 정상 상태로 허용되지 않는가 | CHECKED |
 
 ## 51. 최종 DONE gate
@@ -1632,7 +1628,7 @@ known difference report가 비어 있으면 `none`이라고 명시한다.
 - 11초 video가 실제로 decode되고 재생됨
 - five-stage frame evidence 완료
 - empty primary media state가 존재하지 않음
-- 1440/900/640/375 visual comparison 통과
+- 1440/375 browser screenshot과 900/640 smoke에서 명세 기반 시각 증거 통과
 - Sidebar 68→244 overlay 동작 통과
 - mobile 218px drawer 동작 통과
 - mobile drawer body lock/복원, Escape, focus return 통과
