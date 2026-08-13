@@ -27,9 +27,9 @@
 | `docs/specs/README.md` 공통 운영 규칙 | `APPROVED` | `64d35ccb6dc5fe03f16d5f55d1724436b449f406a33df6d0c59a9b23bd03d978` |
 | `docs/specs/WT1_FOUNDATION_LANDING.md` | `APPROVED` | `294040bcb1bfcd523b20fee78c66270717ba197ab3e0cb1046715887ec80ded1` |
 | `docs/specs/WT2_DASHBOARD.md` | `APPROVED` | `26fbc2789da0c7a84acd2e967c52c0b8f26a571fdfb479f3a32d5dd9bea7d2ff` |
-| `docs/specs/WT3_MODELS.md` | `APPROVED` | `2fc3dbd13e7141a7b8ea786fe5f539b554b33f4d5bb777fa13151eadc1dd1f12` |
+| `docs/specs/WT3_MODELS.md` | `APPROVED` | `f82e5f23b4f9649a31dbdc5ef77d09e49e893c14954c0b93cc0a779f76e5b200` |
 | `docs/specs/WT4_NETWORK.md` | `APPROVED` | `632790a809dbcc59944a91be8dedd696433317324019701549d6d2281da63809` |
-| `docs/specs/WT5_ALLOCATION.md` | `APPROVED` | `0b574cc09f7697138b0bf66920fda00f22f82d936427f85c43d1be4e115a4e8e` |
+| `docs/specs/WT5_ALLOCATION.md` | `APPROVED` | `6cbadd0ecafd91d144770300cf03801cf36a80ce886237f494ce207e97ced2b3` |
 | `docs/specs/WT6_DATA_API.md` | `APPROVED` | `4fca56132506218b8e8a4fe287889ad1e3eac295bce38bffa9516ea833597ef0` |
 
 이 표의 exact bytes는 저장소와 공용 원본 명세가 동일해야 한다. 문서를 수정하면 이전 WT7/WT8 PASS는 즉시 무효가 되며, 변경된 SHA를 대상으로 focused delta 검사를 다시 통과해야 한다.
