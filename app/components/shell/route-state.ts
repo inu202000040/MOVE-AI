@@ -14,6 +14,8 @@ export const WORKSPACE_PAGE_IDS = [
   "allocation",
 ] as const satisfies readonly PageId[];
 
+export const MOVE_AI_ROUTE_CHANGE_EVENT = "move-ai:route-change";
+
 export type WorkspacePageId = (typeof WORKSPACE_PAGE_IDS)[number];
 export type RouteResolutionSource = "query" | "storage" | "default";
 
