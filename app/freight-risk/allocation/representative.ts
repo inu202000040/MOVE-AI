@@ -1,6 +1,28 @@
-import { isRouteId, type RouteId } from "../../contracts";
+import {
+  GATEWAY_SCHEMA_VERSION,
+  GATEWAY_CACHE_KEYS,
+  GATEWAY_ERROR_KEYS,
+  GATEWAY_META_KEYS,
+  GATEWAY_ROOT_KEYS,
+  isRouteId,
+  type GatewayResultV1,
+  type RouteId,
+} from "../../contracts";
 
-import type { CvarForecast } from "./engine";
+import {
+  CVAR_ALPHA,
+  CVAR_WEEKLY_CORRELATION,
+  assertCvarSimulationInput,
+  deriveRouteSeed,
+  type CvarForecast,
+  type CvarSimulationInput,
+  type HorizonWeeks,
+  type RiskWeight,
+} from "./engine";
+import {
+  canonicalJsonForValidation,
+  sha256HexForValidation,
+} from "./identity";
 
 export const REPRESENTATIVE_MODEL_IDS = [
   "naive",
@@ -24,9 +46,7 @@ export interface RepresentativeObservationV1 {
   readonly unit: "USD/FEU";
 }
 
-export interface RepresentativeForecastV1 extends CvarForecast {
-  readonly calibrationSampleSize?: number;
-}
+export type RepresentativeForecastV1 = CvarForecast;
 
 export interface RepresentativeAutomaticChampionV1 {
   readonly modelId: RepresentativeModelId;
@@ -105,6 +125,23 @@ export interface AllocationRepresentativeInput {
   readonly routeSimulationKey: string;
 }
 
+export interface AllocationDraftInput {
+  readonly selectedHorizon: HorizonWeeks;
+  readonly fixed: number;
+  readonly volume: number;
+  readonly riskWeight: RiskWeight;
+}
+
+export interface AllocationRunInput {
+  readonly representative: AllocationRepresentativeInput;
+  readonly simulation: CvarSimulationInput;
+}
+
+export type RepresentativeGatewayResultV1 = GatewayResultV1<
+  RepresentativeSelectionV1,
+  "READY" | "UNAVAILABLE"
+>;
+
 const ROOT_KEYS = [
   "route",
   "currentObservation",
@@ -137,10 +174,6 @@ const FORECAST_KEYS = [
   "point",
   "lower90",
   "upper90",
-] as const;
-const FORECAST_KEYS_WITH_SAMPLE = [
-  ...FORECAST_KEYS,
-  "calibrationSampleSize",
 ] as const;
 const METRICS_KEYS = [
   "horizonWeeks",
@@ -282,35 +315,38 @@ function isForecast(
   if (!isRecord(value)) {
     return false;
   }
-  const validKeys =
-    hasExactKeys(value, FORECAST_KEYS) ||
-    hasExactKeys(value, FORECAST_KEYS_WITH_SAMPLE);
   return (
-    validKeys &&
+    hasExactKeys(value, FORECAST_KEYS) &&
     value.horizonWeeks === horizonWeeks &&
     isIsoDate(value.targetDate) &&
     isFinitePositive(value.point) &&
     isFinitePositive(value.lower90) &&
     isFinitePositive(value.upper90) &&
     value.lower90 <= value.point &&
-    value.point <= value.upper90 &&
-    (value.calibrationSampleSize === undefined ||
-      isNonNegativeInteger(value.calibrationSampleSize))
+    value.point <= value.upper90
   );
 }
 
 function isCoverage(value: unknown): value is RepresentativeCoverageV1 {
-  return (
+  if (
+    !(
     isRecord(value) &&
     hasExactKeys(value, COVERAGE_KEYS) &&
     isBoundedPercent(value.pct) &&
     isNonNegativeInteger(value.hits) &&
     isNonNegativeInteger(value.total) &&
     isNonNegativeInteger(value.sampleSize) &&
+    value.total > 0 &&
     value.hits <= value.total &&
+    value.sampleSize === value.total &&
     value.target === 0.9 &&
     isNonEmptyString(value.intervalMethod)
-  );
+    )
+  ) {
+    return false;
+  }
+  const expectedPercent = Math.round((value.hits / value.total) * 1_000) / 10;
+  return value.pct === expectedPercent;
 }
 
 function isMetrics(
@@ -336,6 +372,7 @@ function isMetrics(
 function isAgreementMember(
   value: unknown,
   expectedModelId: RepresentativeModelId,
+  current: number,
 ): value is RepresentativeAgreementMemberV1 {
   if (
     !isRecord(value) ||
@@ -350,12 +387,19 @@ function isAgreementMember(
   ) {
     return false;
   }
-  return value.direction === "up" || value.direction === "down" || value.direction === "flat";
+  const expectedChange = 100 * (value.point / current - 1);
+  const expectedDirection: RepresentativeDirection =
+    expectedChange >= 3 ? "up" : expectedChange <= -3 ? "down" : "flat";
+  return (
+    Math.abs(value.changePct - expectedChange) <= 1e-9 &&
+    value.direction === expectedDirection
+  );
 }
 
 function isAgreement(
   value: unknown,
   horizonWeeks: number,
+  current: number,
 ): value is RepresentativeAgreementV1 {
   if (
     !isRecord(value) ||
@@ -372,9 +416,83 @@ function isAgreement(
   ) {
     return false;
   }
-  return value.members.every((member, index) =>
-    isAgreementMember(member, REPRESENTATIVE_MODEL_IDS[index]),
+  if (
+    !value.members.every((member, index) =>
+      isAgreementMember(member, REPRESENTATIVE_MODEL_IDS[index], current),
+    )
+  ) {
+    return false;
+  }
+  const counts = value.members.reduce(
+    (result, member) => {
+      result[member.direction] += 1;
+      return result;
+    },
+    { up: 0, down: 0, flat: 0 },
   );
+  return (
+    value.up === counts.up &&
+    value.down === counts.down &&
+    value.flat === counts.flat
+  );
+}
+
+function hasMatchingSelectedMember(selection: RepresentativeSelectionV1): boolean {
+  const modelIndex = REPRESENTATIVE_MODEL_IDS.indexOf(selection.modelId);
+  return selection.modelAgreementByHorizon.every((agreement, index) => {
+    const member = agreement.members[modelIndex];
+    const forecast = selection.forecasts[index];
+    return (
+      member.modelName === selection.modelName &&
+      member.modelVersion === selection.modelVersion &&
+      member.forecastSource === selection.forecastSource &&
+      member.tuningRunHash === selection.tuningRunHash &&
+      member.point === forecast.point
+    );
+  });
+}
+
+function hasMatchingAutomaticChampion(
+  selection: RepresentativeSelectionV1,
+): boolean {
+  if (selection.automaticChampion.modelId === "naive") {
+    return false;
+  }
+  if (selection.selectionMode === "manual") {
+    return true;
+  }
+  return (
+    selection.modelId === selection.automaticChampion.modelId &&
+    selection.modelName === selection.automaticChampion.modelName &&
+    selection.modelVersion === selection.automaticChampion.modelVersion &&
+    selection.score1w === selection.automaticChampion.score1w
+  );
+}
+
+function hasMatchingRepresentativeRevision(
+  selection: RepresentativeSelectionV1,
+): boolean {
+  const representativeProjection = {
+    route: selection.route,
+    currentObservation: selection.currentObservation,
+    modelId: selection.modelId,
+    modelName: selection.modelName,
+    modelVersion: selection.modelVersion,
+    score1w: selection.score1w,
+    coverage1w: selection.coverage1w,
+    selectionMode: selection.selectionMode,
+    forecastSource: selection.forecastSource,
+    tuningRunHash: selection.tuningRunHash,
+    evaluationProtocol: selection.evaluationProtocol,
+    automaticChampion: selection.automaticChampion,
+    forecasts: selection.forecasts,
+    metricsByHorizon: selection.metricsByHorizon,
+    modelAgreementByHorizon: selection.modelAgreementByHorizon,
+  };
+  const expected = sha256HexForValidation(
+    canonicalJsonForValidation(representativeProjection),
+  );
+  return selection.representativeRevision === `rep-v1:${expected}`;
 }
 
 export function isRepresentativeSelectionV1(
@@ -412,12 +530,28 @@ export function isRepresentativeSelectionV1(
     if (
       !isForecast(value.forecasts[index], horizonWeeks) ||
       !isMetrics(value.metricsByHorizon[index], horizonWeeks) ||
-      !isAgreement(value.modelAgreementByHorizon[index], horizonWeeks)
+      !isAgreement(
+        value.modelAgreementByHorizon[index],
+        horizonWeeks,
+        value.currentObservation.value,
+      )
     ) {
       return false;
     }
   }
-  return true;
+  const selection = value as unknown as RepresentativeSelectionV1;
+  const dates = [
+    selection.currentObservation.date,
+    ...selection.forecasts.map((forecast) => forecast.targetDate),
+  ];
+  return (
+    dates.every((date, index) => index === 0 || dates[index - 1] < date) &&
+    selection.score1w === selection.metricsByHorizon[0].totalScore &&
+    selection.coverage1w === selection.metricsByHorizon[0].coverage.pct &&
+    hasMatchingSelectedMember(selection) &&
+    hasMatchingAutomaticChampion(selection) &&
+    hasMatchingRepresentativeRevision(selection)
+  );
 }
 
 export function createRouteSimulationKey(
@@ -458,4 +592,85 @@ export function adaptRepresentativeSelection(
     })),
     routeSimulationKey: createRouteSimulationKey(value),
   };
+}
+
+export function adaptRepresentativeGatewayResult(
+  result: RepresentativeGatewayResultV1,
+): AllocationRepresentativeInput {
+  if (
+    !isRecord(result) ||
+    !hasExactKeys(result, GATEWAY_ROOT_KEYS) ||
+    result.schemaVersion !== GATEWAY_SCHEMA_VERSION ||
+    result.state !== "READY" ||
+    result.data === null ||
+    result.error !== null ||
+    !isRecord(result.meta) ||
+    !hasExactKeys(result.meta, GATEWAY_META_KEYS) ||
+    !(
+      result.meta.mode === "live" ||
+      result.meta.mode === "cached" ||
+      result.meta.mode === "fixture" ||
+      result.meta.mode === "reference"
+    ) ||
+    !isNonEmptyString(result.meta.source) ||
+    !(result.meta.sourceUrl === null || isNonEmptyString(result.meta.sourceUrl)) ||
+    !(result.meta.asOf === null || isNonEmptyString(result.meta.asOf)) ||
+    !isNonEmptyString(result.meta.fetchedAt) ||
+    !(result.meta.unit === null || isNonEmptyString(result.meta.unit)) ||
+    typeof result.meta.isEstimate !== "boolean" ||
+    !isRecord(result.meta.cache) ||
+    !hasExactKeys(result.meta.cache, GATEWAY_CACHE_KEYS) ||
+    typeof result.meta.cache.hit !== "boolean" ||
+    typeof result.meta.cache.stale !== "boolean" ||
+    !(
+      result.meta.cache.ageSeconds === null ||
+      isNonNegativeInteger(result.meta.cache.ageSeconds)
+    )
+  ) {
+    throw new TypeError("Representative gateway result is not READY");
+  }
+  return adaptRepresentativeSelection(result.data);
+}
+
+export function isUnavailableRepresentativeGatewayResult(
+  result: RepresentativeGatewayResultV1,
+): boolean {
+  return (
+    isRecord(result) &&
+    hasExactKeys(result, GATEWAY_ROOT_KEYS) &&
+    result.schemaVersion === GATEWAY_SCHEMA_VERSION &&
+    result.state === "UNAVAILABLE" &&
+    result.data === null &&
+    isRecord(result.error) &&
+    hasExactKeys(result.error, GATEWAY_ERROR_KEYS) &&
+    isNonEmptyString(result.error.code) &&
+    isNonEmptyString(result.error.message) &&
+    typeof result.error.retryable === "boolean" &&
+    isRecord(result.meta) &&
+    hasExactKeys(result.meta, GATEWAY_META_KEYS) &&
+    result.meta.mode === "unavailable"
+  );
+}
+
+export function createAllocationRunInput(
+  representativeValue: unknown,
+  draft: AllocationDraftInput,
+): AllocationRunInput {
+  const representative = adaptRepresentativeSelection(representativeValue);
+  const forecasts = Object.freeze(
+    representative.forecasts.map((forecast) => Object.freeze({ ...forecast })),
+  );
+  const simulation = Object.freeze({
+    forecasts,
+    current: representative.current,
+    selectedHorizon: draft.selectedHorizon,
+    fixed: draft.fixed,
+    volume: draft.volume,
+    alpha: CVAR_ALPHA,
+    riskWeight: draft.riskWeight,
+    seed: deriveRouteSeed(representative.route),
+    rho: CVAR_WEEKLY_CORRELATION,
+  });
+  assertCvarSimulationInput(simulation);
+  return Object.freeze({ representative, simulation });
 }

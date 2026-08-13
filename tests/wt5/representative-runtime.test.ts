@@ -2,13 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import vm from "node:vm";
 
+import { GATEWAY_SCHEMA_VERSION } from "../../app/contracts";
 import {
   CVAR_ALPHA,
   CVAR_WEEKLY_CORRELATION,
   CVAR_WORKER_SOURCE,
   CvarRunCoordinator,
   REPRESENTATIVE_MODEL_IDS,
+  adaptRepresentativeGatewayResult,
   adaptRepresentativeSelection,
+  createAllocationRunInput,
+  isUnavailableRepresentativeGatewayResult,
   type CvarSimulationInput,
   type CvarSimulationResult,
   type CvarWorkerDoneMessage,
@@ -17,9 +21,12 @@ import {
   type CvarWorkerMessage,
   type RepresentativeSelectionV1,
 } from "../../app/freight-risk/allocation";
+import {
+  canonicalJsonForValidation,
+  sha256HexForValidation,
+} from "../../app/freight-risk/allocation/identity";
 
 const HASH_A = "a".repeat(64);
-const HASH_B = "b".repeat(64);
 
 type Mutable<T> = T extends readonly (infer TItem)[]
   ? Mutable<TItem>[]
@@ -31,8 +38,31 @@ function mutableClone<T>(value: T): Mutable<T> {
   return structuredClone(value) as Mutable<T>;
 }
 
+function sealRepresentative(
+  value: Mutable<RepresentativeSelectionV1>,
+): RepresentativeSelectionV1 {
+  const projection = structuredClone(value) as Record<string, unknown>;
+  delete projection.representativeRevision;
+  value.representativeRevision = `rep-v1:${sha256HexForValidation(
+    canonicalJsonForValidation(projection),
+  )}`;
+  return value;
+}
+
 function createRepresentative(): RepresentativeSelectionV1 {
-  return {
+  const forecasts = [
+    { horizonWeeks: 1, targetDate: "2026-08-10", point: 4_828.98, lower90: 4_482.47, upper90: 5_175.49 },
+    { horizonWeeks: 2, targetDate: "2026-08-17", point: 4_791.32, lower90: 4_227.22, upper90: 5_355.43 },
+    { horizonWeeks: 3, targetDate: "2026-08-24", point: 4_767.23, lower90: 3_935.75, upper90: 5_598.72 },
+    { horizonWeeks: 4, targetDate: "2026-08-31", point: 4_753.74, lower90: 3_439.8, upper90: 6_067.68 },
+  ] as const;
+  const metricValues = [
+    [3.6, 22_818.49, 151.06, 0.037, 100, 98.59552494490214, 100, 99.53184164830071, 88.5, 46],
+    [6.8, 68_438.82, 261.61, 0.067, 83.97058823529412, 72.7532999546164, 83.58208955223881, 80.10199258071644, 94.2, 49],
+    [11.19, 181_485.66, 426.01, 0.111, 83.1099195710456, 69.14281822596892, 83.78378378378379, 78.67884052693277, 92.3, 48],
+    [15.55, 342_939.33, 585.61, 0.157, 78.52090032154341, 62.814504244817876, 79.61783439490446, 73.65107965375525, 94.2, 49],
+  ] as const;
+  const representative = {
     route: "KNEI",
     currentObservation: {
       date: "2026-08-03",
@@ -41,8 +71,8 @@ function createRepresentative(): RepresentativeSelectionV1 {
     },
     modelId: "sarimax",
     modelName: "SARIMAX",
-    modelVersion: "baseline-v1",
-    score1w: 99.531841648,
+    modelVersion: "statsmodels-0.14.6",
+    score1w: 99.53184164830071,
     coverage1w: 88.5,
     selectionMode: "automatic",
     forecastSource: "baseline",
@@ -51,37 +81,32 @@ function createRepresentative(): RepresentativeSelectionV1 {
     automaticChampion: {
       modelId: "sarimax",
       modelName: "SARIMAX",
-      modelVersion: "baseline-v1",
-      score1w: 99.531841648,
+      modelVersion: "statsmodels-0.14.6",
+      score1w: 99.53184164830071,
     },
     representativeRevision: `rep-v1:${HASH_A}`,
-    forecasts: [
-      { horizonWeeks: 1, targetDate: "2026-08-10", point: 4_828.98, lower90: 4_482.47, upper90: 5_175.49 },
-      { horizonWeeks: 2, targetDate: "2026-08-17", point: 4_791.32, lower90: 4_227.22, upper90: 5_355.43 },
-      { horizonWeeks: 3, targetDate: "2026-08-24", point: 4_767.23, lower90: 3_935.75, upper90: 5_598.72 },
-      { horizonWeeks: 4, targetDate: "2026-08-31", point: 4_753.74, lower90: 3_439.8, upper90: 6_067.68 },
-    ],
-    metricsByHorizon: [1, 2, 3, 4].map((horizonWeeks) => ({
-      horizonWeeks: horizonWeeks as 1 | 2 | 3 | 4,
-      mapePct: 1,
-      mse: 1,
-      rmse: 1,
-      mase: 1,
-      mapeScore: 99,
-      mseScore: 99,
-      maseScore: 99,
-      totalScore: 99,
+    forecasts,
+    metricsByHorizon: metricValues.map((values, index) => ({
+      horizonWeeks: (index + 1) as 1 | 2 | 3 | 4,
+      mapePct: values[0],
+      mse: values[1],
+      rmse: values[2],
+      mase: values[3],
+      mapeScore: values[4],
+      mseScore: values[5],
+      maseScore: values[6],
+      totalScore: values[7],
       coverage: {
-        pct: 88.5,
-        hits: 46,
+        pct: values[8],
+        hits: values[9],
         total: 52,
         sampleSize: 52,
         target: 0.9,
         intervalMethod: "pi90",
       },
     })),
-    modelAgreementByHorizon: [1, 2, 3, 4].map((horizonWeeks) => ({
-      horizonWeeks: horizonWeeks as 1 | 2 | 3 | 4,
+    modelAgreementByHorizon: forecasts.map((forecast) => ({
+      horizonWeeks: forecast.horizonWeeks,
       thresholdPct: 3,
       up: 0,
       down: 0,
@@ -89,16 +114,34 @@ function createRepresentative(): RepresentativeSelectionV1 {
       total: 8,
       members: REPRESENTATIVE_MODEL_IDS.map((modelId) => ({
         modelId,
-        modelName: modelId,
-        modelVersion: "baseline-v1",
+        modelName: modelId === "sarimax" ? "SARIMAX" : modelId,
+        modelVersion: modelId === "sarimax" ? "statsmodels-0.14.6" : "baseline-v1",
         forecastSource: "baseline" as const,
         tuningRunHash: null,
-        point: 4_800,
-        changePct: 0,
+        point: modelId === "sarimax" ? forecast.point : 4_800,
+        changePct:
+          100 * ((modelId === "sarimax" ? forecast.point : 4_800) / 4_884 - 1),
         direction: "flat" as const,
       })),
     })),
-  };
+  } as unknown as Mutable<RepresentativeSelectionV1>;
+  return sealRepresentative(representative);
+}
+
+function syncSelectedMember(
+  representative: Mutable<RepresentativeSelectionV1>,
+  horizonIndex: number,
+): void {
+  const member = representative.modelAgreementByHorizon[horizonIndex].members[1];
+  const forecast = representative.forecasts[horizonIndex];
+  member.modelName = representative.modelName;
+  member.modelVersion = representative.modelVersion;
+  member.forecastSource = representative.forecastSource;
+  member.tuningRunHash = representative.tuningRunHash;
+  member.point = forecast.point;
+  member.changePct = 100 * (forecast.point / representative.currentObservation.value - 1);
+  member.direction =
+    member.changePct >= 3 ? "up" : member.changePct <= -3 ? "down" : "flat";
 }
 
 const KNEI_INPUT: CvarSimulationInput = {
@@ -118,7 +161,7 @@ test("validates and projects the canonical representative without regenerating i
   const adapted = adaptRepresentativeSelection(representative);
   assert.strictEqual(adapted.selection, representative);
   assert.equal(adapted.selection.tuningRunHash, null);
-  assert.equal(adapted.selection.representativeRevision, `rep-v1:${HASH_A}`);
+  assert.match(adapted.selection.representativeRevision, /^rep-v1:[0-9a-f]{64}$/u);
   assert.equal(adapted.route, "KNEI");
   assert.equal(adapted.current, 4_884);
   assert.equal(adapted.forecasts.length, 4);
@@ -149,20 +192,125 @@ test("rejects malformed representative tuples atomically", () => {
 test("keeps provenance-only changes out of the deterministic run key", () => {
   const baseline = createRepresentative();
   const provenanceOnly = mutableClone(baseline);
-  provenanceOnly.modelVersion = "baseline-v2";
+  provenanceOnly.modelVersion = "statsmodels-0.14.7";
+  provenanceOnly.automaticChampion.modelVersion = "statsmodels-0.14.7";
   provenanceOnly.evaluationProtocol = "rolling-origin-52-v2";
-  provenanceOnly.representativeRevision = `rep-v1:${HASH_B}`;
+  for (let index = 0; index < 4; index += 1) {
+    syncSelectedMember(provenanceOnly, index);
+  }
+  sealRepresentative(provenanceOnly);
   const baselineKey = adaptRepresentativeSelection(baseline).routeSimulationKey;
   const provenanceKey = adaptRepresentativeSelection(provenanceOnly).routeSimulationKey;
   assert.equal(provenanceKey, baselineKey);
 
   const effectiveChange = mutableClone(baseline);
   effectiveChange.forecasts[0].point += 1;
-  effectiveChange.representativeRevision = `rep-v1:${HASH_B}`;
+  syncSelectedMember(effectiveChange, 0);
+  sealRepresentative(effectiveChange);
   assert.notEqual(
     adaptRepresentativeSelection(effectiveChange).routeSimulationKey,
     baselineKey,
   );
+});
+
+test("validates canonical JSON and representative revision bytes", () => {
+  assert.equal(
+    canonicalJsonForValidation({ z: -0, a: [true, "한글", null] }),
+    '{"a":[true,"한글",null],"z":0}',
+  );
+  assert.equal(
+    sha256HexForValidation("abc"),
+    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+  );
+
+  const invalid = mutableClone(createRepresentative());
+  invalid.evaluationProtocol = "changed-without-a-new-wt3-revision";
+  assert.throws(() => adaptRepresentativeSelection(invalid));
+});
+
+test("consumes only a READY decoded gateway envelope", () => {
+  const representative = createRepresentative();
+  const ready = {
+    schemaVersion: GATEWAY_SCHEMA_VERSION,
+    state: "READY",
+    data: representative,
+    error: null,
+    meta: {
+      mode: "fixture",
+      source: "approved-data-pack",
+      sourceUrl: null,
+      asOf: "2026-08-03T00:00:00.000Z",
+      fetchedAt: "2026-08-03T00:00:00.000Z",
+      unit: "USD/FEU",
+      isEstimate: false,
+      cache: { hit: false, stale: false, ageSeconds: null },
+    },
+  } as const;
+  assert.strictEqual(
+    adaptRepresentativeGatewayResult(ready).selection,
+    representative,
+  );
+
+  assert.throws(() =>
+    adaptRepresentativeGatewayResult({
+      ...ready,
+      schemaVersion: "wrong-schema",
+    } as unknown as typeof ready),
+  );
+  assert.throws(() =>
+    adaptRepresentativeGatewayResult({
+      ...ready,
+      state: "UNAVAILABLE",
+      data: null,
+      error: { code: "NO_DATA", message: "unavailable", retryable: false },
+    }),
+  );
+  assert.throws(() =>
+    adaptRepresentativeGatewayResult(
+      representative as unknown as typeof ready,
+    ),
+  );
+  assert.throws(() =>
+    adaptRepresentativeGatewayResult({
+      ...ready,
+      legacyPayload: representative,
+    } as unknown as typeof ready),
+  );
+
+  const unavailable = {
+    ...ready,
+    state: "UNAVAILABLE",
+    data: null,
+    error: { code: "NO_DATA", message: "unavailable", retryable: false },
+    meta: { ...ready.meta, mode: "unavailable" },
+  } as const;
+  assert.equal(isUnavailableRepresentativeGatewayResult(unavailable), true);
+  assert.equal(
+    isUnavailableRepresentativeGatewayResult({
+      ...unavailable,
+      data: representative,
+    }),
+    false,
+  );
+});
+
+test("freezes one immutable simulation input from representative plus drawer draft", () => {
+  const representative = createRepresentative();
+  const runInput = createAllocationRunInput(representative, {
+    selectedHorizon: 2,
+    fixed: 4_960,
+    volume: 750,
+    riskWeight: 2,
+  });
+  assert.equal(runInput.simulation.current, 4_884);
+  assert.equal(runInput.simulation.seed, 2_401_817_482);
+  assert.equal(runInput.simulation.alpha, 0.9);
+  assert.equal(runInput.simulation.rho, 0.75);
+  assert.equal(runInput.simulation.forecasts[1].point, 4_791.32);
+  assert.equal(Object.isFrozen(runInput), true);
+  assert.equal(Object.isFrozen(runInput.simulation), true);
+  assert.equal(Object.isFrozen(runInput.simulation.forecasts), true);
+  assert.equal(Object.isFrozen(runInput.simulation.forecasts[0]), true);
 });
 
 class FakeWorker implements CvarWorkerLike {
@@ -261,6 +409,65 @@ test("terminates the previous worker and discards every late message", () => {
   assert.equal(currentDone, 1);
   assert.equal(workers[1].terminated, true);
   assert.equal(disposed[1], true);
+});
+
+test("fails closed and disposes when postMessage throws synchronously", () => {
+  class ThrowingWorker extends FakeWorker {
+    override postMessage(): void {
+      throw new Error("structured clone failed");
+    }
+  }
+
+  const worker = new ThrowingWorker();
+  let disposed = false;
+  let captured: unknown;
+  const coordinator = new CvarRunCoordinator(() => ({
+    worker,
+    dispose: () => {
+      disposed = true;
+    },
+  }));
+  coordinator.run(KNEI_INPUT, {
+    onProgress: () => assert.fail("no progress expected"),
+    onDone: () => assert.fail("no result expected"),
+    onError: (error) => {
+      captured = error;
+    },
+  });
+  assert.match(String(captured), /structured clone failed/u);
+  assert.equal(worker.terminated, true);
+  assert.equal(disposed, true);
+  assert.equal(worker.onmessage, null);
+  assert.equal(worker.onerror, null);
+});
+
+test("rejects regressive and stage-reversing worker progress", () => {
+  const workers: FakeWorker[] = [];
+  const errors: unknown[] = [];
+  const coordinator = new CvarRunCoordinator(() => {
+    const worker = new FakeWorker();
+    workers.push(worker);
+    return { worker, dispose: () => undefined };
+  });
+
+  coordinator.run(KNEI_INPUT, {
+    onProgress: () => undefined,
+    onDone: () => assert.fail("no result expected"),
+    onError: (error) => errors.push(error),
+  });
+  workers[0].onmessage?.({
+    data: { type: "progress", sequence: 1, stage: "paths", percent: 28 },
+  } as MessageEvent<CvarWorkerMessage>);
+  workers[0].onmessage?.({
+    data: { type: "progress", sequence: 1, stage: "candidates", percent: 35 },
+  } as MessageEvent<CvarWorkerMessage>);
+  const stageReverse = workers[0].onmessage;
+  stageReverse?.({
+    data: { type: "progress", sequence: 1, stage: "paths", percent: 40 },
+  } as MessageEvent<CvarWorkerMessage>);
+  assert.equal(errors.length, 1);
+  assert.match(String(errors[0]), /progress contract failed/u);
+  assert.equal(workers[0].terminated, true);
 });
 
 test("executes the Blob worker program against the 100,000-path golden", () => {

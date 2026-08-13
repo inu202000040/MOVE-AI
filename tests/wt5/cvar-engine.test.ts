@@ -8,6 +8,7 @@ import {
   CVAR_SCENARIO_COUNT,
   CVAR_TAIL_COUNT,
   CVAR_WEEKLY_CORRELATION,
+  createStandardNormal,
   deriveRouteSeed,
   runCvarSimulation,
   selectKth,
@@ -172,6 +173,32 @@ test("quickselect handles tied threshold values", () => {
   assert.equal(selectKth(values, 4), 5);
 });
 
+test("Box-Muller retries zero uniforms without caching a second normal", () => {
+  const uniforms = [0, 0.25, 0, 0.5];
+  const normal = createStandardNormal(() => {
+    const value = uniforms.shift();
+    assert.notEqual(value, undefined);
+    return value as number;
+  });
+  assertNear(normal(), -Math.sqrt(-2 * Math.log(0.25)), 1e-12);
+  assert.equal(uniforms.length, 0);
+});
+
+test("applies every approved risk weight to the same deterministic paths", () => {
+  for (const riskWeight of [0.5, 2] as const) {
+    const weighted = runCvarSimulation({ ...KNEI_INPUT, riskWeight });
+    assertNear(weighted.meanSpot, result.meanSpot);
+    assert.deepEqual(weighted.spots, result.spots);
+    assert.equal(weighted.results.length, 101);
+    for (const candidate of weighted.results) {
+      assertNear(
+        candidate.objective,
+        candidate.expected + riskWeight * candidate.cvar,
+      );
+    }
+  }
+});
+
 test("serializes the recommended 100,000-row CSV byte contract", () => {
   const artifact = serializeRecommendedCvarCsv("KNEI", KNEI_INPUT, result);
   assert.equal(artifact.filename, "cvar-simulation-KNEI-1w-fixed-13pct.csv");
@@ -182,4 +209,29 @@ test("serializes the recommended 100,000-row CSV byte contract", () => {
   assert.equal(lines[0], CVAR_CSV_HEADER);
   assert.match(lines[1], /^1,KNEI,1,13,87,/u);
   assert.match(lines.at(-1) ?? "", /^100000,KNEI,1,13,87,/u);
+});
+
+test("classifies spot equal to fixed as the upward branch with zero loss", () => {
+  const spots = new Float64Array(CVAR_SCENARIO_COUNT);
+  spots.fill(KNEI_INPUT.fixed);
+  const equalCandidate = {
+    share: 13,
+    spotShare: 87,
+    expected: 0,
+    averageUnitCost: 0,
+    cvar: 0,
+    upward: 0,
+    downward: 0,
+    objective: 0,
+  };
+  const artifact = serializeRecommendedCvarCsv("KNEI", KNEI_INPUT, {
+    ...result,
+    results: [equalCandidate],
+    best: equalCandidate,
+    spots,
+  });
+  assert.match(
+    artifact.content.slice(1).split("\n")[1],
+    /,4998\.00,.*?,0\.00,spot_up_cost$/u,
+  );
 });

@@ -40,11 +40,26 @@ export class CvarRunCoordinator {
     }
 
     this.#current = handle;
+    let lastPercent = -1;
+    let candidateStageStarted = false;
     handle.worker.onmessage = (event: MessageEvent<CvarWorkerMessage>): void => {
       if (sequence !== this.#sequence || event.data.sequence !== sequence) {
         return;
       }
       if (event.data.type === "progress") {
+        const invalidProgress =
+          !Number.isInteger(event.data.percent) ||
+          event.data.percent < 0 ||
+          event.data.percent > 100 ||
+          event.data.percent < lastPercent ||
+          (candidateStageStarted && event.data.stage === "paths");
+        if (invalidProgress) {
+          this.#cleanupCurrent();
+          handlers.onError(new TypeError("Worker progress contract failed"));
+          return;
+        }
+        lastPercent = event.data.percent;
+        candidateStageStarted ||= event.data.stage === "candidates";
         handlers.onProgress({
           stage: event.data.stage,
           percent: event.data.percent,
@@ -63,7 +78,14 @@ export class CvarRunCoordinator {
       this.#cleanupCurrent();
       handlers.onError(event.error ?? new Error(event.message));
     };
-    handle.worker.postMessage({ type: "run", sequence, input });
+    try {
+      handle.worker.postMessage({ type: "run", sequence, input });
+    } catch (error) {
+      if (sequence === this.#sequence) {
+        this.#cleanupCurrent();
+        handlers.onError(error);
+      }
+    }
     return sequence;
   }
 
