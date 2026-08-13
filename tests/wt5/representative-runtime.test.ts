@@ -255,6 +255,9 @@ test("consumes only a READY decoded gateway envelope", () => {
       fetchedAt: "2026-08-03T00:00:00.000Z",
       unit: "USD/FEU",
       isEstimate: false,
+      attribution: "Korea Ocean Business Corporation",
+      warnings: [],
+      provider: null,
       cache: { hit: false, stale: false, ageSeconds: null },
     },
   } as const;
@@ -274,7 +277,7 @@ test("consumes only a READY decoded gateway envelope", () => {
       ...ready,
       state: "UNAVAILABLE",
       data: null,
-      error: { code: "NO_DATA", message: "unavailable", retryable: false },
+      error: { code: "NO_DATA", message: "unavailable", retryable: false, upstreamStatus: null, details: null },
     }),
   );
   assert.throws(() =>
@@ -293,7 +296,7 @@ test("consumes only a READY decoded gateway envelope", () => {
     ...ready,
     state: "UNAVAILABLE",
     data: null,
-    error: { code: "NO_DATA", message: "unavailable", retryable: false },
+    error: { code: "NO_DATA", message: "unavailable", retryable: false, upstreamStatus: null, details: { reasonCode: "NO_VALID_DATA" } },
     meta: { ...ready.meta, mode: "unavailable" },
   } as const;
   assert.equal(isUnavailableRepresentativeGatewayResult(unavailable), true);

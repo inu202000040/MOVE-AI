@@ -1,6 +1,7 @@
 import {
   GATEWAY_SCHEMA_VERSION,
   GATEWAY_CACHE_KEYS,
+  GATEWAY_ERROR_DETAIL_KEYS,
   GATEWAY_ERROR_KEYS,
   GATEWAY_META_KEYS,
   GATEWAY_ROOT_KEYS,
@@ -604,32 +605,58 @@ export function adaptRepresentativeGatewayResult(
     result.state !== "READY" ||
     result.data === null ||
     result.error !== null ||
-    !isRecord(result.meta) ||
-    !hasExactKeys(result.meta, GATEWAY_META_KEYS) ||
-    !(
-      result.meta.mode === "live" ||
-      result.meta.mode === "cached" ||
-      result.meta.mode === "fixture" ||
-      result.meta.mode === "reference"
-    ) ||
-    !isNonEmptyString(result.meta.source) ||
-    !(result.meta.sourceUrl === null || isNonEmptyString(result.meta.sourceUrl)) ||
-    !(result.meta.asOf === null || isNonEmptyString(result.meta.asOf)) ||
-    !isNonEmptyString(result.meta.fetchedAt) ||
-    !(result.meta.unit === null || isNonEmptyString(result.meta.unit)) ||
-    typeof result.meta.isEstimate !== "boolean" ||
-    !isRecord(result.meta.cache) ||
-    !hasExactKeys(result.meta.cache, GATEWAY_CACHE_KEYS) ||
-    typeof result.meta.cache.hit !== "boolean" ||
-    typeof result.meta.cache.stale !== "boolean" ||
-    !(
-      result.meta.cache.ageSeconds === null ||
-      isNonNegativeInteger(result.meta.cache.ageSeconds)
-    )
+    !isGatewayMeta(result.meta, false)
   ) {
     throw new TypeError("Representative gateway result is not READY");
   }
   return adaptRepresentativeSelection(result.data);
+}
+
+function isGatewayMeta(value: unknown, unavailable: boolean): boolean {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, GATEWAY_META_KEYS) ||
+    (unavailable
+      ? value.mode !== "unavailable"
+      : value.mode !== "live" && value.mode !== "cached" && value.mode !== "fixture") ||
+    !isNonEmptyString(value.source) ||
+    !(value.sourceUrl === null || isNonEmptyString(value.sourceUrl)) ||
+    !(value.asOf === null || isNonEmptyString(value.asOf)) ||
+    !isNonEmptyString(value.fetchedAt) ||
+    !(value.unit === null || isNonEmptyString(value.unit)) ||
+    typeof value.isEstimate !== "boolean" ||
+    typeof value.attribution !== "string" ||
+    !Array.isArray(value.warnings) ||
+    !value.warnings.every((warning) => typeof warning === "string") ||
+    !(value.provider === null || isNonEmptyString(value.provider)) ||
+    !isRecord(value.cache) ||
+    !hasExactKeys(value.cache, GATEWAY_CACHE_KEYS) ||
+    typeof value.cache.hit !== "boolean" ||
+    typeof value.cache.stale !== "boolean" ||
+    !(value.cache.ageSeconds === null || isNonNegativeInteger(value.cache.ageSeconds))
+  ) {
+    return false;
+  }
+  return value.mode !== "cached" || value.cache.hit;
+}
+
+function isGatewayError(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, GATEWAY_ERROR_KEYS) ||
+    !isNonEmptyString(value.code) ||
+    !isNonEmptyString(value.message) ||
+    typeof value.retryable !== "boolean" ||
+    !(value.upstreamStatus === null || isNonNegativeInteger(value.upstreamStatus))
+  ) {
+    return false;
+  }
+  return (
+    value.details === null ||
+    (isRecord(value.details) &&
+      hasExactKeys(value.details, GATEWAY_ERROR_DETAIL_KEYS) &&
+      isNonEmptyString(value.details.reasonCode))
+  );
 }
 
 export function isUnavailableRepresentativeGatewayResult(
@@ -641,14 +668,8 @@ export function isUnavailableRepresentativeGatewayResult(
     result.schemaVersion === GATEWAY_SCHEMA_VERSION &&
     result.state === "UNAVAILABLE" &&
     result.data === null &&
-    isRecord(result.error) &&
-    hasExactKeys(result.error, GATEWAY_ERROR_KEYS) &&
-    isNonEmptyString(result.error.code) &&
-    isNonEmptyString(result.error.message) &&
-    typeof result.error.retryable === "boolean" &&
-    isRecord(result.meta) &&
-    hasExactKeys(result.meta, GATEWAY_META_KEYS) &&
-    result.meta.mode === "unavailable"
+    isGatewayError(result.error) &&
+    isGatewayMeta(result.meta, true)
   );
 }
 
