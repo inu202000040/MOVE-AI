@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { lockBodyScroll, useFreightRiskRoute } from "../../components/shell";
 import { ROUTE_IDS, type RouteId } from "../../contracts";
 import { ComparisonChart, compactMoney, displayDate, money, SpectrumChart } from "./charts";
 import { DetailDialog } from "./DetailDialog";
@@ -16,6 +17,10 @@ import {
   type RepresentativeSelectionV1,
 } from "./representative";
 import { CvarRunCoordinator } from "./runtime";
+import {
+  readAllocationRepresentative,
+  type AllocationRepresentativeSource,
+} from "./source";
 import { calculateSpotExceedProbability, publishAllocationRoute, riskBarWidth } from "./view-model";
 import styles from "./allocation.module.css";
 
@@ -49,15 +54,17 @@ function InputDrawer({
   onRun,
   open,
   representative,
+  routeId,
   running,
 }: {
   readonly draft: AllocationDraftInput;
   readonly onChange: (draft: AllocationDraftInput) => void;
   readonly onClose: () => void;
-  readonly onRouteChange?: (route: RouteId) => void;
+  readonly onRouteChange: (candidate: unknown) => boolean;
   readonly onRun: () => void;
   readonly open: boolean;
   readonly representative: AllocationRepresentativeInput;
+  readonly routeId: RouteId;
   readonly running: boolean;
 }) {
   if (!open || typeof document === "undefined") return null;
@@ -66,7 +73,7 @@ function InputDrawer({
       <aside aria-label="배분 분석 데이터 입력" aria-modal="true" className={styles.drawer} onMouseDown={(event) => event.stopPropagation()} role="dialog">
         <header className={styles.drawerHeader}><div><span className={styles.eyebrow}>DECISION INPUT</span><h2>배분 분석 데이터 입력</h2><p>고정 물동량과 고정운임, 판단 시점 및 추천 성향을 입력합니다.</p></div><button aria-label="데이터 입력 닫기" className={styles.iconButton} onClick={onClose} type="button">×</button></header>
         <div className={styles.drawerBody}>
-          <label className={styles.field}><span>항로</span><select onChange={(event) => publishAllocationRoute(event.target.value, onRouteChange)} value={representative.route}>{ROUTE_IDS.map((route) => <option key={route} value={route}>{ROUTE_NAMES[route]} · {route}</option>)}</select></label>
+          <label className={styles.field}><span>항로</span><select onChange={(event) => publishAllocationRoute(event.target.value, onRouteChange)} value={routeId}>{ROUTE_IDS.map((route) => <option key={route} value={route}>{ROUTE_NAMES[route]} · {route}</option>)}</select></label>
           <label className={styles.field}><span>판단 시점</span><select onChange={(event) => { const selectedHorizon = Number(event.target.value) as 1 | 2 | 3 | 4; onChange({ ...draft, selectedHorizon, fixed: Math.max(1, Math.round(representative.forecasts[selectedHorizon - 1].point * 1.035)) }); }} value={draft.selectedHorizon}>{[1, 2, 3, 4].map((week) => <option key={week} value={week}>{week}주</option>)}</select></label>
           <label className={styles.field}><span>고정 물동량</span><div className={styles.unitInput}><input min="1" onChange={(event) => onChange({ ...draft, volume: Math.max(1, Number(event.target.value)) })} step="10" type="number" value={draft.volume} /><b>FEU</b></div></label>
           <label className={styles.field}><span>고정계약 운임</span><div className={styles.unitInput}><input min="1" onChange={(event) => onChange({ ...draft, fixed: Math.max(1, Number(event.target.value)) })} step="1" type="number" value={draft.fixed} /><b>USD/FEU</b></div></label>
@@ -81,11 +88,13 @@ function InputDrawer({
   );
 }
 
-export function AllocationClient({
-  onRouteChange,
+function AllocationWorkbench({
+  changeRoute,
+  routeId,
   selection,
 }: {
-  readonly onRouteChange?: (route: RouteId) => void;
+  readonly changeRoute: (candidate: unknown) => boolean;
+  readonly routeId: RouteId;
   readonly selection: RepresentativeSelectionV1;
 }) {
   const representative = useMemo(() => adaptRepresentativeSelection(selection), [selection]);
@@ -126,11 +135,10 @@ export function AllocationClient({
 
   useEffect(() => {
     if (!drawerOpen && !detailOpen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = lockBodyScroll(document.body);
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") { if (detailOpen) setDetailOpen(false); else setDrawerOpen(false); } };
     window.addEventListener("keydown", onKeyDown);
-    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", onKeyDown); };
+    return () => { releaseScrollLock(); window.removeEventListener("keydown", onKeyDown); };
   }, [detailOpen, drawerOpen]);
 
   const displayInput = lastInput?.simulation ?? createAllocationRunInput(selection, draft).simulation;
@@ -188,13 +196,58 @@ export function AllocationClient({
         {result ? <SpectrumChart result={result} /> : <div className={styles.chartEmpty}>{error ?? "101개 배분안을 계산하고 있습니다."}</div>}
       </section>
 
-      <section className={`${styles.card} ${styles.riskSection}`}><SectionHeading eyebrow="TAIL RISK BREAKDOWN" title="상승·하락 위험 분해" description="추천 후보의 CVaR90을 손실 방향별로 나눕니다." /><div className={styles.riskGrid}>{[
+      <section aria-label="상승·하락 위험" className={`${styles.card} ${styles.riskSection}`}><div className={styles.riskGrid}>{[
         ["Spot 상승손실", "Spot 운임이 고정운임보다 높을 때 Spot 배분에서 발생하는 추가비용", result?.best.upward ?? 0, "up"],
         ["Spot 하락손실", "Spot 운임이 낮을 때 고정 배분으로 놓친 비용절감 기회", result?.best.downward ?? 0, "down"],
       ].map(([title, description, numeric, tone]) => { const value = Number(numeric); const width = riskBarWidth(value, result?.best.cvar ?? 0); return <article key={String(title)}><div><span>{title}</span><strong>{compactMoney(value)}</strong></div><p>{description}</p><i><b data-tone={tone} style={{ width: `${width}%` }} /></i><small>{result?.best.cvar ? `${((value / result.best.cvar) * 100).toFixed(1)}%` : "0%"}</small></article>; })}</div></section>
 
-      <InputDrawer draft={draft} onChange={setDraft} onClose={() => setDrawerOpen(false)} onRouteChange={onRouteChange} onRun={() => runDraft(draft, true)} open={drawerOpen} representative={representative} running={running} />
+      <InputDrawer draft={draft} onChange={setDraft} onClose={() => setDrawerOpen(false)} onRouteChange={changeRoute} onRun={() => runDraft(draft, true)} open={drawerOpen} representative={representative} routeId={routeId} running={running} />
       {result && lastInput ? <DetailDialog onClose={() => setDetailOpen(false)} open={detailOpen} result={result} routeName={routeName} runInput={lastInput} /> : null}
     </main>
+  );
+}
+
+function AllocationUnavailable() {
+  return (
+    <main aria-label="Allocation" className={styles.page}>
+      <section className={`${styles.card} ${styles.mixCard}`}>
+        <SectionHeading
+          action={<span className={`${styles.badge} ${styles.errorBadge}`}>계산 오류</span>}
+          description="예상 비용과 불리한 상황의 후회비용을 함께 고려합니다."
+          eyebrow="RECOMMENDED MIX"
+          title="고정운임·Spot 권고 비중"
+        />
+        <p className={`${styles.reason} ${styles.errorText}`}>{ERROR_COPY}</p>
+      </section>
+    </main>
+  );
+}
+
+export function AllocationClient({
+  source,
+}: {
+  readonly source: AllocationRepresentativeSource;
+}) {
+  const { routeId, changeRoute } = useFreightRiskRoute();
+  const [, publishSourceChange] = useReducer((revision: number) => revision + 1, 0);
+
+  useEffect(
+    () => source.subscribe(publishSourceChange),
+    [source],
+  );
+
+  let selection: RepresentativeSelectionV1;
+  try {
+    selection = readAllocationRepresentative(source, routeId);
+  } catch {
+    return <AllocationUnavailable />;
+  }
+
+  return (
+    <AllocationWorkbench
+      changeRoute={changeRoute}
+      routeId={routeId}
+      selection={selection}
+    />
   );
 }

@@ -485,7 +485,55 @@ test("rejects regressive and stage-reversing worker progress", () => {
   assert.equal(workers[0].terminated, true);
 });
 
+test("recovers from a current worker error with a fresh retry sequence", () => {
+  const workers: FakeWorker[] = [];
+  const disposed: boolean[] = [];
+  const coordinator = new CvarRunCoordinator(() => {
+    const worker = new FakeWorker();
+    const index = workers.push(worker) - 1;
+    disposed[index] = false;
+    return {
+      worker,
+      dispose: () => {
+        disposed[index] = true;
+      },
+    };
+  });
+  const errors: unknown[] = [];
+  let completed = 0;
+
+  coordinator.run(KNEI_INPUT, {
+    onProgress: () => undefined,
+    onDone: () => assert.fail("the failed run must not complete"),
+    onError: (error) => errors.push(error),
+  });
+  workers[0].onerror?.({
+    error: new Error("worker crashed"),
+    message: "worker crashed",
+  } as ErrorEvent);
+  assert.equal(errors.length, 1);
+  assert.equal(workers[0].terminated, true);
+  assert.equal(disposed[0], true);
+
+  const retrySequence = coordinator.run(KNEI_INPUT, {
+    onProgress: () => undefined,
+    onDone: () => {
+      completed += 1;
+    },
+    onError: (error) => errors.push(error),
+  });
+  assert.equal(retrySequence, 2);
+  workers[1].onmessage?.({
+    data: { type: "done", sequence: 2, result: emptyResult() },
+  } as MessageEvent<CvarWorkerMessage>);
+  assert.equal(completed, 1);
+  assert.equal(errors.length, 1);
+  assert.equal(workers[1].terminated, true);
+  assert.equal(disposed[1], true);
+});
+
 test("executes the Blob worker program against the 100,000-path golden", () => {
+  assert.doesNotMatch(CVAR_WORKER_SOURCE, /Function|toString|importScripts|\bimport\b/u);
   const posted: Array<{ message: CvarWorkerMessage; transfer?: unknown[] }> = [];
   const workerScope: {
     onmessage?: (event: { data: unknown }) => void;

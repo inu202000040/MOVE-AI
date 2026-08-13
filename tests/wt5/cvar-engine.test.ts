@@ -8,14 +8,17 @@ import {
   CVAR_SCENARIO_COUNT,
   CVAR_TAIL_COUNT,
   CVAR_WEEKLY_CORRELATION,
+  createAllocationRunInput,
   createStandardNormal,
   deriveRouteSeed,
+  downloadRecommendedCvarCsv,
   runCvarSimulation,
   selectKth,
   serializeRecommendedCvarCsv,
   type CvarProgress,
   type CvarSimulationInput,
 } from "../../app/freight-risk/allocation";
+import { KNEI_REPRESENTATIVE_SELECTION } from "../../app/freight-risk/allocation/fixture";
 
 const KNEI_INPUT: CvarSimulationInput = {
   current: 4_884,
@@ -209,6 +212,45 @@ test("serializes the recommended 100,000-row CSV byte contract", () => {
   assert.equal(lines[0], CVAR_CSV_HEADER);
   assert.match(lines[1], /^1,KNEI,1,13,87,/u);
   assert.match(lines.at(-1) ?? "", /^100000,KNEI,1,13,87,/u);
+});
+
+test("drives an actual CSV download port and releases the object URL after click", () => {
+  const runInput = createAllocationRunInput(KNEI_REPRESENTATIVE_SELECTION, {
+    selectedHorizon: 1,
+    fixed: 4_998,
+    volume: 1_000,
+    riskWeight: 1,
+  });
+  let capturedContent = "";
+  let clicked: readonly [string, string] | null = null;
+  const deferredReleases: Array<() => void> = [];
+  const revoked: string[] = [];
+  const artifact = downloadRecommendedCvarCsv(runInput, result, {
+    createObjectUrl(content) {
+      capturedContent = content;
+      return "blob:allocation-csv";
+    },
+    click(url, filename) {
+      clicked = [url, filename];
+    },
+    defer(release) {
+      deferredReleases.push(release);
+    },
+    revokeObjectUrl(url) {
+      revoked.push(url);
+    },
+  });
+
+  assert.equal(artifact.content, capturedContent);
+  assert.deepEqual(clicked, [
+    "blob:allocation-csv",
+    "cvar-simulation-KNEI-1w-fixed-13pct.csv",
+  ]);
+  assert.equal(capturedContent.slice(1).split("\n").length, 100_001);
+  assert.deepEqual(revoked, []);
+  assert.equal(deferredReleases.length, 1);
+  deferredReleases[0]();
+  assert.deepEqual(revoked, ["blob:allocation-csv"]);
 });
 
 test("classifies spot equal to fixed as the upward branch with zero loss", () => {

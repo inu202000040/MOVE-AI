@@ -96,8 +96,12 @@ test("preserves true risk ratios while applying only the visual minimum", () => 
 
 test("publishes only canonical routes through the parent-owned seam", () => {
   const routes: string[] = [];
-  assert.equal(publishAllocationRoute("KNEI", (route) => routes.push(route)), true);
-  assert.equal(publishAllocationRoute("INVALID", (route) => routes.push(route)), false);
-  assert.equal(publishAllocationRoute("KMEI", undefined), false);
+  const changeRoute = (candidate: unknown): boolean => {
+    if (candidate !== "KNEI") return false;
+    routes.push(candidate);
+    return true;
+  };
+  assert.equal(publishAllocationRoute("KNEI", changeRoute), true);
+  assert.equal(publishAllocationRoute("INVALID", changeRoute), false);
   assert.deepEqual(routes, ["KNEI"]);
 });

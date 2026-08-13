@@ -1,15 +1,9 @@
-import {
-  assertCvarSimulationInput,
-  createMulberry32,
-  createStandardNormal,
-  economicLoss,
-  isFinitePositive,
-  runCvarSimulation,
-  selectKth,
-  type CvarProgress,
-  type CvarSimulationInput,
-  type CvarSimulationResult,
+import type {
+  CvarProgress,
+  CvarSimulationInput,
+  CvarSimulationResult,
 } from "./engine";
+import { CVAR_WORKER_SOURCE } from "./worker-source";
 
 export interface CvarWorkerRunRequest {
   readonly type: "run";
@@ -44,37 +38,7 @@ export interface CvarWorkerHandle {
   dispose(): void;
 }
 
-const WORKER_FUNCTIONS = [
-  isFinitePositive,
-  createMulberry32,
-  createStandardNormal,
-  assertCvarSimulationInput,
-  selectKth,
-  economicLoss,
-  runCvarSimulation,
-] as const;
-
-function buildCvarWorkerSource(): string {
-  const declarations = WORKER_FUNCTIONS.map((fn) => fn.toString()).join("\n");
-  const runnerName = runCvarSimulation.name;
-  return `"use strict";
-const HORIZONS = [1, 2, 3, 4];
-const RISK_WEIGHTS = [0.5, 1, 2];
-${declarations}
-self.onmessage = function onCvarMessage(event) {
-  const message = event.data;
-  if (!message || message.type !== "run" || !Number.isInteger(message.sequence)) {
-    return;
-  }
-  const sequence = message.sequence;
-  const result = ${runnerName}(message.input, function report(progress) {
-    self.postMessage({ type: "progress", sequence, stage: progress.stage, percent: progress.percent });
-  });
-  self.postMessage({ type: "done", sequence, result }, [result.spots.buffer]);
-};`;
-}
-
-export const CVAR_WORKER_SOURCE = buildCvarWorkerSource();
+export { CVAR_WORKER_SOURCE } from "./worker-source";
 
 export function createCvarSimulationWorker(): CvarWorkerHandle {
   const blob = new Blob([CVAR_WORKER_SOURCE], { type: "text/javascript" });

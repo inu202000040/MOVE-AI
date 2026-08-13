@@ -1,5 +1,3 @@
-import { isRouteId, type RouteId } from "../../contracts";
-
 import {
   economicLoss,
   type CvarCandidateResult,
@@ -147,9 +145,7 @@ export function riskBarWidth(component: number, cvar: number): number {
 
 export function publishAllocationRoute(
   value: unknown,
-  changeRoute: ((route: RouteId) => void) | undefined,
+  changeRoute: (candidate: unknown) => boolean,
 ): boolean {
-  if (!isRouteId(value) || changeRoute === undefined) return false;
-  changeRoute(value);
-  return true;
+  return changeRoute(value);
 }

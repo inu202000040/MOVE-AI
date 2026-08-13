@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { serializeRecommendedCvarCsv } from "./csv";
+import { downloadRecommendedCvarCsv } from "./download";
 import type { CvarSimulationResult } from "./engine";
 import type { AllocationRunInput } from "./representative";
 import { money, PathsChart } from "./charts";
@@ -27,22 +27,6 @@ function HelpBubble({ label, children }: { readonly label: string; readonly chil
       ?<span className={styles.helpTooltip} role="tooltip">{children}</span>
     </button>
   );
-}
-
-function downloadCsv(runInput: AllocationRunInput, result: CvarSimulationResult): void {
-  const artifact = serializeRecommendedCvarCsv(
-    runInput.representative.route,
-    runInput.simulation,
-    result,
-  );
-  const url = URL.createObjectURL(
-    new Blob([artifact.content], { type: "text/csv;charset=utf-8" }),
-  );
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = artifact.filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 export function DetailDialog({
@@ -99,7 +83,7 @@ export function DetailDialog({
             <button
               aria-label="추천 비중 CSV"
               className={styles.secondaryButton}
-              onClick={() => downloadCsv(runInput, result)}
+              onClick={() => downloadRecommendedCvarCsv(runInput, result)}
               type="button"
             >
               <span aria-hidden="true">↓</span><span className={styles.csvLabel}>추천 비중 CSV</span>

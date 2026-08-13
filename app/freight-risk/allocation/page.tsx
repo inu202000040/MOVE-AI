@@ -1,6 +1,6 @@
 import { AllocationClient } from "./AllocationClient";
-import { KNEI_REPRESENTATIVE_SELECTION } from "./fixture";
+import { UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE } from "./source";
 
 export default function AllocationPage() {
-  return <AllocationClient selection={KNEI_REPRESENTATIVE_SELECTION} />;
+  return <AllocationClient source={UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE} />;
 }
