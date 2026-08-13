@@ -1,0 +1,303 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { ForecastComparisonChart } from "./ForecastComparisonChart";
+import { EvidenceDialog, type EvidenceMetricV1 } from "./EvidenceDialog";
+import { TuningDrawer } from "./TuningDrawer";
+import { scoreModelsForHorizon } from "./core/metrics";
+import { produceModelsCore, isModelsStorageEventForRoute } from "./core/producer";
+import { MODEL_REGISTRY } from "./core/registry";
+import { buildRepresentativeSelection } from "./core/representative";
+import { clearManualRepresentative, writeManualRepresentative } from "./core/storage";
+import type { HorizonWeeks, RepresentativeSelectionV1, RiskModelId } from "./core/types";
+import { KNEI_BASELINE_MODELS, KNEI_HISTORY, kneiEvaluationEvidence } from "./reference-knei";
+import {
+  displayModelVersion,
+  modelBadge,
+  modelChangePct,
+  performanceRows,
+  selectedLegendLabel,
+} from "./view-model";
+import styles from "./models.module.css";
+
+interface EvidenceStateV1 {
+  readonly metric: EvidenceMetricV1;
+  readonly modelId: RiskModelId;
+  readonly trigger: HTMLElement;
+}
+
+const CURRENT_OBSERVATION = { date: "2026-08-03", value: 4884, unit: "USD/FEU" } as const;
+
+function formatMoney(value: number, digits = 0): string {
+  return new Intl.NumberFormat("ko-KR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value);
+}
+
+function initialRepresentative(): RepresentativeSelectionV1 {
+  return buildRepresentativeSelection({
+    route: "KNEI",
+    currentObservation: CURRENT_OBSERVATION,
+    models: KNEI_BASELINE_MODELS,
+  });
+}
+
+export default function ModelsClient() {
+  const [horizon, setHorizon] = useState<HorizonWeeks>(1);
+  const [rangeMode, setRangeMode] = useState<"recent" | "all">("recent");
+  const [selectedModels, setSelectedModels] = useState<ReadonlySet<RiskModelId>>(() => new Set());
+  const [models, setModels] = useState(KNEI_BASELINE_MODELS);
+  const [representative, setRepresentative] = useState(initialRepresentative);
+  const [evidence, setEvidence] = useState<EvidenceStateV1 | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerTrigger, setDrawerTrigger] = useState<HTMLElement | null>(null);
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
+
+  const refreshFromStorage = useCallback((manualModelIdOverride?: RiskModelId | null) => {
+    try {
+      const produced = produceModelsCore({
+        route: "KNEI",
+        currentObservation: CURRENT_OBSERVATION,
+        baselineModels: KNEI_BASELINE_MODELS,
+        storage: window.localStorage,
+        manualModelIdOverride,
+      });
+      setModels(produced.mergedModels);
+      setRepresentative(produced.representative);
+    } catch {
+      setModels(KNEI_BASELINE_MODELS);
+      setRepresentative(initialRepresentative());
+      setStorageWarning("저장된 모델 설정을 불러오지 못했습니다. 내장 기준 결과를 유지합니다.");
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshFromStorage();
+    const onStorage = (event: StorageEvent) => {
+      if (isModelsStorageEventForRoute(event.key, "KNEI")) refreshFromStorage();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [refreshFromStorage]);
+
+  const rows = useMemo(
+    () => performanceRows(models, horizon, representative),
+    [horizon, models, representative],
+  );
+  const scoredForCards = useMemo(
+    () => new Map(scoreModelsForHorizon(models.map((model) => ({
+      modelId: model.modelId,
+      metric: model.metricsByHorizon[horizon - 1],
+    }))).map((entry) => [entry.modelId, entry.metric])),
+    [horizon, models],
+  );
+
+  const selectRepresentative = (modelId: RiskModelId) => {
+    try {
+      writeManualRepresentative(window.localStorage, "KNEI", modelId);
+      setStorageWarning(null);
+      refreshFromStorage(modelId);
+    } catch {
+      setStorageWarning("대표모델을 이 브라우저에 저장하지 못했습니다. 현재 탭에서는 선택을 유지합니다.");
+      setRepresentative(buildRepresentativeSelection({
+        route: "KNEI",
+        currentObservation: CURRENT_OBSERVATION,
+        models,
+        manualModelId: modelId,
+      }));
+    }
+  };
+
+  const restoreAutomatic = () => {
+    try {
+      clearManualRepresentative(window.localStorage, "KNEI");
+      setStorageWarning(null);
+    } catch {
+      setStorageWarning("대표모델 저장을 갱신하지 못했습니다. 현재 탭에서는 자동 선택을 적용합니다.");
+    }
+    refreshFromStorage(null);
+  };
+
+  const toggleLegend = (modelId: RiskModelId) => {
+    setSelectedModels((current) => {
+      const next = new Set(current);
+      if (next.has(modelId)) next.delete(modelId);
+      else next.add(modelId);
+      return next;
+    });
+  };
+
+  const closeEvidence = () => {
+    const trigger = evidence?.trigger;
+    setEvidence(null);
+    requestAnimationFrame(() => trigger?.focus());
+  };
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    requestAnimationFrame(() => drawerTrigger?.focus());
+  };
+
+  return (
+    <div className={styles.page} data-models-main>
+      <header className={styles.pageHeader}>
+        <div>
+          <p className={styles.eyebrow}>MODEL VALIDATION</p>
+          <h1>예측 모델 디테일</h1>
+          <p className={styles.pageDescription}>8개 모델의 1~4주 전망과 시차별 검증 성능을 비교합니다.</p>
+        </div>
+        <div className={styles.dataBasis}>
+          <span>데이터 기준</span>
+          <strong>2026.08.03</strong>
+        </div>
+      </header>
+
+      <main className={styles.workspace}>
+        <section className={`${styles.panel} ${styles.forecastPanel}`}>
+          <header className={styles.panelHeader}>
+            <div>
+              <p className={styles.eyebrow}>EIGHT-MODEL FORECAST</p>
+              <h2>8개 모델의 1~4주 예측경로 확대 비교</h2>
+              <p>기본은 직전 4개 실측과 향후 1~4주 예측을 확대 비교하며, 휠·드래그·기간 버튼으로 2022년부터 과거 흐름을 탐색할 수 있습니다.</p>
+            </div>
+            <div className={styles.panelBadges}>
+              <span>동일 187주 입력</span>
+            </div>
+          </header>
+
+          <div className={styles.contextBar}>
+            <div className={styles.contextCopy}>
+              <strong>유럽 · 직전 4주 + 향후 1~4주 · 전체 이력 탐색</strong>
+              <span>{representative.selectionMode === "manual" ? "사용자 대표" : "자동 대표"} {representative.modelName} · 1주 기준</span>
+            </div>
+            <div className={styles.tools}>
+              <label className={styles.routeControl}>
+                <span>조회 항로</span>
+                <select aria-label="조회 항로" defaultValue="KNEI">
+                  <option value="KNEI">KNEI · 유럽</option>
+                </select>
+              </label>
+              <div className={styles.horizonTabs} aria-label="성능 시차">
+                {([1, 2, 3, 4] as const).map((item) => (
+                  <button aria-pressed={horizon === item} key={item} onClick={() => setHorizon(item)} type="button">{item}주</button>
+                ))}
+              </div>
+              <button className={styles.settingsButton} onClick={(event) => { setDrawerTrigger(event.currentTarget); setDrawerOpen(true); }} type="button">고급설정</button>
+            </div>
+          </div>
+
+          <div className={styles.legend} aria-label="모델 범례">
+            <div className={styles.actualLegend}><span /> <strong>KCCI 실측</strong></div>
+            {MODEL_REGISTRY.map((definition) => {
+              const model = models.find(({ modelId }) => modelId === definition.id);
+              const selected = selectedModels.has(definition.id);
+              return (
+                <button aria-pressed={selected} key={definition.id} onClick={() => toggleLegend(definition.id)} type="button">
+                  <span className={styles.legendColor} style={{ backgroundColor: definition.color }} />
+                  <span><strong>{definition.name}</strong><small>{definition.family}</small></span>
+                  {representative.modelId === definition.id ? <em>대표</em> : null}
+                  {model?.forecastSource === "tuned" ? <em>LIVE</em> : null}
+                </button>
+              );
+            })}
+            <button className={styles.legendReset} onClick={() => setSelectedModels(new Set())} type="button">{selectedLegendLabel(selectedModels)}</button>
+          </div>
+
+          <ForecastComparisonChart
+            history={KNEI_HISTORY}
+            models={models}
+            onRangeModeChange={setRangeMode}
+            rangeMode={rangeMode}
+            representative={representative}
+            selectedModels={selectedModels}
+          />
+
+          <div className={styles.representativeIntro}>
+            <div>
+              <h3>1페이지에 반영할 대표모델 선택</h3>
+              <p>기본값은 Naive를 제외한 1주 성능 자동 1위이며, 아래 카드를 누르면 이 항로의 대표모델을 직접 지정합니다.</p>
+            </div>
+            {representative.selectionMode === "manual" ? (
+              <button onClick={restoreAutomatic} type="button">자동 선택으로 복원</button>
+            ) : <span>자동 선택 중 · {representative.automaticChampion.modelName}</span>}
+          </div>
+
+          {storageWarning !== null ? <p className={styles.storageWarning} role="status">{storageWarning}</p> : null}
+
+          <div className={styles.modelCards}>
+            {models.map((model) => {
+              const definition = MODEL_REGISTRY.find(({ id }) => id === model.modelId);
+              const forecast = model.forecasts[horizon - 1];
+              const metric = scoredForCards.get(model.modelId);
+              const badge = modelBadge(model.modelId, representative);
+              const isRepresentative = representative.modelId === model.modelId;
+              const change = modelChangePct(forecast.point, CURRENT_OBSERVATION.value);
+              return (
+                <button
+                  aria-pressed={isRepresentative}
+                  className={styles.modelCard}
+                  key={model.modelId}
+                  onClick={() => selectRepresentative(model.modelId)}
+                  style={{ "--model-color": definition?.color } as React.CSSProperties}
+                  type="button"
+                >
+                  <span className={styles.modelFamily}>{definition?.family}</span>
+                  <span className={styles.modelCardTitle}><i />{model.modelName}</span>
+                  <span className={styles.modelCardMeta}>{displayModelVersion(model)}</span>
+                  <span className={styles.modelCardValue}><strong>{formatMoney(forecast.point)}</strong><small>USD/FEU · {horizon}주</small></span>
+                  <span className={change >= 0 ? styles.positiveChange : styles.negativeChange}>{change >= 0 ? "+" : ""}{change.toFixed(1)}% <small>현재값 대비</small></span>
+                  <span className={styles.modelCardFooter}><em>{badge ?? `${horizon}주 점수 ${metric?.totalScore.toFixed(1)}`}</em>{isRepresentative ? <b>대표</b> : null}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className={`${styles.panel} ${styles.performancePanel}`}>
+          <header className={styles.panelHeader}>
+            <div>
+              <p className={styles.eyebrow}>OUT-OF-SAMPLE SCORE</p>
+              <h2>모델 성능 비교</h2>
+              <p>{horizon}주 외부평가 오차를 무차원 점수로 바꾼 뒤 동일가중으로 합산</p>
+            </div>
+            <div className={styles.weightBadges}><span>MAPE 33.3%</span><span>MSE 33.3%</span><span>MASE 33.3%</span><span>대표모델 1주 기준</span></div>
+          </header>
+          <div className={styles.performanceTableWrap}>
+            <table className={styles.performanceTable}>
+              <thead><tr><th>예측모델</th><th>MAPE</th><th>MSE</th><th>MASE</th><th>종합점수</th><th>{horizon}주 Coverage</th></tr></thead>
+              <tbody>
+                {rows.map((row) => {
+                  const definition = MODEL_REGISTRY.find(({ id }) => id === row.model.modelId);
+                  return (
+                    <tr className={row.isRepresentative && representative.selectionMode === "manual" ? styles.manualRow : undefined} key={row.model.modelId}>
+                      <td><div className={styles.tableModel}><span style={{ backgroundColor: definition?.color }} /><div><strong>{row.rank}. {row.model.modelName}</strong><small>{displayModelVersion(row.model)}{row.isAutomaticChampion ? " · 자동 1위" : ""}{row.isRepresentative ? " · 대표" : ""}</small></div><button aria-label={`${row.model.modelName} 모델 정보`} type="button">i</button></div></td>
+                      {(["MAPE", "MSE", "MASE"] as const).map((metricName) => (
+                        <td key={metricName}><button className={styles.metricButton} onClick={(event) => setEvidence({ metric: metricName, modelId: row.model.modelId, trigger: event.currentTarget })} type="button"><strong>{metricName === "MAPE" ? `${row.metric.mapePct.toFixed(2)}%` : metricName === "MSE" ? formatMoney(row.metric.mse) : row.metric.mase.toFixed(3)}</strong><small>점수 {(metricName === "MAPE" ? row.metric.mapeScore : metricName === "MSE" ? row.metric.mseScore : row.metric.maseScore).toFixed(1)} · 근거 보기</small></button></td>
+                      ))}
+                      <td><strong className={styles.score}>{row.metric.totalScore.toFixed(1)}</strong></td>
+                      <td><strong>{row.metric.coverage.pct.toFixed(1)}%</strong><small className={styles.coverageHits}>{row.metric.coverage.hits}/{row.metric.coverage.total}</small></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <aside className={styles.methodology}>
+            <strong>평가 방법</strong>
+            <p>모든 모델은 같은 52개 rolling-origin 외부평가 기록으로 비교합니다. MAPE, MSE, MASE를 무차원 점수로 바꿔 동일가중 합산하며, Coverage는 품질 맥락으로만 보이고 종합점수에는 들어가지 않습니다.</p>
+            <p>Naive는 기준선이며 자동 대표 후보에서 제외됩니다. 수동 대표는 자동 1위와 별개로 유지되며, LIVE는 사용자가 결과 유지를 선택한 재측정에만 붙습니다.</p>
+          </aside>
+        </section>
+      </main>
+
+      {evidence !== null ? (() => {
+        const model = models.find(({ modelId }) => modelId === evidence.modelId);
+        if (model === undefined) return null;
+        return <EvidenceDialog horizon={horizon} metricName={evidence.metric} model={model} onClose={closeEvidence} records={kneiEvaluationEvidence(evidence.modelId)[horizon - 1]} />;
+      })() : null}
+      <TuningDrawer history={KNEI_HISTORY} initialModelId={selectedModels.size === 1 ? [...selectedModels][0] : representative.modelId} onClose={closeDrawer} open={drawerOpen} />
+    </div>
+  );
+}

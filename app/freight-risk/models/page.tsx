@@ -1,3 +1,5 @@
+import ModelsClient from "./ModelsClient";
+
 export default function ModelsPage() {
-  return <main aria-label="Models" />;
+  return <ModelsClient />;
 }
