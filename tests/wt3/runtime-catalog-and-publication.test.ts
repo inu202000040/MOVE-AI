@@ -206,6 +206,47 @@ test("blocked or corrupt storage never publishes READY and still dispatches one 
   }
 });
 
+test("blocked automatic clear and KEEP each dispatch once while rollback remains storage-write free", () => {
+  const automaticTarget = new CountingTarget();
+  const automaticStorage = new BlockedStorage();
+  const automaticUpdates: ModelsRepresentativeUpdateV1[] = [];
+  subscribeModelsRepresentative(automaticTarget, "KNEI", automaticStorage, (update) => automaticUpdates.push(update));
+  const automatic = restoreAutomaticModelsRepresentativeInternal(automaticTarget, "KNEI", automaticStorage);
+  assert.equal(automatic.state, "UNAVAILABLE");
+  assert.equal(automaticTarget.dispatchCount, 1);
+  assert.deepEqual(automaticUpdates.map(({ state, reason }) => ({ state, reason })), [
+    { state: "UNAVAILABLE", reason: "automatic" },
+  ]);
+
+  const keepTarget = new CountingTarget();
+  const keepStorage = new BlockedStorage();
+  const keepUpdates: ModelsRepresentativeUpdateV1[] = [];
+  subscribeModelsRepresentative(keepTarget, "KNEI", keepStorage, (update) => keepUpdates.push(update));
+  const keep = keepModelsTuningCandidateInternal(keepTarget, "KNEI", keepStorage, successfulSession());
+  assert.equal(keep.persisted, false);
+  assert.equal(keep.update.state, "UNAVAILABLE");
+  assert.equal(keepTarget.dispatchCount, 1);
+  assert.deepEqual(keepUpdates.map(({ state, reason }) => ({ state, reason })), [
+    { state: "UNAVAILABLE", reason: "keep" },
+  ]);
+
+  const rollbackTarget = new CountingTarget();
+  const rollbackStorage = new BlockedStorage();
+  const rollbackUpdates: ModelsRepresentativeUpdateV1[] = [];
+  subscribeModelsRepresentative(rollbackTarget, "KNEI", rollbackStorage, (update) => rollbackUpdates.push(update));
+  const rollback = rollbackModelsTuningCandidateInternal(
+    rollbackTarget,
+    "KNEI",
+    rollbackStorage,
+    successfulSession(),
+  );
+  assert.equal(rollback.update.state, "READY");
+  assert.equal(rollbackTarget.dispatchCount, 1);
+  assert.deepEqual(rollbackUpdates.map(({ state, reason }) => ({ state, reason })), [
+    { state: "READY", reason: "rollback" },
+  ]);
+});
+
 test("shared baseline, KEEP, rollback, and provenance-only DTO fixtures are validated and unfiltered", () => {
   const fixtures = MODELS_REPRESENTATIVE_HANDOFF_FIXTURES_V1;
   assert.equal(validateRepresentativeSelection(fixtures.baseline), true);
