@@ -42,10 +42,21 @@ export const NETWORK_LAYER_IDS = [
   "network-chokepoint-center",
   "network-port-marker",
   "network-weather-marker",
+  "network-chokepoint-corridor-hit",
+  "network-route-hit",
+  "network-port-hit",
+  "network-weather-hit",
   "network-route-selection",
   "network-chokepoint-selection",
   "network-port-selection",
   "network-weather-selection",
+] as const;
+
+export const NETWORK_HIT_LAYER_IDS = [
+  "network-weather-hit",
+  "network-port-hit",
+  "network-chokepoint-corridor-hit",
+  "network-route-hit",
 ] as const;
 
 export function createRemoteFreeGlobeStyle(
@@ -182,6 +193,42 @@ export function createNetworkMapLayers(
         ],
         "circle-radius": 3.5,
         "circle-opacity": 0.9,
+      },
+    },
+    {
+      id: "network-chokepoint-corridor-hit",
+      type: "line",
+      source: "network-chokepoint-corridors",
+      paint: {
+        "line-color": "rgba(0,0,0,0)",
+        "line-width": 32,
+      },
+    },
+    {
+      id: "network-route-hit",
+      type: "line",
+      source: "network-routes",
+      paint: {
+        "line-color": "rgba(0,0,0,0)",
+        "line-width": 14,
+      },
+    },
+    {
+      id: "network-port-hit",
+      type: "circle",
+      source: "network-ports",
+      paint: {
+        "circle-color": "rgba(0,0,0,0)",
+        "circle-radius": 13,
+      },
+    },
+    {
+      id: "network-weather-hit",
+      type: "circle",
+      source: "network-weather",
+      paint: {
+        "circle-color": "rgba(0,0,0,0)",
+        "circle-radius": 10,
       },
     },
     {

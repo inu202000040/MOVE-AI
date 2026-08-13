@@ -7,10 +7,19 @@ import {
   type WeatherDeclutterCandidate,
 } from "../../app/freight-risk/network/core/declutter";
 import {
+  moveNetworkFocusMode,
+  resolveNetworkFeatureEmphasis,
+} from "../../app/freight-risk/network/core/focus-mode";
+import {
   normalizeLongitude,
   projectWebMercator,
   splitAntimeridian,
 } from "../../app/freight-risk/network/core/geometry";
+import {
+  createNetworkFeatureStateController,
+  selectedNetworkMapFeatures,
+  type NetworkMapFeatureIdentifier,
+} from "../../app/freight-risk/network/core/map-feature-state";
 import {
   reduceNetworkSelection,
   resolveNetworkPointerIntent,
@@ -156,4 +165,102 @@ test("static fallback supports pan, zoom, and exact reset", () => {
   );
   assert.notEqual(staticViewportToViewBox(changed), "0 18 1000 464");
   assert.equal(staticViewportToViewBox(resetStaticViewport()), "0 18 1000 464");
+});
+
+test("focus modes preserve selected override and keyboard roving order", () => {
+  assert.equal(
+    resolveNetworkFeatureEmphasis({
+      mode: "routes",
+      category: "chokepoint",
+      selected: false,
+    }),
+    "secondary",
+  );
+  assert.equal(
+    resolveNetworkFeatureEmphasis({
+      mode: "chokepoints",
+      category: "route",
+      selected: false,
+      relatedToSelectedChokepoint: true,
+    }),
+    "primary",
+  );
+  assert.equal(
+    resolveNetworkFeatureEmphasis({
+      mode: "chokepoints",
+      category: "port",
+      selected: true,
+    }),
+    "selected",
+  );
+  assert.equal(moveNetworkFocusMode("routes", "previous"), "combined");
+  assert.equal(moveNetworkFocusMode("combined", "next"), "routes");
+  assert.equal(moveNetworkFocusMode("routes", "last"), "combined");
+});
+
+test("feature-state keeps weather and its base selection, then applies only deltas", () => {
+  const operations: string[] = [];
+  const controller = createNetworkFeatureStateController(
+    {
+      setFeatureState: (feature) => operations.push(`set:${feature.source}:${feature.id}`),
+      removeFeatureState: (feature) =>
+        operations.push(`clear:${feature.source}:${feature.id}`),
+    },
+    () => assert.fail("feature-state operation must not fail"),
+  );
+  const portWithWeather: NetworkSelectionState = {
+    navigationRouteId: "KNEI",
+    portId: "rotterdam",
+    mapRouteId: "KNEI",
+    chokepointId: null,
+    weatherId: "weather-rotterdam",
+    overlapRouteIds: [],
+  };
+  assert.deepEqual(selectedNetworkMapFeatures(portWithWeather), [
+    { source: "network-routes", id: "KNEI" },
+    { source: "network-ports", id: "rotterdam" },
+    { source: "network-weather", id: "weather-rotterdam" },
+  ]);
+  controller.apply(portWithWeather);
+  controller.apply(portWithWeather);
+  assert.deepEqual(operations, [
+    "set:network-routes:KNEI",
+    "set:network-ports:rotterdam",
+    "set:network-weather:weather-rotterdam",
+  ]);
+
+  controller.apply({ ...portWithWeather, weatherId: null });
+  assert.deepEqual(operations.at(-1), "clear:network-weather:weather-rotterdam");
+  controller.dispose();
+  assert.deepEqual(operations.slice(-2), [
+    "clear:network-routes:KNEI",
+    "clear:network-ports:rotterdam",
+  ]);
+});
+
+test("feature-state failures remain local and identify the exact feature", () => {
+  const failures: { operation: string; feature: NetworkMapFeatureIdentifier }[] = [];
+  const controller = createNetworkFeatureStateController(
+    {
+      setFeatureState: () => {
+        throw new Error("source is reloading");
+      },
+      removeFeatureState: () => undefined,
+    },
+    ({ operation, feature }) => failures.push({ operation, feature }),
+  );
+  controller.apply({
+    navigationRouteId: "KNEI",
+    portId: null,
+    mapRouteId: "KNEI",
+    chokepointId: null,
+    weatherId: null,
+    overlapRouteIds: [],
+  });
+  assert.deepEqual(failures, [
+    {
+      operation: "select",
+      feature: { source: "network-routes", id: "KNEI" },
+    },
+  ]);
 });

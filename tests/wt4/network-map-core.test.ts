@@ -18,6 +18,7 @@ import {
 import {
   createNetworkMapLayers,
   createRemoteFreeGlobeStyle,
+  NETWORK_HIT_LAYER_IDS,
   NETWORK_LAYER_IDS,
   type NetworkMapPalette,
 } from "../../app/freight-risk/network/core/network-map-style";
@@ -169,6 +170,20 @@ test("network layers retain the specified depth order", () => {
     NETWORK_LAYER_IDS,
   );
   assert.equal(new Set(layers.map(({ id }) => id)).size, layers.length);
+  const hitLayers = layers.filter(({ id }) =>
+    (NETWORK_HIT_LAYER_IDS as readonly string[]).includes(id),
+  );
+  assert.equal(hitLayers.length, 4);
+  assert.equal(
+    hitLayers.find(({ id }) => id === "network-port-hit")?.paint["circle-radius"],
+    13,
+  );
+  assert.equal(
+    hitLayers.find(({ id }) => id === "network-chokepoint-corridor-hit")?.paint[
+      "line-width"
+    ],
+    32,
+  );
 });
 
 test("promotion installs controls, sources, layers, interactions and exposure once", () => {
