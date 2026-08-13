@@ -74,7 +74,7 @@ test("freezes the gateway envelope surface and method manifest", () => {
   ]);
   assert.equal(new Set<string>(DATA_MODES).has("reference"), false);
   assert.deepEqual(GATEWAY_ROOT_KEYS, [
-    "schemaVersion", "state", "data", "error", "meta",
+    "schemaVersion", "state", "data", "meta", "error",
   ]);
   assert.deepEqual(GATEWAY_ERROR_KEYS, [
     "code", "message", "retryable", "upstreamStatus", "details",

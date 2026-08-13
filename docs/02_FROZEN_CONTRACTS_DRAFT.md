@@ -75,13 +75,6 @@ type GatewayResultV1<TData, TState extends string> = {
   schemaVersion: "move-ai/gateway/v1";
   state: TState;
   data: TData | null;
-  error: {
-    code: string;
-    message: string;
-    retryable: boolean;
-    upstreamStatus: number | null;
-    details: GatewayErrorDetailsV1 | null;
-  } | null;
   meta: {
     mode: DataMode;
     source: string;
@@ -99,6 +92,13 @@ type GatewayResultV1<TData, TState extends string> = {
       ageSeconds: number | null;
     };
   };
+  error: {
+    code: string;
+    message: string;
+    retryable: boolean;
+    upstreamStatus: number | null;
+    details: GatewayErrorDetailsV1 | null;
+  } | null;
 };
 ```
 
