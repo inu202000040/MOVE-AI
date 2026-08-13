@@ -5,6 +5,13 @@ import type {
   NewsQueryV1,
   PortDetailQueryV1,
 } from "./domains";
+import {
+  exactKeys,
+  literal,
+  oneOf,
+  record,
+  string,
+} from "../artifacts/decoder-core";
 
 export class InvalidRequestError extends Error {
   readonly code = "INVALID_REQUEST";
@@ -155,4 +162,59 @@ export function parseChokepointQuery(
   if ([...params.keys()].length === 0) return { kind: "summary" };
   const query = exactParams(params, ["id"]);
   return { kind: "detail", query: { id: query.id } };
+}
+
+export function decodeMarketQueryV1(value: unknown): MarketQueryV1 {
+  const root = record(value, "$marketQuery");
+  exactKeys(root, ["series", "from", "to", "providerVersion"], "$marketQuery");
+  const series = oneOf(root.series, ["fx", "oil", "bunker", "harpex"] as const, "$marketQuery.series");
+  const from = isoDate(string(root.from, "$marketQuery.from"), "from");
+  const to = isoDate(string(root.to, "$marketQuery.to"), "to");
+  if (from > to) throw new InvalidRequestError("from은 to보다 늦을 수 없습니다.");
+  literal(root.providerVersion, 3, "$marketQuery.providerVersion");
+  return { series, from, to, providerVersion: 3 };
+}
+
+export function decodeNewsQueryV1(value: unknown): NewsQueryV1 {
+  const root = record(value, "$newsQuery");
+  exactKeys(
+    root,
+    root.refresh === undefined
+      ? ["route", "asOf", "providerVersion", "retry"]
+      : ["route", "asOf", "providerVersion", "retry", "refresh"],
+    "$newsQuery",
+  );
+  const route = oneOf(root.route, ROUTE_IDS, "$newsQuery.route");
+  const rawAsOf = string(root.asOf, "$newsQuery.asOf");
+  const asOf = rawAsOf === "latest" ? "latest" : isoDate(rawAsOf, "asOf");
+  literal(root.providerVersion, 18, "$newsQuery.providerVersion");
+  const retry = oneOf(root.retry, [0, 1] as const, "$newsQuery.retry");
+  if (root.refresh !== undefined && typeof root.refresh !== "string") {
+    throw new InvalidRequestError("refresh는 문자열이어야 합니다.");
+  }
+  return {
+    route,
+    asOf,
+    providerVersion: 18,
+    retry,
+    ...(root.refresh === undefined ? {} : { refresh: root.refresh }),
+  };
+}
+
+export function decodePortDetailQueryV1(value: unknown): PortDetailQueryV1 {
+  const root = record(value, "$portDetailQuery");
+  exactKeys(root, root.days === undefined ? ["id"] : ["id", "days"], "$portDetailQuery");
+  const id = string(root.id, "$portDetailQuery.id");
+  if (root.days === undefined) return { id };
+  if (typeof root.days !== "number") throw new InvalidRequestError("days는 숫자여야 합니다.");
+  const days = Number.isFinite(root.days)
+    ? Math.min(730, Math.max(30, Math.round(root.days)))
+    : 180;
+  return { id, days };
+}
+
+export function decodeChokepointDetailQueryV1(value: unknown): ChokepointDetailQueryV1 {
+  const root = record(value, "$chokepointDetailQuery");
+  exactKeys(root, ["id"], "$chokepointDetailQuery");
+  return { id: string(root.id, "$chokepointDetailQuery.id") };
 }

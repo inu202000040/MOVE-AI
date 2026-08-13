@@ -1,4 +1,9 @@
-import type { GatewayResultV1 } from "../../contracts/gateway";
+import type {
+  DataGatewayV1,
+  GatewayResultV1,
+  PendingGatewayResultV1,
+  PendingQueryContractV1,
+} from "../../contracts/gateway";
 import networkCatalogArtifact from "../generated/network-catalog-seam-v1.json";
 import networkCatalogIdentityArtifact from "../generated/network-catalog-seam-identity-v1.json";
 import snapshotArtifact from "../generated/forecast-snapshot-v3.json";
@@ -22,6 +27,8 @@ import {
   type TuneRequestV1,
   type TuneSuccessV1,
   type TuningHealthDataV1,
+  decodeInsightRequestV1,
+  decodeTuneRequestV1,
 } from "./domains";
 import { fixtureDataGateway, FixtureDataGateway } from "./fixture-gateway";
 import {
@@ -46,6 +53,12 @@ import {
   type TuningRunStateV1,
 } from "./method-decoders";
 import { gatewaySuccess } from "./result";
+import {
+  decodeChokepointDetailQueryV1,
+  decodeMarketQueryV1,
+  decodeNewsQueryV1,
+  decodePortDetailQueryV1,
+} from "./queries";
 
 export interface SharedDataGatewayV1 {
   snapshot(signal?: AbortSignal): Promise<GatewayResultV1<SnapshotDataV1, SnapshotStateV1>>;
@@ -70,7 +83,8 @@ export interface ValidatedArtifactSeamV1 {
 }
 
 export interface SharedDataAccessV1 {
-  readonly gateway: SharedDataGatewayV1;
+  readonly gateway: DataGatewayV1;
+  readonly typedGateway: SharedDataGatewayV1;
   readonly artifacts: ValidatedArtifactSeamV1;
 }
 
@@ -203,15 +217,102 @@ export class SameOriginHttpDataGateway implements SharedDataGatewayV1 {
   }
 }
 
+export class CanonicalDataGatewayAdapterV1 implements DataGatewayV1 {
+  constructor(readonly typedGateway: SharedDataGatewayV1) {}
+
+  async snapshot(signal?: AbortSignal): Promise<PendingGatewayResultV1> {
+    return this.typedGateway.snapshot(signal);
+  }
+
+  async market(query: PendingQueryContractV1, signal?: AbortSignal): Promise<PendingGatewayResultV1> {
+    return this.typedGateway.market(decodeMarketQueryV1(query), signal);
+  }
+
+  async news(query: PendingQueryContractV1, signal?: AbortSignal): Promise<PendingGatewayResultV1> {
+    return this.typedGateway.news(decodeNewsQueryV1(query), signal);
+  }
+
+  async insight(query: PendingQueryContractV1, signal?: AbortSignal): Promise<PendingGatewayResultV1> {
+    return this.typedGateway.insight(decodeInsightRequestV1(query), signal);
+  }
+
+  async tuningHealth(signal?: AbortSignal): Promise<PendingGatewayResultV1> {
+    return this.typedGateway.tuningHealth(signal);
+  }
+
+  async tuningRun(request: PendingQueryContractV1, signal?: AbortSignal): Promise<PendingGatewayResultV1> {
+    return this.typedGateway.tuningRun(decodeTuneRequestV1(request), signal);
+  }
+
+  async portSummary(signal?: AbortSignal): Promise<PendingGatewayResultV1> {
+    return this.typedGateway.portSummary(signal);
+  }
+
+  async portDetail(query: PendingQueryContractV1, signal?: AbortSignal): Promise<PendingGatewayResultV1> {
+    return this.typedGateway.portDetail(decodePortDetailQueryV1(query), signal);
+  }
+
+  async chokeSummary(signal?: AbortSignal): Promise<PendingGatewayResultV1> {
+    return this.typedGateway.chokeSummary(signal);
+  }
+
+  async chokeDetail(query: PendingQueryContractV1, signal?: AbortSignal): Promise<PendingGatewayResultV1> {
+    return this.typedGateway.chokeDetail(decodeChokepointDetailQueryV1(query), signal);
+  }
+
+  async weather(signal?: AbortSignal): Promise<PendingGatewayResultV1> {
+    return this.typedGateway.weather(signal);
+  }
+}
+
+export class CanonicalFixtureDataGatewayV1 extends CanonicalDataGatewayAdapterV1 {
+  constructor() {
+    super(new FixtureDataGateway());
+  }
+}
+
+export class CanonicalSameOriginHttpDataGatewayV1 extends CanonicalDataGatewayAdapterV1 {
+  constructor(fetchSameOrigin: SameOriginFetchV1 = globalThis.fetch) {
+    super(new SameOriginHttpDataGateway(fetchSameOrigin));
+  }
+}
+
+export function adaptDataGatewayV1(typedGateway: SharedDataGatewayV1): DataGatewayV1 {
+  return new CanonicalDataGatewayAdapterV1(typedGateway);
+}
+
+export function createFixtureDataGatewayV1(): DataGatewayV1 {
+  return new CanonicalFixtureDataGatewayV1();
+}
+
+export function createSameOriginDataGatewayV1(
+  fetchSameOrigin: SameOriginFetchV1 = globalThis.fetch,
+): DataGatewayV1 {
+  return new CanonicalSameOriginHttpDataGatewayV1(fetchSameOrigin);
+}
+
 export async function createFixtureDataAccessV1(): Promise<SharedDataAccessV1> {
-  return { gateway: fixtureDataGateway, artifacts: await validatedArtifactSeamV1() };
+  return {
+    gateway: adaptDataGatewayV1(fixtureDataGateway),
+    typedGateway: fixtureDataGateway,
+    artifacts: await validatedArtifactSeamV1(),
+  };
 }
 
 export async function createSameOriginDataAccessV1(
   fetchSameOrigin: SameOriginFetchV1 = globalThis.fetch,
 ): Promise<SharedDataAccessV1> {
-  return { gateway: new SameOriginHttpDataGateway(fetchSameOrigin), artifacts: await validatedArtifactSeamV1() };
+  const typedGateway = new SameOriginHttpDataGateway(fetchSameOrigin);
+  return {
+    gateway: adaptDataGatewayV1(typedGateway),
+    typedGateway,
+    artifacts: await validatedArtifactSeamV1(),
+  };
 }
 
 const fixtureGatewayTypeCheck: SharedDataGatewayV1 = new FixtureDataGateway();
 void fixtureGatewayTypeCheck;
+const canonicalFixtureGatewayTypeCheck: DataGatewayV1 = new CanonicalFixtureDataGatewayV1();
+const canonicalHttpGatewayTypeCheck: DataGatewayV1 = new CanonicalSameOriginHttpDataGatewayV1();
+void canonicalFixtureGatewayTypeCheck;
+void canonicalHttpGatewayTypeCheck;

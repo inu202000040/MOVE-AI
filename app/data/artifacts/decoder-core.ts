@@ -19,9 +19,23 @@ export function exactKeys(
   const actual = Object.keys(value);
   if (
     actual.length !== expected.length ||
-    expected.some((key, index) => actual[index] !== key)
+    expected.some((key) => !Object.hasOwn(value, key))
   ) {
     throw new Error(`${path} keys ${actual.join(",")} do not match ${expected.join(",")}`);
+  }
+}
+
+export function exactOrderedKeys(
+  value: UnknownRecord,
+  expected: readonly string[],
+  path: string,
+): void {
+  const actual = Object.keys(value);
+  if (
+    actual.length !== expected.length
+    || expected.some((key, index) => actual[index] !== key)
+  ) {
+    throw new Error(`${path} ordered keys ${actual.join(",")} do not match ${expected.join(",")}`);
   }
 }
 

@@ -23,7 +23,12 @@ import {
   decodeTuningHealthResultV1,
   decodeTuningRunResultV1,
 } from "../../app/data/runtime/method-decoders";
-import { parseMarketQuery, parseNewsQuery } from "../../app/data/runtime/queries";
+import {
+  decodePortDetailQueryV1,
+  parseMarketQuery,
+  parseNewsQuery,
+  parsePortQuery,
+} from "../../app/data/runtime/queries";
 import { gatewaySuccess } from "../../app/data/runtime/result";
 
 const FIXED_CLOCK = "2026-08-13T00:00:00+09:00";
@@ -168,6 +173,18 @@ test("market/news parsing and method decoders enforce calendar, opaque refresh, 
   assert.throws(() => decodeNewsDataV1(future), /Future/u);
   const attempt = { series: "fx", label: "FX", unit: "KRW/USD", provider: "ECB", aggregation: "weekly", observationStart: "2026-08-01", observationEnd: "2026-08-01", points: [{ date: "2026-08-01", week: "2026-W31", value: 1 }], attempts: [{ provider: "ECB", resultCode: "OK", elapsedMs: Number.NaN }] };
   assert.throws(() => decodeMarketDataV1(attempt), /finite/u);
+});
+
+test("port detail days use one round-and-clamp normalization policy", () => {
+  assert.deepEqual(decodePortDetailQueryV1({ id: "KUWI-LAX", days: 180.4 }), { id: "KUWI-LAX", days: 180 });
+  assert.deepEqual(decodePortDetailQueryV1({ id: "KUWI-LAX", days: 1 }), { id: "KUWI-LAX", days: 30 });
+  assert.deepEqual(decodePortDetailQueryV1({ id: "KUWI-LAX", days: 900 }), { id: "KUWI-LAX", days: 730 });
+  assert.deepEqual(decodePortDetailQueryV1({ id: "KUWI-LAX", days: Number.NaN }), { id: "KUWI-LAX", days: 180 });
+  assert.deepEqual(parsePortQuery(new URLSearchParams("id=KUWI-LAX&days=180.4")), { kind: "detail", query: { id: "KUWI-LAX", days: 180 } });
+  assert.deepEqual(parsePortQuery(new URLSearchParams("id=KUWI-LAX&days=1")), { kind: "detail", query: { id: "KUWI-LAX", days: 30 } });
+  assert.deepEqual(parsePortQuery(new URLSearchParams("id=KUWI-LAX&days=900")), { kind: "detail", query: { id: "KUWI-LAX", days: 730 } });
+  assert.deepEqual(parsePortQuery(new URLSearchParams("id=KUWI-LAX&days=not-finite")), { kind: "detail", query: { id: "KUWI-LAX", days: 180 } });
+  assert.throws(() => decodePortDetailQueryV1({ id: "KUWI-LAX", days: "180" }), /number|숫자/u);
 });
 
 test("tuning request, health, and success decoders enforce exact model policy and tuple identities", () => {

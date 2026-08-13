@@ -8,14 +8,26 @@ import { GET as portGet } from "../../app/api/globe-port-traffic/route";
 import { GET as chokeGet } from "../../app/api/globe-chokepoint-traffic/route";
 import { GET as weatherGet } from "../../app/api/globe-weather/route";
 import {
+  adaptDataGatewayV1,
   createFixtureDataAccessV1,
+  createFixtureDataGatewayV1,
   createSameOriginDataAccessV1,
+  createSameOriginDataGatewayV1,
   SameOriginHttpDataGateway,
   type SameOriginFetchV1,
 } from "../../app/data/runtime/data-gateway";
+import type { DataGatewayV1 } from "../../app/contracts/gateway";
+import { FixtureDataGateway } from "../../app/data/runtime/fixture-gateway";
 import { decodeInsightRequestV1, decodeTuneRequestV1 } from "../../app/data/runtime/domains";
 
 type Handler = (request: Request) => Promise<Response>;
+
+const fixtureContractProbe: DataGatewayV1 = createFixtureDataGatewayV1();
+const httpContractProbe: DataGatewayV1 = createSameOriginDataGatewayV1();
+const adaptedContractProbe: DataGatewayV1 = adaptDataGatewayV1(new FixtureDataGateway());
+void fixtureContractProbe;
+void httpContractProbe;
+void adaptedContractProbe;
 
 function validInsightRequest() {
   return decodeInsightRequestV1({
@@ -69,13 +81,13 @@ test("one exported factory supplies validated in-process snapshot/catalog and al
 
   assert.equal((await access.gateway.market({ series: "harpex", from: "2026-07-01", to: "2026-08-31", providerVersion: 3 })).state, "REFERENCE");
   assert.equal((await access.gateway.news({ route: "KNEI", asOf: "2026-08-13", providerVersion: 18, retry: 0, refresh: "nonce-123" })).state, "UNAVAILABLE");
-  assert.equal((await access.gateway.insight(validInsightRequest())).state, "DERIVED");
+  assert.equal((await access.gateway.insight({ ...validInsightRequest() })).state, "DERIVED");
   assert.equal((await access.gateway.tuningHealth()).state, "UNAVAILABLE");
-  assert.equal((await access.gateway.tuningRun(validTuneRequest())).state, "UNAVAILABLE");
+  assert.equal((await access.gateway.tuningRun({ ...validTuneRequest() })).state, "UNAVAILABLE");
   assert.equal((await access.gateway.portSummary()).state, "STALE");
-  assert.equal((await access.gateway.portDetail({ id: "KUWI-LAX", days: 30 })).data?.detail?.portId, "KUWI-LAX");
+  assert.equal((await access.typedGateway.portDetail({ id: "KUWI-LAX", days: 30 })).data?.detail?.portId, "KUWI-LAX");
   assert.equal((await access.gateway.chokeSummary()).state, "STALE");
-  assert.equal((await access.gateway.chokeDetail({ id: "korea-strait" })).data?.detail?.chokepointId, "korea-strait");
+  assert.equal((await access.typedGateway.chokeDetail({ id: "korea-strait" })).data?.detail?.chokepointId, "korea-strait");
   assert.equal((await access.gateway.weather()).state, "UNAVAILABLE");
 
   assert.ok(observed.some((entry) => entry.includes("refresh=nonce-123")));
@@ -99,4 +111,12 @@ test("same-origin client never blesses malformed HTTP JSON as caller-selected do
     malformed.market({ series: "fx", from: "2026-08-01", to: "2026-08-13", providerVersion: 3 }),
     /keys/u,
   );
+
+  const canonicalFixture = createFixtureDataGatewayV1();
+  await assert.rejects(
+    canonicalFixture.market({ series: "harpex", from: "2026-07-01", to: "2026-08-31", providerVersion: 3, extra: true }),
+    /keys/u,
+  );
+  const canonicalMarket = await canonicalFixture.market({ series: "harpex", from: "2026-07-01", to: "2026-08-31", providerVersion: 3 });
+  assert.equal(canonicalMarket.state, "REFERENCE");
 });

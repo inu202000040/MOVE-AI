@@ -3,7 +3,7 @@ import {
   array,
   boolean,
   exactArrayLength,
-  exactKeys,
+  exactOrderedKeys as exactKeys,
   finite,
   integer,
   isoDate,
@@ -28,6 +28,30 @@ const MODEL_IDS = [
   "chronos",
 ] as const;
 const HORIZONS = [1, 2, 3, 4] as const;
+const APPROVED_NETWORK_REFERENCE_MANIFEST_SHA256 = "991690557c80d0820228f8d6c63b78c82e74677d64aa91ba1be2906b681bfa71";
+
+function networkCoordinate(
+  longitudeValue: unknown,
+  latitudeValue: unknown,
+  path: string,
+): { readonly longitude: number; readonly latitude: number } {
+  const longitude = finite(longitudeValue, `${path}.longitude`);
+  const latitude = finite(latitudeValue, `${path}.latitude`);
+  if (longitude < -180 || longitude > 180) throw new Error(`${path}.longitude is outside -180..180`);
+  if (latitude < -90 || latitude > 90) throw new Error(`${path}.latitude is outside -90..90`);
+  return { longitude, latitude };
+}
+
+function sameCoordinate(
+  left: { readonly longitude: number; readonly latitude: number },
+  right: { readonly longitude: number; readonly latitude: number },
+): boolean {
+  return left.longitude === right.longitude && left.latitude === right.latitude;
+}
+
+function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+  return left.size === right.size && [...left].every((item) => right.has(item));
+}
 
 function assertMetric(value: unknown, path: string, horizon: number): void {
   const item = record(value, path);
@@ -420,9 +444,11 @@ export function assertNetworkCatalogSeamV1(value: unknown): void {
   literal(root.schemaVersion, "network-catalog-seam/v1", "$network.schemaVersion");
   isoTimestamp(root.capturedAt, "$network.capturedAt");
   literal(root.timezone, "Asia/Seoul", "$network.timezone");
-  if (!/^[\da-f]{64}$/u.test(string(root.referenceManifestSha256, "$network.referenceManifestSha256"))) {
-    throw new Error("Network reference manifest digest is invalid");
-  }
+  literal(
+    string(root.referenceManifestSha256, "$network.referenceManifestSha256"),
+    APPROVED_NETWORK_REFERENCE_MANIFEST_SHA256,
+    "$network.referenceManifestSha256",
+  );
   const routes = array(root.routes, "$network.routes");
   const ports = array(root.ports, "$network.ports");
   const chokepoints = array(root.chokepoints, "$network.chokepoints");
@@ -431,55 +457,132 @@ export function assertNetworkCatalogSeamV1(value: unknown): void {
   exactArrayLength(ports, 57, "$network.ports");
   exactArrayLength(chokepoints, 11, "$network.chokepoints");
   exactArrayLength(weather, 82, "$network.weather");
-  const routeIds = routes.map((value, index) => {
+  const decodedRoutes = routes.map((value, index) => {
+    const path = `$network.routes[${index}]`;
     const item = record(value, `$network.routes[${index}]`);
-    exactKeys(item, ["id", "primaryPortId", "waypointCoordinates"], `$network.routes[${index}]`);
-    string(item.primaryPortId, `$network.routes[${index}].primaryPortId`);
-    const coordinates = array(item.waypointCoordinates, `$network.routes[${index}].waypointCoordinates`);
+    exactKeys(item, ["id", "primaryPortId", "waypointCoordinates"], path);
+    const id = oneOf(item.id, ROUTE_IDS, `${path}.id`);
+    const primaryPortId = string(item.primaryPortId, `${path}.primaryPortId`);
+    const coordinates = array(item.waypointCoordinates, `${path}.waypointCoordinates`);
     if (coordinates.length < 2) throw new Error("Network route needs at least two waypoints");
-    coordinates.forEach((coordinate, coordinateIndex) => {
-      const pair = array(coordinate, `$network.routes[${index}].waypointCoordinates[${coordinateIndex}]`);
-      exactArrayLength(pair, 2, `$network.routes[${index}].waypointCoordinates[${coordinateIndex}]`);
-      finite(pair[0], "longitude");
-      finite(pair[1], "latitude");
+    const waypointCoordinates = coordinates.map((coordinate, coordinateIndex) => {
+      const coordinatePath = `${path}.waypointCoordinates[${coordinateIndex}]`;
+      const pair = array(coordinate, coordinatePath);
+      exactArrayLength(pair, 2, coordinatePath);
+      return networkCoordinate(pair[0], pair[1], coordinatePath);
     });
-    return string(item.id, `$network.routes[${index}].id`);
+    return { id, primaryPortId, waypointCoordinates };
   });
+  const routeIds = decodedRoutes.map((route) => route.id);
   sortedUnique(routeIds, "$network route IDs");
-  const portIds = ports.map((value, index) => {
-    const item = record(value, `$network.ports[${index}]`);
-    exactKeys(item, ["id", "routeId", "longitude", "latitude", "upstreamPortWatchId", "primary"], `$network.ports[${index}]`);
-    oneOf(item.routeId, ROUTE_IDS, `$network.ports[${index}].routeId`);
-    finite(item.longitude, "longitude");
-    finite(item.latitude, "latitude");
-    string(item.upstreamPortWatchId, "upstreamPortWatchId");
-    boolean(item.primary, "primary");
-    return string(item.id, `$network.ports[${index}].id`);
+  const expectedRouteIds = [...ROUTE_IDS].sort();
+  if (routeIds.join("\0") !== expectedRouteIds.join("\0")) {
+    throw new Error("Network routes must contain the exact canonical route ID set");
+  }
+  const routeById = new Map(decodedRoutes.map((route) => [route.id, route] as const));
+  const routeIdSet = new Set<string>(routeIds);
+
+  const decodedPorts = ports.map((value, index) => {
+    const path = `$network.ports[${index}]`;
+    const item = record(value, path);
+    exactKeys(item, ["id", "routeId", "longitude", "latitude", "upstreamPortWatchId", "primary"], path);
+    const id = string(item.id, `${path}.id`);
+    const routeId = oneOf(item.routeId, ROUTE_IDS, `${path}.routeId`);
+    if (!routeById.has(routeId) || !id.startsWith(`${routeId}-`)) {
+      throw new Error(`${path} route identity does not match its canonical port ID`);
+    }
+    return {
+      id,
+      routeId,
+      ...networkCoordinate(item.longitude, item.latitude, path),
+      upstreamPortWatchId: string(item.upstreamPortWatchId, `${path}.upstreamPortWatchId`),
+      primary: boolean(item.primary, `${path}.primary`),
+    };
   });
+  const portIds = decodedPorts.map((port) => port.id);
   sortedUnique(portIds, "$network port IDs");
-  const uniqueSeries = new Set(
-    ports.map((value, index) => string(record(value, `port[${index}]`).upstreamPortWatchId, "upstream")),
-  );
+  const portById = new Map(decodedPorts.map((port) => [port.id, port] as const));
+  const uniqueSeries = new Set(decodedPorts.map((port) => port.upstreamPortWatchId));
   exactArrayLength([...uniqueSeries], 56, "$network unique port series");
-  const chokepointIds = chokepoints.map((value, index) => {
-    const item = record(value, `$network.chokepoints[${index}]`);
-    exactKeys(item, ["id", "longitude", "latitude", "upstreamPortWatchId"], `$network.chokepoints[${index}]`);
-    finite(item.longitude, "longitude");
-    finite(item.latitude, "latitude");
-    string(item.upstreamPortWatchId, "upstreamPortWatchId");
-    return string(item.id, `$network.chokepoints[${index}].id`);
+  const sharedSeriesGroups = new Map<string, number>();
+  for (const port of decodedPorts) {
+    sharedSeriesGroups.set(port.upstreamPortWatchId, (sharedSeriesGroups.get(port.upstreamPortWatchId) ?? 0) + 1);
+  }
+  const duplicatedSeries = [...sharedSeriesGroups.values()].filter((count) => count > 1);
+  if (duplicatedSeries.length !== 1 || duplicatedSeries[0] !== 2) {
+    throw new Error("Network ports must preserve one shared two-marker upstream series");
+  }
+  for (const route of decodedRoutes) {
+    const routePorts = decodedPorts.filter((port) => port.routeId === route.id);
+    const primaryPorts = routePorts.filter((port) => port.primary);
+    const primary = portById.get(route.primaryPortId);
+    if (
+      routePorts.length === 0
+      || primaryPorts.length !== 1
+      || primary === undefined
+      || primary.routeId !== route.id
+      || !primary.primary
+      || primaryPorts[0].id !== route.primaryPortId
+    ) {
+      throw new Error(`Network route ${route.id} primary port relationship is invalid`);
+    }
+  }
+
+  const decodedChokepoints = chokepoints.map((value, index) => {
+    const path = `$network.chokepoints[${index}]`;
+    const item = record(value, path);
+    exactKeys(item, ["id", "longitude", "latitude", "upstreamPortWatchId"], path);
+    return {
+      id: string(item.id, `${path}.id`),
+      ...networkCoordinate(item.longitude, item.latitude, path),
+      upstreamPortWatchId: string(item.upstreamPortWatchId, `${path}.upstreamPortWatchId`),
+    };
   });
+  const chokepointIds = decodedChokepoints.map((chokepoint) => chokepoint.id);
   sortedUnique(chokepointIds, "$network chokepoint IDs");
-  const weatherIds = weather.map((value, index) => {
-    const item = record(value, `$network.weather[${index}]`);
-    exactKeys(item, ["id", "kind", "entityId", "longitude", "latitude"], `$network.weather[${index}]`);
-    oneOf(item.kind, ["port", "chokepoint", "route"], `$network.weather[${index}].kind`);
-    string(item.entityId, "entityId");
-    finite(item.longitude, "longitude");
-    finite(item.latitude, "latitude");
-    return string(item.id, `$network.weather[${index}].id`);
+  if (new Set(decodedChokepoints.map((chokepoint) => chokepoint.upstreamPortWatchId)).size !== 11) {
+    throw new Error("Network chokepoint upstream IDs must be unique");
+  }
+  const chokepointById = new Map(decodedChokepoints.map((chokepoint) => [chokepoint.id, chokepoint] as const));
+
+  const decodedWeather = weather.map((value, index) => {
+    const path = `$network.weather[${index}]`;
+    const item = record(value, path);
+    exactKeys(item, ["id", "kind", "entityId", "longitude", "latitude"], path);
+    const kind = oneOf(item.kind, ["port", "chokepoint", "route"] as const, `${path}.kind`);
+    const entityId = string(item.entityId, `${path}.entityId`);
+    const id = string(item.id, `${path}.id`);
+    if (id !== `${kind}:${entityId}`) throw new Error(`${path}.id must equal kind:entityId`);
+    const coordinate = networkCoordinate(item.longitude, item.latitude, path);
+    if (kind === "port" && entityId !== "BUSAN") {
+      const port = portById.get(entityId);
+      if (!port || !sameCoordinate(coordinate, port)) throw new Error(`${path} does not match its port entity`);
+    } else if (kind === "chokepoint") {
+      const chokepoint = chokepointById.get(entityId);
+      if (!chokepoint || !sameCoordinate(coordinate, chokepoint)) throw new Error(`${path} does not match its chokepoint entity`);
+    } else if (kind === "route" && !routeIdSet.has(entityId)) {
+      throw new Error(`${path} references an unknown route corridor`);
+    }
+    return { id, kind, entityId, ...coordinate };
   });
+  const weatherIds = decodedWeather.map((location) => location.id);
   sortedUnique(weatherIds, "$network weather IDs");
+  const weatherEntityIds = (kind: "port" | "chokepoint" | "route") => new Set(
+    decodedWeather.filter((location) => location.kind === kind).map((location) => location.entityId),
+  );
+  if (!sameStringSet(weatherEntityIds("port"), new Set(["BUSAN", ...portIds]))) {
+    throw new Error("Network weather port entities must cover BUSAN and every catalog port exactly once");
+  }
+  if (!sameStringSet(weatherEntityIds("chokepoint"), new Set(chokepointIds))) {
+    throw new Error("Network weather chokepoint entities must cover every chokepoint exactly once");
+  }
+  if (!sameStringSet(weatherEntityIds("route"), new Set(routeIds))) {
+    throw new Error("Network weather route entities must cover every route corridor exactly once");
+  }
+  const busan = decodedWeather.find((location) => location.id === "port:BUSAN");
+  if (!busan || decodedRoutes.some((route) => !sameCoordinate(route.waypointCoordinates[0], busan))) {
+    throw new Error("Every route must originate at the catalog BUSAN weather coordinate");
+  }
 }
 
 export function assertNetworkCatalogSeamIdentityV1(value: unknown): void {
@@ -498,7 +601,13 @@ export function assertNetworkCatalogSeamIdentityV1(value: unknown): void {
       throw new Error(`$networkIdentity.${field} is invalid`);
     }
   }
-  integer(root.byteSize, "$networkIdentity.byteSize");
+  literal(
+    string(root.referenceManifestSha256, "$networkIdentity.referenceManifestSha256"),
+    APPROVED_NETWORK_REFERENCE_MANIFEST_SHA256,
+    "$networkIdentity.referenceManifestSha256",
+  );
+  const byteSize = integer(root.byteSize, "$networkIdentity.byteSize");
+  if (byteSize <= 0) throw new Error("$networkIdentity.byteSize must be positive");
   literal(integer(root.routeCount, "routeCount"), 13, "routeCount");
   literal(integer(root.portCount, "portCount"), 57, "portCount");
   literal(integer(root.uniquePortSeriesCount, "uniquePortSeriesCount"), 56, "uniquePortSeriesCount");

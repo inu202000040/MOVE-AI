@@ -104,6 +104,14 @@ function validInsightBody() {
   };
 }
 
+function reverseObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(reverseObjectKeys);
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value).reverse().map(([key, child]) => [key, reverseObjectKeys(child)]),
+  );
+}
+
 test("insight route validates exact body then returns deterministic no-store fallback", async () => {
   const { response, body } = await call(insightPost, "http://localhost/api/freight-risk/insight", {
     method: "POST",
@@ -125,6 +133,15 @@ test("insight route validates exact body then returns deterministic no-store fal
   assert.equal(rejected.response.status, 400);
   assertEnvelope(rejected.body);
   assert.equal(rejected.body.data, null);
+
+  const reordered = await call(insightPost, "http://localhost/api/freight-risk/insight", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(reverseObjectKeys(validInsightBody())),
+  });
+  assert.equal(reordered.response.status, 200);
+  assertEnvelope(reordered.body);
+  assert.equal(reordered.body.state, "DERIVED");
 });
 
 test("tuning health and valid run truthfully report deployed engine unavailable", async () => {
@@ -153,6 +170,15 @@ test("tuning health and valid run truthfully report deployed engine unavailable"
   assert.equal(unknownParameter.response.status, 400);
   assertEnvelope(unknownParameter.body);
   assert.equal(unknownParameter.body.error?.code, "INVALID_REQUEST");
+
+  const reorderedRun = await call(tunePost, "http://localhost/api/freight-risk/tune", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(reverseObjectKeys({ routeCode: "KNEI", modelId: "sarimax", dates, values: dates.map((_, index) => 1_000 + index), trainingWindow: "expanding", evaluationOrigins: 36, parameters: { p: 1 } })),
+  });
+  assert.equal(reorderedRun.response.status, 503);
+  assertEnvelope(reorderedRun.body);
+  assert.equal(reorderedRun.body.state, "UNAVAILABLE");
 });
 
 test("port route exposes keyed stale fixture, detail boundaries, and exact query rejection", async () => {
@@ -173,6 +199,10 @@ test("port route exposes keyed stale fixture, detail boundaries, and exact query
   const detail = await call(portGet, "http://localhost/api/globe-port-traffic?id=KUWI-LAX&days=1");
   assert.equal(detail.response.status, 200);
   assert.equal((detail.body as { data: { detail: { points: unknown[] } } }).data.detail.points.length, 30);
+  const rounded = await call(portGet, "http://localhost/api/globe-port-traffic?id=KUWI-LAX&days=180.4");
+  assert.equal((rounded.body as { data: { detail: { points: unknown[] } } }).data.detail.points.length, 180);
+  const clamped = await call(portGet, "http://localhost/api/globe-port-traffic?id=KUWI-LAX&days=900");
+  assert.equal((clamped.body as { data: { detail: { points: unknown[] } } }).data.detail.points.length, 220);
 });
 
 test("chokepoint route rejects days and weather rejects every query key", async () => {
