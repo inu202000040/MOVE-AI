@@ -162,7 +162,7 @@
 .methodology strong { color: var(--navy); font-size: 10px; }
 .methodology p { margin: 0; color: var(--muted); font-size: 8px; line-height: 1.55; }
 
-.modalBackdrop, .drawerBackdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(2, 8, 32, .48); backdrop-filter: blur(7px); }
+.modalBackdrop, .drawerBackdrop { --navy: #001290; --blue: #15269d; --cyan: #3fa1eb; --ink: #141415; --muted: #63666a; position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(2, 8, 32, .48); backdrop-filter: blur(7px); }
 .evidenceDialog { width: min(1000px, calc(100vw - 36px)); max-height: min(850px, 97dvh); display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid rgba(255,255,255,.8); border-radius: 18px; background: #f1f3f9; box-shadow: 24px 24px 54px rgba(0,18,80,.32), -12px -12px 30px rgba(255,255,255,.2); overflow: hidden; }
 .dialogHeader, .drawerHeader { padding: 17px 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; border-bottom: 1px solid rgba(0,18,144,.11); background: rgba(255,255,255,.72); }
 .dialogHeader h2, .drawerHeader h2 { margin: 0; font-size: 23px; letter-spacing: -.035em; }

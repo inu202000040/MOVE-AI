@@ -110,6 +110,7 @@ test("base states and narrow-screen accessibility rules remain explicit", () => 
   assert.doesNotMatch(chartSource, /유럽 항로/u);
   assert.match(css, /@media \(max-width: 420px\)[\s\S]*\.dataBasis \{ display: none; \}/u);
   assert.match(css, /\.drawerBody \{ min-height: 0; padding-inline: 14px; overflow-y: auto; \}/u);
+  assert.match(css, /\.modalBackdrop, \.drawerBackdrop \{ --navy: #001290; --blue: #15269d; --cyan: #3fa1eb;/u);
   const genericFooterRule = css.indexOf(".drawerFooter button {");
   const primaryFooterRule = css.indexOf(".drawerFooter .primaryButton");
   assert.ok(genericFooterRule >= 0 && primaryFooterRule > genericFooterRule);
