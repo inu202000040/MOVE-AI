@@ -65,30 +65,35 @@ function createCatalog(): NetworkCatalogSeam {
     upstreamPortWatchId: `choke-series-${index}`,
   }));
   const weather = [
-    ...ports.map((port, index) => ({
-      id: `weather-${index.toString().padStart(3, "0")}`,
+    ...ports.map((port) => ({
+      id: `port:${port.id}`,
       kind: "port" as const,
       entityId: port.id,
       longitude: port.longitude,
       latitude: port.latitude,
     })),
-    ...chokepoints.map((chokepoint, index) => ({
-      id: `weather-${(index + ports.length).toString().padStart(3, "0")}`,
+    {
+      id: "port:BUSAN",
+      kind: "port" as const,
+      entityId: "BUSAN",
+      longitude: 129.04,
+      latitude: 35.1,
+    },
+    ...chokepoints.map((chokepoint) => ({
+      id: `chokepoint:${chokepoint.id}`,
       kind: "chokepoint" as const,
       entityId: chokepoint.id,
       longitude: chokepoint.longitude,
       latitude: chokepoint.latitude,
     })),
-    ...Array.from({ length: 14 }, (_, index) => ({
-      id: `weather-${(index + ports.length + chokepoints.length)
-        .toString()
-        .padStart(3, "0")}`,
+    ...routeIds.map((routeId, index) => ({
+      id: `route:${routeId}`,
       kind: "route" as const,
-      entityId: routeIds[index % routeIds.length]!,
+      entityId: routeId,
       longitude: 100 + index,
       latitude: 10 + index,
     })),
-  ];
+  ].sort((left, right) => left.id.localeCompare(right.id));
   return {
     schemaVersion: "network-catalog-seam/v1",
     capturedAt: "2026-08-13T00:00:00+09:00",

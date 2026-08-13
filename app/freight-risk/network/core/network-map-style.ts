@@ -70,6 +70,7 @@ export function createRemoteFreeGlobeStyle(
   palette: NetworkMapPalette,
 ): RemoteFreeGlobeStyle {
   return {
+    // MapLibre Style Specification version; the runtime/worker/CSS package is 6.3.0.
     version: 8,
     name: "MOVE AI Network Globe",
     projection: { type: "globe" },

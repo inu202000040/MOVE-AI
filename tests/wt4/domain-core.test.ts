@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  declutterProjectedMarkers,
   selectVisibleWeather,
   WEATHER_DECLUTTER_ZOOM,
   type WeatherDeclutterCandidate,
@@ -84,6 +85,48 @@ test("declutter threshold is stable at 2.14/2.15 and preserves risk priority", (
   assert.deepEqual(
     selectVisibleWeather(candidates, WEATHER_DECLUTTER_ZOOM, 20).map(({ id }) => id),
     ["selected", "warning"],
+  );
+});
+
+test("overlapping port hit targets receive deterministic one-to-one positions", () => {
+  const first = declutterProjectedMarkers([
+    { id: "port:LONG_BEACH", x: 200, y: 100 },
+    { id: "port:LOS_ANGELES", x: 202, y: 101 },
+    { id: "port:ANTWERP", x: 600, y: 180 },
+    { id: "port:ROTTERDAM", x: 603, y: 181 },
+  ]);
+  const second = declutterProjectedMarkers([
+    { id: "port:ROTTERDAM", x: 603, y: 181 },
+    { id: "port:ANTWERP", x: 600, y: 180 },
+    { id: "port:LOS_ANGELES", x: 202, y: 101 },
+    { id: "port:LONG_BEACH", x: 200, y: 100 },
+  ]);
+  const positions = (items: typeof first) =>
+    items
+      .map(({ id, x, y }) => ({ id, x, y }))
+      .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    positions(first),
+    positions(second),
+  );
+  assert.equal(new Set(first.map(({ x, y }) => `${x}:${y}`)).size, 4);
+  for (const marker of first) {
+    assert.ok(
+      first.every(
+        (candidate) =>
+          candidate.id === marker.id ||
+          Math.hypot(candidate.x - marker.x, candidate.y - marker.y) >= 30,
+      ),
+    );
+  }
+  assert.deepEqual(
+    first.map(({ id, anchorX, anchorY }) => ({ id, anchorX, anchorY })),
+    [
+      { id: "port:ANTWERP", anchorX: 600, anchorY: 180 },
+      { id: "port:LONG_BEACH", anchorX: 200, anchorY: 100 },
+      { id: "port:LOS_ANGELES", anchorX: 202, anchorY: 101 },
+      { id: "port:ROTTERDAM", anchorX: 603, anchorY: 181 },
+    ],
   );
 });
 

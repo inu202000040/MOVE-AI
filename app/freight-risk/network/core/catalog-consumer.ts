@@ -8,6 +8,11 @@ export const NETWORK_CATALOG_COUNTS = {
   weather: 82,
 } as const;
 
+export const NETWORK_CATALOG_SCHEMA_VERSION = "network-catalog-seam/v1" as const;
+export const NETWORK_CATALOG_IDENTITY_SCHEMA_VERSION =
+  "network-catalog-seam-identity/v1" as const;
+export const NETWORK_ORIGIN_WEATHER_ENTITY_ID = "BUSAN" as const;
+
 export const NETWORK_CHOKEPOINT_IDS = [
   "bab-el-mandeb",
   "cape-good-hope",
@@ -57,7 +62,7 @@ export interface NetworkWeatherRecord {
 }
 
 export interface NetworkCatalogSeam {
-  readonly schemaVersion: "network-catalog-seam/v1";
+  readonly schemaVersion: typeof NETWORK_CATALOG_SCHEMA_VERSION;
   readonly capturedAt: string;
   readonly timezone: "Asia/Seoul";
   readonly referenceManifestSha256: string;
@@ -68,7 +73,7 @@ export interface NetworkCatalogSeam {
 }
 
 export interface NetworkCatalogIdentity {
-  readonly schemaVersion: string;
+  readonly schemaVersion: typeof NETWORK_CATALOG_IDENTITY_SCHEMA_VERSION;
   readonly catalogSeamSha256: string;
   readonly byteSize: number;
   readonly routeCount: number;
@@ -313,12 +318,14 @@ function sameStringSet(actual: readonly string[], expected: readonly string[]): 
   return sortedActual.every((value, index) => value === sortedExpected[index]);
 }
 
-function parseCatalog(value: unknown): NetworkCatalogSeam | null {
+export function decodeNetworkCatalogSeam(
+  value: unknown,
+): NetworkCatalogSeam | null {
   if (!isRecord(value) || !hasExactKeys(value, CATALOG_ROOT_KEYS)) {
     return null;
   }
   if (
-    value.schemaVersion !== "network-catalog-seam/v1" ||
+    value.schemaVersion !== NETWORK_CATALOG_SCHEMA_VERSION ||
     typeof value.capturedAt !== "string" ||
     !Number.isFinite(Date.parse(value.capturedAt)) ||
     value.timezone !== "Asia/Seoul" ||
@@ -409,10 +416,20 @@ function parseCatalog(value: unknown): NetworkCatalogSeam | null {
         return !routeIds.has(item.entityId);
       }
       if (item.kind === "port") {
-        return !portIds.has(item.entityId);
+        return (
+          item.entityId !== NETWORK_ORIGIN_WEATHER_ENTITY_ID &&
+          !portIds.has(item.entityId)
+        );
       }
       return !chokepointIds.has(item.entityId);
     })
+  ) {
+    return null;
+  }
+  if (
+    parsedWeather.some(
+      (item) => item.id !== `${item.kind}:${item.entityId}`,
+    )
   ) {
     return null;
   }
@@ -421,15 +438,15 @@ function parseCatalog(value: unknown): NetworkCatalogSeam | null {
     { port: 0, chokepoint: 0, route: 0 },
   );
   if (
-    weatherKindCounts.port !== NETWORK_CATALOG_COUNTS.ports ||
+    weatherKindCounts.port !== NETWORK_CATALOG_COUNTS.ports + 1 ||
     weatherKindCounts.chokepoint !== NETWORK_CATALOG_COUNTS.chokepoints ||
-    weatherKindCounts.route !== NETWORK_CATALOG_COUNTS.routes + 1
+    weatherKindCounts.route !== NETWORK_CATALOG_COUNTS.routes
   ) {
     return null;
   }
 
   return {
-    schemaVersion: "network-catalog-seam/v1",
+    schemaVersion: NETWORK_CATALOG_SCHEMA_VERSION,
     capturedAt: value.capturedAt,
     timezone: "Asia/Seoul",
     referenceManifestSha256: value.referenceManifestSha256,
@@ -445,8 +462,7 @@ function parseIdentity(value: unknown): NetworkCatalogIdentity | null {
     return null;
   }
   if (
-    typeof value.schemaVersion !== "string" ||
-    value.schemaVersion.length === 0 ||
+    value.schemaVersion !== NETWORK_CATALOG_IDENTITY_SCHEMA_VERSION ||
     typeof value.catalogSeamSha256 !== "string" ||
     !SHA256_PATTERN.test(value.catalogSeamSha256) ||
     typeof value.referenceManifestSha256 !== "string" ||
@@ -461,7 +477,7 @@ function parseIdentity(value: unknown): NetworkCatalogIdentity | null {
     return null;
   }
   return {
-    schemaVersion: value.schemaVersion,
+    schemaVersion: NETWORK_CATALOG_IDENTITY_SCHEMA_VERSION,
     catalogSeamSha256: value.catalogSeamSha256,
     byteSize: value.byteSize,
     routeCount: value.routeCount,
@@ -526,7 +542,7 @@ export async function validateNetworkCatalogHandoff(
   } catch {
     addIssue(issues, "CATALOG_BYTES_INVALID");
   }
-  const catalog = parseCatalog(decoded);
+  const catalog = decodeNetworkCatalogSeam(decoded);
   if (!catalog) {
     addIssue(issues, "CATALOG_STRUCTURE_INVALID");
   }
