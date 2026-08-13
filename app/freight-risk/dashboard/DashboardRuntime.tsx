@@ -74,7 +74,10 @@ export default function DashboardRuntime({
   readonly initialSnapshotResult: SnapshotGatewayResultV1;
 }) {
   const gateway = useMemo(
-    () => createSameOriginDataGatewayV1(globalThis.fetch, () => initialSnapshotResult),
+    () => createSameOriginDataGatewayV1(
+      (input, init) => globalThis.fetch(input, init),
+      () => initialSnapshotResult,
+    ),
     [initialSnapshotResult],
   );
   return (
