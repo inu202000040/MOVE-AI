@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { downloadRecommendedCvarCsv } from "./download";
@@ -22,10 +22,55 @@ const METHOD_BLOCKS = [
 ] as const;
 
 function HelpBubble({ label, children }: { readonly label: string; readonly children: string }) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const tooltipId = useId();
+  const [position, setPosition] = useState<{
+    readonly above: boolean;
+    readonly left: number;
+    readonly top: number;
+  } | null>(null);
+
+  const showTooltip = (): void => {
+    const box = buttonRef.current?.getBoundingClientRect();
+    if (!box) return;
+    const above = box.bottom + 100 > window.innerHeight;
+    setPosition({
+      above,
+      left: Math.max(120, Math.min(window.innerWidth - 120, box.left + box.width / 2)),
+      top: above ? box.top - 8 : box.bottom + 8,
+    });
+  };
+
   return (
-    <button aria-label={`${label} 설명`} className={styles.helpButton} type="button">
-      ?<span className={styles.helpTooltip} role="tooltip">{children}</span>
-    </button>
+    <>
+      <button
+        aria-describedby={position ? tooltipId : undefined}
+        aria-label={`${label} 설명`}
+        className={styles.helpButton}
+        onBlur={() => setPosition(null)}
+        onFocus={showTooltip}
+        onPointerEnter={showTooltip}
+        onPointerLeave={() => setPosition(null)}
+        ref={buttonRef}
+        type="button"
+      >
+        ?
+      </button>
+      {position && typeof document !== "undefined"
+        ? createPortal(
+            <span
+              className={styles.floatingHelpTooltip}
+              data-placement={position.above ? "above" : "below"}
+              id={tooltipId}
+              role="tooltip"
+              style={{ left: position.left, top: position.top }}
+            >
+              {children}
+            </span>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 

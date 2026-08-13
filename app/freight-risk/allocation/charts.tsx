@@ -212,6 +212,8 @@ export function PathsChart({
   readonly result: CvarSimulationResult;
   readonly routeName: string;
 }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const geometry = useMemo(() => {
     const left = 72;
     const right = 872;
@@ -245,6 +247,35 @@ export function PathsChart({
     geometry.xFor,
     geometry.yFor,
   );
+  const hoverInfo = useMemo(() => {
+    if (hoveredIndex === null) return null;
+    const sorted = result.samplePaths
+      .map((path) => path.points[hoveredIndex])
+      .sort((leftValue, rightValue) => leftValue - rightValue);
+    const percentile = (ratio: number): number =>
+      sorted[Math.min(sorted.length - 1, Math.max(0, Math.round((sorted.length - 1) * ratio)))]
+      ?? input.current;
+    const forecast = hoveredIndex === 0 ? null : input.forecasts[hoveredIndex - 1];
+    return {
+      forecast,
+      index: hoveredIndex,
+      p10: percentile(0.1),
+      p50: percentile(0.5),
+      p90: percentile(0.9),
+      point: hoveredIndex === 0 ? input.current : forecast?.point ?? input.current,
+    };
+  }, [hoveredIndex, input, result.samplePaths]);
+
+  const selectHoverIndex = (clientX: number): void => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const viewX = ((clientX - rect.left) / rect.width) * 900;
+    const index = Math.max(
+      0,
+      Math.min(4, Math.round(((viewX - geometry.left) / (geometry.right - geometry.left)) * 4)),
+    );
+    setHoveredIndex(index);
+  };
 
   return (
     <section className={styles.pathPanel}>
@@ -256,11 +287,27 @@ export function PathsChart({
         </div>
         <span className={styles.badge}>100,000개 생성 완료</span>
       </div>
-      <div className={styles.chartScroll}>
-        <svg
+      <div className={styles.pathChartWrap}>
+        <div className={styles.chartScroll}>
+          <svg
+          aria-describedby={hoverInfo ? "allocation-path-tooltip" : undefined}
           aria-label={`${routeName} 현재부터 4주까지 250개 표본 운임경로와 PI90`}
           className={styles.pathSvg}
-          role="img"
+          onBlur={() => setHoveredIndex(null)}
+          onFocus={() => setHoveredIndex(input.selectedHorizon)}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            setHoveredIndex((current) => {
+              const base = current ?? input.selectedHorizon;
+              return event.key === "ArrowLeft" ? Math.max(0, base - 1) : Math.min(4, base + 1);
+            });
+          }}
+          onPointerLeave={() => setHoveredIndex(null)}
+          onPointerMove={(event) => selectHoverIndex(event.clientX)}
+          ref={svgRef}
+          role="application"
+          tabIndex={0}
           viewBox="0 0 900 300"
         >
           <rect className={styles.pathFocusBand} height={geometry.bottom - geometry.top} width="140" x={focusX} y={geometry.top} />
@@ -294,13 +341,48 @@ export function PathsChart({
             );
           })}
           <path className={styles.pointPath} d={pointPath} />
+          {hoverInfo ? (
+            <g aria-hidden="true" className={styles.pathHoverGuide}>
+              <line
+                x1={geometry.xFor(hoverInfo.index)}
+                x2={geometry.xFor(hoverInfo.index)}
+                y1={geometry.top}
+                y2={geometry.bottom}
+              />
+              <circle
+                cx={geometry.xFor(hoverInfo.index)}
+                cy={geometry.yFor(hoverInfo.point)}
+                r="5"
+              />
+            </g>
+          ) : null}
           {["현재", "1주", "2주", "3주", "4주"].map((label, index) => (
             <text className={styles.axisText} key={label} textAnchor="middle" x={geometry.xFor(index)} y="280">{label}</text>
           ))}
           <text className={styles.pathFocusLabel} textAnchor="middle" x={Math.max(62, Math.min(838, selectedX))} y="24">
             판단 시점 {input.selectedHorizon}주
           </text>
-        </svg>
+          </svg>
+        </div>
+        {hoverInfo ? (
+          <div
+            className={styles.pathTooltip}
+            id="allocation-path-tooltip"
+            role="tooltip"
+            style={{ left: `${Math.max(17, Math.min(83, 8 + hoverInfo.index * 21))}%` }}
+          >
+            <strong>
+              {hoverInfo.index === 0
+                ? "현재 운임"
+                : `${hoverInfo.index}주 · ${displayDate(hoverInfo.forecast?.targetDate ?? "")}`}
+            </strong>
+            <span>모델 점예측 {money(hoverInfo.point)} / FEU</span>
+            {hoverInfo.forecast ? (
+              <span>PI90 {money(hoverInfo.forecast.lower90)} ~ {money(hoverInfo.forecast.upper90)}</span>
+            ) : null}
+            <span>표본 경로 P10 {money(hoverInfo.p10)} · P50 {money(hoverInfo.p50)} · P90 {money(hoverInfo.p90)}</span>
+          </div>
+        ) : null}
       </div>
       <div className={styles.chartLegend}>
         <span data-tone="point">모델 점예측</span><span data-tone="interval">PI90</span>

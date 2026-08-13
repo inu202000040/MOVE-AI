@@ -219,6 +219,14 @@ test("keeps production ownership and visible inventory boundaries explicit", () 
     new URL("../../app/freight-risk/allocation/allocation.module.css", import.meta.url),
     "utf8",
   );
+  const detailDialog = readFileSync(
+    new URL("../../app/freight-risk/allocation/DetailDialog.tsx", import.meta.url),
+    "utf8",
+  );
+  const charts = readFileSync(
+    new URL("../../app/freight-risk/allocation/charts.tsx", import.meta.url),
+    "utf8",
+  );
   const worker = readFileSync(
     new URL("../../app/freight-risk/allocation/worker.ts", import.meta.url),
     "utf8",
@@ -238,4 +246,13 @@ test("keeps production ownership and visible inventory boundaries explicit", () 
   assert.doesNotMatch(allocationCss, /:global\(body|body\s*>\s*nav/u);
   assert.doesNotMatch(allocationClient, /TAIL RISK BREAKDOWN|상승·하락 위험 분해/u);
   assert.doesNotMatch(worker, /toString\(|WORKER_FUNCTIONS/u);
+  assert.match(detailDialog, /createPortal\([\s\S]*floatingHelpTooltip/u);
+  assert.match(detailDialog, /onPointerEnter=\{showTooltip\}/u);
+  assert.match(detailDialog, /onPointerLeave=\{\(\) => setPosition\(null\)\}/u);
+  assert.match(allocationCss, /\.floatingHelpTooltip \{[\s\S]*position: fixed;[\s\S]*z-index: 1200;/u);
+  assert.match(charts, /className=\{styles\.pathTooltip\}/u);
+  assert.match(charts, /onPointerMove=\{\(event\) => selectHoverIndex\(event\.clientX\)\}/u);
+  assert.match(charts, /onPointerLeave=\{\(\) => setHoveredIndex\(null\)\}/u);
+  assert.match(charts, /표본 경로 P10/u);
+  assert.match(allocationCss, /\.pathTooltip \{[\s\S]*pointer-events: none;/u);
 });

@@ -72,7 +72,24 @@ button:focus-visible, select:focus-visible, input:focus-visible, svg:focus-visib
 .kpiGrid article > small { color: #858a99; font-size: 9px; }
 .helpButton { position: relative; width: 16px; height: 16px; margin-left: 4px; padding: 0; border: 0; border-radius: 50%; background: #dfe3f3; color: var(--blue); font-size: 9px; font-weight: 900; cursor: help; }
 .helpTooltip { position: absolute; z-index: 12; left: 50%; bottom: calc(100% + 8px); width: 220px; padding: 8px 10px; border-radius: 8px; background: #101737; color: white; font-size: 10px; font-weight: 500; line-height: 1.45; opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(3px); transition: .15s ease; }
-.helpButton:hover .helpTooltip, .helpButton:focus .helpTooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+.helpButton:hover .helpTooltip, .helpButton:focus-visible .helpTooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+.floatingHelpTooltip {
+  position: fixed;
+  z-index: 1200;
+  width: 220px;
+  padding: 9px 11px;
+  border: 1px solid rgba(100, 174, 255, .32);
+  border-radius: 9px;
+  background: rgba(16, 23, 55, .98);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .28);
+  color: white;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.5;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+.floatingHelpTooltip[data-placement="above"] { transform: translate(-50%, -100%); }
 .reason { min-height: 38px; margin: 13px 0 0; color: #4d5364; font-size: 10px; line-height: 1.55; }
 .errorText { color: #9c3c3c; font-weight: 750; }
 
@@ -151,7 +168,11 @@ button:focus-visible, select:focus-visible, input:focus-visible, svg:focus-visib
 .resultTable td:first-child { text-align: left; }.resultTable td:first-child span { display: block; margin-top: 2px; color: #818698; font-size: 8px; }.resultTable em { display: inline-flex; margin-left: 7px; padding: 2px 6px; border-radius: 99px; background: var(--navy); color: #fff; font-size: 7px; font-style: normal; }
 .recommendedRow td { background: #e5e8f8; color: #001290; font-weight: 720; }
 
-.pathPanel { padding-top: 18px; }.pathSvg { display: block; width: 100%; min-width: 680px; }.pathFocusBand { fill: rgba(63,161,235,.07); }.normalPath { fill: none; stroke: rgba(63,161,235,.11); stroke-width: .7; }.tailPath { fill: none; stroke: rgba(214,69,69,.22); stroke-width: .8; }.pointPath { stroke: #001290; stroke-width: 2.8; }.interval line { stroke: #7c3aed; stroke-width: 1.4; }.pathFocusLabel { fill: #001290; font-size: 9px; font-weight: 850; }
+.pathPanel { padding-top: 18px; }.pathChartWrap { position: relative; }.pathSvg { display: block; width: 100%; min-width: 680px; }.pathFocusBand { fill: rgba(63,161,235,.07); }.normalPath { fill: none; stroke: rgba(63,161,235,.11); stroke-width: .7; }.tailPath { fill: none; stroke: rgba(214,69,69,.22); stroke-width: .8; }.pointPath { stroke: #001290; stroke-width: 2.8; }.interval line { stroke: #7c3aed; stroke-width: 1.4; }.pathFocusLabel { fill: #001290; font-size: 9px; font-weight: 850; }
+.pathHoverGuide line { stroke: #3fa1eb; stroke-width: 1.2; stroke-dasharray: 4 4; }
+.pathHoverGuide circle { fill: #f1f2f9; stroke: #001290; stroke-width: 2.5; }
+.pathTooltip { position: absolute; z-index: 5; top: 46px; width: 240px; display: grid; gap: 5px; padding: 11px 12px; transform: translateX(-50%); border: 1px solid rgba(63,161,235,.4); border-radius: 11px; background: rgba(16,23,55,.97); color: white; box-shadow: 0 12px 28px rgba(0,0,0,.24); pointer-events: none; }
+.pathTooltip strong { font-size: 10px; }.pathTooltip span { font-size: 9px; line-height: 1.35; opacity: .9; }
 .chartLegend [data-tone="point"] { --tone: #001290; }.chartLegend [data-tone="interval"] { --tone: #7c3aed; }.chartLegend [data-tone="normal"] { --tone: rgba(63,161,235,.55); }.chartLegend [data-tone="tail"] { --tone: #d64545; }
 .pathMeta { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0 18px; color: #777e90; font-size: 9px; }
 .percentileTable { margin-top: 6px; }
@@ -188,6 +209,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, svg:focus-visib
   .ratioGrid { justify-items: center; }.ratioRows { width: 100%; }
   .flowSteps { grid-template-columns: 1fr; gap: 10px; }.flowSteps > div, .flowSteps > div:last-child { grid-template-columns: 28px 1fr; }.flowSteps i { display: none; }
   .spectrumCard { overflow: hidden; }.spectrumTooltip { position: sticky; left: 0 !important; transform: none; top: auto; width: 100%; margin-top: 8px; }
+  .pathTooltip { position: static; width: 100%; margin-top: 8px; transform: none; }
   .drawer { width: 100vw; }.drawerHeader { padding: 18px 16px; }.drawerBody { padding: 18px 16px; }.drawerFooter { padding: 14px 16px; }
   .detailDialog { width: calc(100vw - 12px); height: calc(100dvh - 12px); max-height: none; border-radius: 16px; }
   .detailHeader { padding: 14px; }.detailHeader p { display: none; }.detailActions { gap: 5px; }.csvLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
