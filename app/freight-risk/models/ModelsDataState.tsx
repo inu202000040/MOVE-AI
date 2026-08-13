@@ -23,13 +23,6 @@ export function ModelsDataState({ kind }: Readonly<{ kind: ModelsDataStateKindV1
   const copy = STATE_COPY[kind];
   return (
     <div className={styles.page} data-models-main>
-      <header className={styles.pageHeader}>
-        <div>
-          <p className={styles.eyebrow}>MODEL VALIDATION</p>
-          <h1>예측 모델 디테일</h1>
-          <p className={styles.pageDescription}>8개 모델의 1~4주 전망과 시차별 검증 성능을 비교합니다.</p>
-        </div>
-      </header>
       <main className={styles.workspace}>
         <section className={`${styles.panel} ${styles.baseStatePanel}`} aria-busy={kind === "loading"}>
           <div className={styles.baseStateMessage}>

@@ -295,7 +295,8 @@ test("base states and narrow-screen accessibility rules remain explicit", () => 
   assert.match(stateSource, /다시 시도/u);
   assert.match(chartSource, /routeName/u);
   assert.doesNotMatch(chartSource, /뉴욕 항로/u);
-  assert.match(css, /@media \(max-width: 420px\)[\s\S]*\.dataBasis \{ display: none; \}/u);
+  assert.doesNotMatch(stateSource, /pageHeader/u);
+  assert.doesNotMatch(css, /\.pageHeader|\.dataBasis/u);
   assert.match(css, /\.drawerBody \{ min-height: 0; padding-inline: 14px; overflow-y: auto; \}/u);
   assert.match(css, /\.modalBackdrop, \.drawerBackdrop \{ --navy: #001290; --blue: #15269d; --cyan: #3fa1eb;/u);
   const genericFooterRule = css.indexOf(".drawerFooter button {");

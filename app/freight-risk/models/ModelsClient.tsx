@@ -283,18 +283,6 @@ export default function ModelsClient({ catalog, dataGateway }: ModelsClientProps
 
   return (
     <div className={styles.page} data-models-main>
-      <header className={styles.pageHeader}>
-        <div>
-          <p className={styles.eyebrow}>MODEL VALIDATION</p>
-          <h1>예측 모델 디테일</h1>
-          <p className={styles.pageDescription}>8개 모델의 1~4주 전망과 시차별 검증 성능을 비교합니다.</p>
-        </div>
-        <div className={styles.dataBasis}>
-          <span>데이터 기준</span>
-              <strong>{routeData.currentObservation.date.replaceAll("-", ".")}</strong>
-        </div>
-      </header>
-
       <main className={styles.workspace}>
         <section className={`${styles.panel} ${styles.forecastPanel}`}>
           <header className={styles.panelHeader}>
@@ -304,6 +292,7 @@ export default function ModelsClient({ catalog, dataGateway }: ModelsClientProps
               <p>기본은 직전 4개 실측과 향후 1~4주 예측을 확대 비교하며, 휠·드래그·기간 버튼으로 2022년부터 과거 흐름을 탐색할 수 있습니다.</p>
             </div>
             <div className={styles.panelBadges}>
+              <span>데이터 기준 {routeData.currentObservation.date.replaceAll("-", ".")}</span>
               <span>동일 187주 입력</span>
             </div>
           </header>
