@@ -469,7 +469,7 @@ export async function generateAll(input: {
         domain: "market",
         normalizedRequest: { series, providerVersion: 3 },
         state: "REFERENCE",
-        mode: "reference",
+        mode: "fixture",
         asOf: market.series[series].observationEnd,
         fetchedAt: generatedAt,
         artifactDigest: digestById.get("market-reference-v1"),

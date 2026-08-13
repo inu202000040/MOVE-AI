@@ -176,7 +176,7 @@ test("fixture truth preserves reference, stale, unavailable, null, and observed 
       readonly expectedCacheControl: string;
     }[];
   };
-  assert.ok(fixture.items.some((item) => item.domain === "market" && item.state === "REFERENCE" && item.mode === "reference"));
+  assert.ok(fixture.items.some((item) => item.domain === "market" && item.state === "REFERENCE" && item.mode === "fixture"));
   assert.ok(fixture.items.some((item) => item.domain === "port" && item.state === "STALE" && item.mode === "fixture" && item.asOf === "2026-08-07"));
   assert.ok(fixture.items.some((item) => item.domain === "chokepoint" && item.state === "STALE" && item.asOf === "2026-08-09"));
   assert.ok(

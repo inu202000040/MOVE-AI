@@ -530,7 +530,7 @@ export function assertFixtureCatalogV1(value: unknown): void {
     string(item.domain, "domain");
     record(item.normalizedRequest, "normalizedRequest");
     string(item.state, "state");
-    oneOf(item.mode, ["fixture", "reference", "unavailable"], "mode");
+    oneOf(item.mode, ["fixture", "unavailable"], "mode");
     if (item.asOf !== null) isoDate(item.asOf, "asOf");
     isoTimestamp(item.fetchedAt, "fetchedAt");
     if (item.artifactDigest !== null && !/^[\da-f]{64}$/u.test(string(item.artifactDigest, "artifactDigest"))) {
