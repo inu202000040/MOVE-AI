@@ -6,6 +6,7 @@ import {
   DATA_MODES,
   DEFAULT_ROUTE_ID,
   GATEWAY_CACHE_KEYS,
+  GATEWAY_ERROR_DETAIL_KEYS,
   GATEWAY_ERROR_KEYS,
   GATEWAY_META_KEYS,
   GATEWAY_ROOT_KEYS,
@@ -14,6 +15,7 @@ import {
   ROUTE_IDS,
   ROUTE_LABELS,
   STORAGE_KEYS,
+  isGatewaySchemaVersion,
   isRouteId,
 } from "../../app/contracts";
 
@@ -50,24 +52,42 @@ test("freezes storage ownership keys and prefixes", () => {
     routeNewsPrefix: "move-ai:route-news:v1:",
     forecastInsightPrefix: "move-ai:forecast-insight:v1:",
   });
+  const storageValues = Object.values(STORAGE_KEYS);
+  assert.equal(storageValues.every((value) => value.startsWith("move-ai:")), true);
+  assert.equal(
+    storageValues.some((value) => /^(?:freight-risk|glovis)(?::|-)/u.test(value)),
+    false,
+    "legacy storage namespaces must stay forbidden",
+  );
 });
 
 test("freezes the gateway envelope surface and method manifest", () => {
-  assert.equal(GATEWAY_SCHEMA_VERSION, "move-ai/gateway-v1");
+  assert.equal(GATEWAY_SCHEMA_VERSION, "move-ai/gateway/v1");
+  assert.equal(isGatewaySchemaVersion("move-ai/gateway/v1"), true);
+  assert.equal(
+    isGatewaySchemaVersion("move-ai/gateway-v1"),
+    false,
+    "the superseded bootstrap schema literal must stay rejected",
+  );
   assert.deepEqual(DATA_MODES, [
-    "live", "cached", "fixture", "reference", "unavailable",
+    "live", "fixture", "cached", "unavailable",
   ]);
+  assert.equal(new Set<string>(DATA_MODES).has("reference"), false);
   assert.deepEqual(GATEWAY_ROOT_KEYS, [
-    "schemaVersion", "state", "data", "error", "meta",
+    "schemaVersion", "state", "data", "meta", "error",
   ]);
-  assert.deepEqual(GATEWAY_ERROR_KEYS, ["code", "message", "retryable"]);
+  assert.deepEqual(GATEWAY_ERROR_KEYS, [
+    "code", "message", "retryable", "upstreamStatus", "details",
+  ]);
+  assert.deepEqual(GATEWAY_ERROR_DETAIL_KEYS, ["reasonCode"]);
   assert.deepEqual(GATEWAY_META_KEYS, [
     "mode", "source", "sourceUrl", "asOf", "fetchedAt", "unit",
-    "isEstimate", "cache",
+    "isEstimate", "attribution", "warnings", "provider", "cache",
   ]);
   assert.deepEqual(GATEWAY_CACHE_KEYS, ["hit", "stale", "ageSeconds"]);
   assert.deepEqual(DATA_GATEWAY_METHODS, [
-    "snapshot", "market", "news", "insight", "tuningHealth", "tune",
+    "snapshot", "market", "news", "insight", "tuningHealth", "tuningRun",
     "portSummary", "portDetail", "chokeSummary", "chokeDetail", "weather",
   ]);
+  assert.equal(new Set<string>(DATA_GATEWAY_METHODS).has("tune"), false);
 });
