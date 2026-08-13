@@ -10,16 +10,16 @@
 
 | 입력 | 상태 | 동결 조건 |
 |---|---|---|
-| Figma UI 원본 | `IN_PROGRESS_CLEAN_ROOM` | 사이드 작업에서 신규 파일 생성 중. 완료 후 실제 파일 URL, version, frame ID, 디자인 소유권 기록 |
-| UI PNG exports | `PENDING_USER_SUPPLY` | 원본 파일, viewport/state/page 식별자, bytes, SHA-256 |
+| Figma UI 원본 | `APPROVED_CLEAN_ROOM_V1` | `MOVE AI Clean-room UI`, file key `RvydVRm2bD59KlTzfemK7F`, [Figma 파일](https://www.figma.com/design/RvydVRm2bD59KlTzfemK7F), 실제 생성 시각과 frame ID는 `03_FIGMA_DESIGN_BASELINE.md`에 기록 |
+| UI PNG exports | `APPROVED_PRIMARY_V1` | `design/exports/`의 1440×900·375×812 주 화면, Allocation drawer, runtime states, Network 2D fallback; bytes·SHA-256 동결 |
 | Landing 영상·poster·로고 | `PENDING_USER_SUPPLY` | 원본 파일, 사용 권한, bytes, SHA-256 |
 
-아침에 제작된 Figma와 PNG는 실제 파일 또는 Figma 버전 기록을 받은 뒤 그 실제 정보로 동결한다. 파일이 없는 상태에서 생성 시각·hash·버전을 추정하지 않는다.
+현재 승인된 Figma와 PNG는 `2026-08-13`에 새로 생성한 clean-room 디자인이다. 이를 과거 시각에 만들어진 파일로 소급 표기하지 않는다. 별도의 이전 디자인 파일을 추가하려면 실제 파일·버전·생성 기록을 별도 입력으로 등록해야 한다.
 
 필수 PNG 최소 세트:
 
-- Landing, Dashboard, Models, Network, Allocation의 `1440x900` 및 `375x812` ready 화면
-- `900x900`, `640x900` breakpoint smoke 화면
+- Landing, Dashboard, Models, Network, Allocation의 `1440x900` 및 `375x812` ready 화면 — 현재 승인 완료
+- `900x900`, `640x900`은 구현 후 breakpoint smoke로 검증하며 primary Figma source는 1440·375로 고정
 - loading, empty/unavailable, error, 주요 modal/drawer/panel
 - hover, focus, selected 상태
 - Network WebGL2 3D 정상 상태와 장애 시 2D fallback
