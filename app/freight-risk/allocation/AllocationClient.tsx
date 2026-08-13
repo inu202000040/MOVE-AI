@@ -20,6 +20,7 @@ import { CvarRunCoordinator } from "./runtime";
 import {
   readAllocationRepresentative,
   type AllocationRepresentativeSource,
+  UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE,
 } from "./source";
 import { calculateSpotExceedProbability, publishAllocationRoute, riskBarWidth } from "./view-model";
 import styles from "./allocation.module.css";
@@ -224,9 +225,9 @@ function AllocationUnavailable() {
 }
 
 export function AllocationClient({
-  source,
+  source = UNAVAILABLE_ALLOCATION_REPRESENTATIVE_SOURCE,
 }: {
-  readonly source: AllocationRepresentativeSource;
+  readonly source?: AllocationRepresentativeSource;
 }) {
   const { routeId, changeRoute } = useFreightRiskRoute();
   const [, publishSourceChange] = useReducer((revision: number) => revision + 1, 0);
