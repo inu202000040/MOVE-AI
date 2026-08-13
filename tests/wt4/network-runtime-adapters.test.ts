@@ -1,16 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { decodeNetworkCatalogSeam } from "../../app/freight-risk/network/core/catalog-consumer";
-import { APPROVED_REFERENCE_CATALOG } from "../../app/freight-risk/network/data/approved-reference-fixture";
-import { createReferenceCatalogAdapter } from "../../app/freight-risk/network/data/network-catalog-adapter";
 import {
-  createUnavailableNetworkGateway,
+  createFixtureDataGatewayV1,
+  validatedArtifactSeamV1,
+} from "../../app/data/runtime/data-gateway";
+import { decodeNetworkCatalogSeam } from "../../app/freight-risk/network/core/catalog-consumer";
+import {
+  createValidatedArtifactCatalogAdapter,
+} from "../../app/freight-risk/network/data/network-catalog-adapter";
+import {
+  adaptNetworkDataGatewayV1,
   resolveNetworkResource,
 } from "../../app/freight-risk/network/data/network-domain-adapter";
 
-test("approved clean-room fixture validates as the complete 13/57/11/82 catalog", async () => {
-  const decoded = decodeNetworkCatalogSeam(APPROVED_REFERENCE_CATALOG);
+test("WT6 canonical artifact validates as 13/57/11/82 with canonical route geometry", async () => {
+  const artifacts = await validatedArtifactSeamV1();
+  const decoded = decodeNetworkCatalogSeam(artifacts.networkCatalog);
   assert.ok(decoded);
   assert.equal(decoded.routes.length, 13);
   assert.equal(decoded.ports.length, 57);
@@ -20,26 +26,15 @@ test("approved clean-room fixture validates as the complete 13/57/11/82 catalog"
     new Set(decoded.ports.map(({ upstreamPortWatchId }) => upstreamPortWatchId)).size,
     56,
   );
-
-  const adapter = createReferenceCatalogAdapter({
-    catalog: APPROVED_REFERENCE_CATALOG,
-    source: "approved-data-pack:test",
-    attribution: "approved fixture",
-    asOf: APPROVED_REFERENCE_CATALOG.capturedAt,
-  });
-  const result = await adapter.load();
-  assert.equal(result.state, "READY");
-  if (result.state !== "READY") return;
-  assert.equal(result.mode, "fixture");
-  assert.equal(result.identity, null);
+  assert.ok(decoded.routes.every(({ waypointCoordinates }) => waypointCoordinates.length === 2));
 });
 
-test("interim domain adapter is truthful UNAVAILABLE for exact network queries", async () => {
-  const gateway = createUnavailableNetworkGateway();
+test("canonical DataGateway fixture decodes exact network queries and truthful states", async () => {
+  const gateway = adaptNetworkDataGatewayV1(createFixtureDataGatewayV1());
   const [portSummary, portDetail, chokeSummary, chokeDetail, weather] =
     await Promise.all([
       gateway.portSummary(),
-      gateway.portDetail({ id: "USLAX", days: 90 }),
+      gateway.portDetail({ id: "KNEI-RTM", days: 90 }),
       gateway.chokeSummary(),
       gateway.chokeDetail({ id: "suez-canal" }),
       gateway.weather(),
@@ -50,22 +45,55 @@ test("interim domain adapter is truthful UNAVAILABLE for exact network queries",
     portDetail,
     chokeSummary,
     chokeDetail,
-    weather,
   ]) {
-    assert.equal(result.state, "UNAVAILABLE");
-    assert.equal(result.data, null);
-    assert.equal(result.meta.mode, "unavailable");
-    assert.equal(result.error?.code, "UPSTREAM_UNAVAILABLE");
-    assert.equal(resolveNetworkResource(result, 1).status, "error");
+    assert.equal(result.state, "STALE");
+    assert.ok(result.data);
+    assert.equal(result.meta.mode, "fixture");
+    assert.equal(result.error, null);
   }
+  assert.equal(resolveNetworkResource(portSummary, 1).status, "ready");
+  assert.equal(resolveNetworkResource(portDetail, 1).status, "ready");
+  assert.equal(resolveNetworkResource(chokeSummary, 1).status, "ready");
+  assert.equal(resolveNetworkResource(chokeDetail, 1).status, "ready");
+  assert.equal(portDetail.data?.detail?.portId, "KNEI-RTM");
+  assert.equal(portDetail.data?.detail?.points.length, 90);
+  assert.equal(chokeDetail.data?.detail?.chokepointId, "suez-canal");
+  assert.equal(weather.state, "UNAVAILABLE");
+  assert.equal(weather.data, null);
+  assert.equal(weather.meta.mode, "unavailable");
+  assert.equal(resolveNetworkResource(weather, 1).status, "error");
 });
 
-test("reference adapter rejects malformed catalog input instead of casting", async () => {
-  const adapter = createReferenceCatalogAdapter({
-    catalog: { ...APPROVED_REFERENCE_CATALOG, weather: [] },
+test("validated WT6 artifact seam becomes the canonical Network catalog", async () => {
+  const adapter = createValidatedArtifactCatalogAdapter({
+    load: validatedArtifactSeamV1,
+    source: "network-catalog-seam-v1",
+    attribution: "MOVE AI approved data pack",
+  });
+  const result = await adapter.load();
+  assert.equal(result.state, "READY");
+  if (result.state !== "READY") return;
+  assert.equal(result.mode, "canonical");
+  assert.equal(result.catalog.routes.length, 13);
+  assert.equal(result.catalog.ports.length, 57);
+  assert.equal(result.catalog.chokepoints.length, 11);
+  assert.equal(result.catalog.weather.length, 82);
+  assert.equal(result.identity?.routeCount, 13);
+  assert.equal(
+    result.identity?.referenceManifestSha256,
+    result.catalog.referenceManifestSha256,
+  );
+});
+
+test("validated artifact adapter rejects malformed catalog input instead of casting", async () => {
+  const artifacts = await validatedArtifactSeamV1();
+  const adapter = createValidatedArtifactCatalogAdapter({
+    load: async () => ({
+      networkCatalog: { ...artifacts.networkCatalog, weather: [] },
+      networkCatalogIdentity: artifacts.networkCatalogIdentity,
+    }),
     source: "approved-data-pack:test",
     attribution: "approved fixture",
-    asOf: APPROVED_REFERENCE_CATALOG.capturedAt,
   });
   const result = await adapter.load();
   assert.deepEqual(result, {

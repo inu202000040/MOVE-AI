@@ -1,29 +1,33 @@
+import type { DataGatewayV1 } from "../../../contracts/gateway";
 import {
-  APPROVED_REFERENCE_CATALOG,
-  APPROVED_REFERENCE_PROVENANCE,
-} from "./approved-reference-fixture";
-import {
-  createReferenceCatalogAdapter,
+  createValidatedArtifactCatalogAdapter,
   type NetworkCatalogAdapterV1,
 } from "./network-catalog-adapter";
 import {
-  createUnavailableNetworkGateway,
-  type NetworkSharedDataGatewayV1,
+  adaptNetworkDataGatewayV1,
+  type NetworkDomainGatewayV1,
 } from "./network-domain-adapter";
+
+export interface NetworkCatalogArtifactPropsV1 {
+  readonly networkCatalog: unknown;
+  readonly networkCatalogIdentity: unknown;
+}
 
 export interface NetworkRuntimeAdaptersV1 {
   readonly catalog: NetworkCatalogAdapterV1;
-  readonly gateway: NetworkSharedDataGatewayV1;
+  readonly gateway: NetworkDomainGatewayV1 | null;
 }
 
-export function createInterimNetworkRuntimeAdapters(): NetworkRuntimeAdaptersV1 {
+export function createNetworkRuntimeAdapters(input: {
+  readonly artifacts: NetworkCatalogArtifactPropsV1;
+  readonly gateway?: DataGatewayV1;
+}): NetworkRuntimeAdaptersV1 {
   return {
-    catalog: createReferenceCatalogAdapter({
-      catalog: APPROVED_REFERENCE_CATALOG,
-      source: APPROVED_REFERENCE_PROVENANCE.source,
-      attribution: APPROVED_REFERENCE_PROVENANCE.attribution,
-      asOf: APPROVED_REFERENCE_PROVENANCE.capturedAt,
+    catalog: createValidatedArtifactCatalogAdapter({
+      load: async () => input.artifacts,
+      source: "network-catalog-seam-v1",
+      attribution: "MOVE AI approved data pack",
     }),
-    gateway: createUnavailableNetworkGateway(),
+    gateway: input.gateway ? adaptNetworkDataGatewayV1(input.gateway) : null,
   };
 }

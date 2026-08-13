@@ -11,12 +11,17 @@ import {
   type PointerEvent,
 } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
+import type { DataGatewayV1 } from "../../contracts/gateway";
 import {
   DEFAULT_ROUTE_ID,
   isRouteId,
   type RouteId,
 } from "../../contracts/routes";
 import { STORAGE_KEYS } from "../../contracts/storage";
+import type {
+  ChokepointTrafficDataV1,
+  PortTrafficDataV1,
+} from "../../data/runtime/domains";
 
 type MapLibrePaintProperty = Parameters<MapLibreMap["setPaintProperty"]>[1];
 
@@ -52,11 +57,12 @@ import {
   type StaticViewport,
 } from "./core";
 import {
-  APPROVED_REFERENCE_LABELS,
-  createInterimNetworkRuntimeAdapters,
+  APPROVED_NETWORK_LABELS,
+  createNetworkRuntimeAdapters,
   resolveNetworkResource,
   type ChokepointStateV1,
   type NetworkCatalogAdapterResult,
+  type NetworkCatalogArtifactPropsV1,
   type NetworkResourceState,
   type PortStateV1,
   type WeatherStateV1,
@@ -77,7 +83,6 @@ const MAP_PALETTE = {
   weatherSevere: "#ff5d62",
 } as const;
 
-const RUNTIME_ADAPTERS = createInterimNetworkRuntimeAdapters();
 const ROUTE_CHANGE_EVENT = "move-ai:route-change";
 
 function initialSelection(routeId: RouteId): NetworkSelectionState {
@@ -108,6 +113,8 @@ type CatalogClientState =
     };
 
 interface NetworkPageClientProps {
+  readonly dataGateway?: DataGatewayV1;
+  readonly initialCatalogArtifacts: NetworkCatalogArtifactPropsV1;
   readonly initialRouteId?: RouteId;
   readonly preferStoredRoute?: boolean;
 }
@@ -142,8 +149,8 @@ function rendererLabel(state: RendererState): string {
   return "3D GLOBE LOADING";
 }
 
-function resourceLabel<TState extends string>(
-  resource: NetworkResourceState<unknown, TState>,
+function resourceLabel<TData, TState extends string>(
+  resource: NetworkResourceState<TData, TState>,
 ): string {
   if (resource.status === "ready" || resource.status === "empty") {
     return resource.result.state;
@@ -305,7 +312,7 @@ function StaticNetworkMap({
           const routeId = route.id;
           return (
             <g
-              aria-label={`${APPROVED_REFERENCE_LABELS.routes[routeId]?.ko ?? routeId} 노선`}
+              aria-label={`${APPROVED_NETWORK_LABELS.routes[routeId]?.ko ?? routeId} 노선`}
               className={
                 selection.mapRouteId === routeId
                   ? "network-static-map__route is-selected"
@@ -336,7 +343,7 @@ function StaticNetworkMap({
           return (
             <g
               aria-label={
-                APPROVED_REFERENCE_LABELS.chokepoints[chokepoint.id]?.ko ??
+                APPROVED_NETWORK_LABELS.chokepoints[chokepoint.id]?.ko ??
                 chokepoint.id
               }
               className={
@@ -365,7 +372,7 @@ function StaticNetworkMap({
             onPort(port.id, trigger);
           return (
             <g
-              aria-label={`${APPROVED_REFERENCE_LABELS.ports[port.id]?.ko ?? port.id}, ${port.routeId} 노선`}
+              aria-label={`${APPROVED_NETWORK_LABELS.ports[port.id]?.ko ?? port.id}, ${port.routeId} 노선`}
               className={
                 selection.portId === port.id
                   ? "network-static-map__port is-selected"
@@ -392,7 +399,7 @@ function StaticNetworkMap({
             onWeather(weather.id, trigger);
           return (
             <g
-              aria-label={`${APPROVED_REFERENCE_LABELS.weather[weather.id]?.ko ?? weather.id} 기상`}
+              aria-label={`${APPROVED_NETWORK_LABELS.weather[weather.id]?.ko ?? weather.id} 기상`}
               className={
                 selection.weatherId === weather.id
                   ? "network-static-map__weather is-selected"
@@ -438,6 +445,8 @@ function StaticNetworkMap({
 }
 
 export function NetworkPageClient({
+  dataGateway,
+  initialCatalogArtifacts,
   initialRouteId = DEFAULT_ROUTE_ID,
   preferStoredRoute = true,
 }: NetworkPageClientProps) {
@@ -445,6 +454,13 @@ export function NetworkPageClient({
   const mapRef = useRef<MapLibreMap | null>(null);
   const selectionTriggerRef = useRef<HTMLElement | SVGElement | null>(null);
   const publishingRouteEventRef = useRef(false);
+  const runtimeAdapters = useMemo(
+    () => createNetworkRuntimeAdapters({
+      artifacts: initialCatalogArtifacts,
+      gateway: dataGateway,
+    }),
+    [dataGateway, initialCatalogArtifacts],
+  );
   const focusButtonRefs = useRef(
     new Map<NetworkFocusMode, HTMLButtonElement>(),
   );
@@ -468,19 +484,19 @@ export function NetworkPageClient({
     attempt: 0,
   });
   const [portResource, setPortResource] = useState<
-    NetworkResourceState<unknown, PortStateV1>
+    NetworkResourceState<PortTrafficDataV1, PortStateV1>
   >({ status: "idle" });
   const [chokepointResource, setChokepointResource] = useState<
-    NetworkResourceState<unknown, ChokepointStateV1>
+    NetworkResourceState<ChokepointTrafficDataV1, ChokepointStateV1>
   >({ status: "idle" });
   const [weatherResource, setWeatherResource] = useState<
-    NetworkResourceState<unknown, WeatherStateV1>
+    NetworkResourceState<never, WeatherStateV1>
   >({ status: "idle" });
   const [portDetailResource, setPortDetailResource] = useState<
-    NetworkResourceState<unknown, PortStateV1>
+    NetworkResourceState<PortTrafficDataV1, PortStateV1>
   >({ status: "idle" });
   const [chokepointDetailResource, setChokepointDetailResource] = useState<
-    NetworkResourceState<unknown, ChokepointStateV1>
+    NetworkResourceState<ChokepointTrafficDataV1, ChokepointStateV1>
   >({ status: "idle" });
   const [diagnosticCode, setDiagnosticCode] = useState("BOOT");
   const [webGl2Capability, setWebGl2Capability] = useState<
@@ -598,7 +614,7 @@ export function NetworkPageClient({
     const controller = new AbortController();
     const attempt = catalogAttempt + 1;
     setCatalogResource({ status: "loading", attempt });
-    void RUNTIME_ADAPTERS.catalog.load(controller.signal).then((result) => {
+    void runtimeAdapters.catalog.load(controller.signal).then((result) => {
       if (controller.signal.aborted) return;
       if (result.state === "READY") {
         setCatalogResource({ status: "ready", attempt, value: result });
@@ -607,17 +623,31 @@ export function NetworkPageClient({
       setCatalogResource({ status: "error", attempt, value: result });
     });
     return () => controller.abort();
-  }, [catalogAttempt]);
+  }, [catalogAttempt, runtimeAdapters]);
 
   useEffect(() => {
     if (!catalog) return;
-    const controller = new AbortController();
     const attempt = gatewayAttempt + 1;
+    const gateway = runtimeAdapters.gateway;
+    if (!gateway) {
+      const unavailable = {
+        status: "error" as const,
+        attempt,
+        result: null,
+        retryable: false,
+        message: "데이터 게이트웨이를 사용할 수 없습니다.",
+      };
+      setPortResource(unavailable);
+      setChokepointResource(unavailable);
+      setWeatherResource(unavailable);
+      return;
+    }
+    const controller = new AbortController();
     setPortResource({ status: "loading", attempt });
     setChokepointResource({ status: "loading", attempt });
     setWeatherResource({ status: "loading", attempt });
 
-    void RUNTIME_ADAPTERS.gateway.portSummary(controller.signal).then(
+    void gateway.portSummary(controller.signal).then(
       (result) => {
         if (!controller.signal.aborted) {
           setPortResource(resolveNetworkResource(result, attempt));
@@ -635,7 +665,7 @@ export function NetworkPageClient({
         }
       },
     );
-    void RUNTIME_ADAPTERS.gateway.chokeSummary(controller.signal).then(
+    void gateway.chokeSummary(controller.signal).then(
       (result) => {
         if (!controller.signal.aborted) {
           setChokepointResource(resolveNetworkResource(result, attempt));
@@ -653,7 +683,7 @@ export function NetworkPageClient({
         }
       },
     );
-    void RUNTIME_ADAPTERS.gateway.weather(controller.signal).then(
+    void gateway.weather(controller.signal).then(
       (result) => {
         if (!controller.signal.aborted) {
           setWeatherResource(resolveNetworkResource(result, attempt));
@@ -672,17 +702,28 @@ export function NetworkPageClient({
       },
     );
     return () => controller.abort();
-  }, [catalog, gatewayAttempt]);
+  }, [catalog, gatewayAttempt, runtimeAdapters]);
 
   useEffect(() => {
     if (!selectedPort) {
       setPortDetailResource({ status: "idle" });
       return;
     }
-    const controller = new AbortController();
     const attempt = gatewayAttempt + 1;
+    const gateway = runtimeAdapters.gateway;
+    if (!gateway) {
+      setPortDetailResource({
+        status: "error",
+        attempt,
+        result: null,
+        retryable: false,
+        message: "데이터 게이트웨이를 사용할 수 없습니다.",
+      });
+      return;
+    }
+    const controller = new AbortController();
     setPortDetailResource({ status: "loading", attempt });
-    void RUNTIME_ADAPTERS.gateway
+    void gateway
       .portDetail({ id: selectedPort.id, days: 90 }, controller.signal)
       .then(
         (result) => {
@@ -703,17 +744,28 @@ export function NetworkPageClient({
         },
       );
     return () => controller.abort();
-  }, [gatewayAttempt, selectedPort]);
+  }, [gatewayAttempt, runtimeAdapters, selectedPort]);
 
   useEffect(() => {
     if (!selectedChokepoint) {
       setChokepointDetailResource({ status: "idle" });
       return;
     }
-    const controller = new AbortController();
     const attempt = gatewayAttempt + 1;
+    const gateway = runtimeAdapters.gateway;
+    if (!gateway) {
+      setChokepointDetailResource({
+        status: "error",
+        attempt,
+        result: null,
+        retryable: false,
+        message: "데이터 게이트웨이를 사용할 수 없습니다.",
+      });
+      return;
+    }
+    const controller = new AbortController();
     setChokepointDetailResource({ status: "loading", attempt });
-    void RUNTIME_ADAPTERS.gateway
+    void gateway
       .chokeDetail({ id: selectedChokepoint.id }, controller.signal)
       .then(
         (result) => {
@@ -734,7 +786,7 @@ export function NetworkPageClient({
         },
       );
     return () => controller.abort();
-  }, [gatewayAttempt, selectedChokepoint]);
+  }, [gatewayAttempt, runtimeAdapters, selectedChokepoint]);
 
   useEffect(() => {
     const queryRoute = new URL(window.location.href).searchParams.get("route");
@@ -1115,7 +1167,7 @@ export function NetworkPageClient({
             >
               {catalog.routes.map((route) => (
                 <option key={route.id} value={route.id}>
-                  {route.id} · {APPROVED_REFERENCE_LABELS.routes[route.id]?.ko ?? route.id}
+                  {route.id} · {APPROVED_NETWORK_LABELS.routes[route.id]?.ko ?? route.id}
                 </option>
               ))}
             </select>
@@ -1133,7 +1185,7 @@ export function NetworkPageClient({
                 .filter(({ routeId }) => routeId === selection.navigationRouteId)
                 .map((port) => (
                   <option key={port.id} value={port.id}>
-                    {APPROVED_REFERENCE_LABELS.ports[port.id]?.ko ?? port.id}
+                    {APPROVED_NETWORK_LABELS.ports[port.id]?.ko ?? port.id}
                   </option>
                 ))}
             </select>
@@ -1149,7 +1201,7 @@ export function NetworkPageClient({
               <option value="">초크포인트 선택</option>
               {catalog.chokepoints.map((chokepoint) => (
                 <option key={chokepoint.id} value={chokepoint.id}>
-                  {APPROVED_REFERENCE_LABELS.chokepoints[chokepoint.id]?.ko ??
+                  {APPROVED_NETWORK_LABELS.chokepoints[chokepoint.id]?.ko ??
                     chokepoint.id}
                 </option>
               ))}
@@ -1249,7 +1301,7 @@ export function NetworkPageClient({
             <>
               <p className="network-eyebrow">{selectedRoute.id}</p>
               <h2>
-                {APPROVED_REFERENCE_LABELS.routes[selectedRoute.id]?.ko ??
+                {APPROVED_NETWORK_LABELS.routes[selectedRoute.id]?.ko ??
                   selectedRoute.id} 노선
               </h2>
               <dl>
@@ -1264,7 +1316,7 @@ export function NetworkPageClient({
                 <div>
                   <dt>기본 해상 회랑</dt>
                   <dd>
-                    {APPROVED_REFERENCE_LABELS.weather[`route:${selectedRoute.id}`]
+                    {APPROVED_NETWORK_LABELS.weather[`route:${selectedRoute.id}`]
                       ?.subtitleKo ?? "—"}
                   </dd>
                 </div>
@@ -1289,7 +1341,7 @@ export function NetworkPageClient({
                     type="button"
                   >
                     <strong>{routeId}</strong>
-                    <span>{APPROVED_REFERENCE_LABELS.routes[routeId]?.ko ?? routeId}</span>
+                    <span>{APPROVED_NETWORK_LABELS.routes[routeId]?.ko ?? routeId}</span>
                     <small>
                       {catalog?.ports.filter((port) => port.routeId === routeId).length ?? 0}개
                     </small>
@@ -1303,7 +1355,7 @@ export function NetworkPageClient({
               <p className="network-eyebrow">
                 {selectedPort.routeId} · IMF PORTWATCH · {resourceLabel(portResource)}
               </p>
-              <h2>{APPROVED_REFERENCE_LABELS.ports[selectedPort.id]?.ko ?? selectedPort.id}</h2>
+              <h2>{APPROVED_NETWORK_LABELS.ports[selectedPort.id]?.ko ?? selectedPort.id}</h2>
               <dl className="network-kpi-grid">
                 <div><dt>최근 7일 추정 물동량</dt><dd>UNAVAILABLE</dd></div>
                 <div><dt>전주 대비</dt><dd>UNAVAILABLE</dd></div>
@@ -1341,7 +1393,7 @@ export function NetworkPageClient({
                 PORTWATCH · {resourceLabel(chokepointResource)}
               </p>
               <h2>
-                {APPROVED_REFERENCE_LABELS.chokepoints[selectedChokepoint.id]?.ko ??
+                {APPROVED_NETWORK_LABELS.chokepoints[selectedChokepoint.id]?.ko ??
                   selectedChokepoint.id}
               </h2>
               <dl className="network-kpi-grid">
@@ -1372,10 +1424,10 @@ export function NetworkPageClient({
             <>
               <p className="network-eyebrow">LIVE WEATHER · {resourceLabel(weatherResource)}</p>
               <h2>
-                {APPROVED_REFERENCE_LABELS.weather[selectedWeather.id]?.ko ??
+                {APPROVED_NETWORK_LABELS.weather[selectedWeather.id]?.ko ??
                   selectedWeather.id}
               </h2>
-              <p>{APPROVED_REFERENCE_LABELS.weather[selectedWeather.id]?.subtitleKo}</p>
+              <p>{APPROVED_NETWORK_LABELS.weather[selectedWeather.id]?.subtitleKo}</p>
               <dl className="network-kpi-grid network-weather-grid">
                 <div><dt>상태</dt><dd>UNAVAILABLE</dd></div>
                 <div><dt>위험</dt><dd>UNAVAILABLE</dd></div>

@@ -1,4 +1,5 @@
 import {
+  decodeNetworkCatalogIdentity,
   decodeNetworkCatalogSeam,
   validateNetworkCatalogHandoff,
   type CatalogValidationIssue,
@@ -28,6 +29,82 @@ export type NetworkCatalogAdapterResult =
 
 export interface NetworkCatalogAdapterV1 {
   load(signal?: AbortSignal): Promise<NetworkCatalogAdapterResult>;
+}
+
+export interface ValidatedArtifactCatalogInput {
+  readonly load: () => Promise<{
+    readonly networkCatalog: unknown;
+    readonly networkCatalogIdentity: unknown;
+  }>;
+  readonly source: string;
+  readonly attribution: string;
+}
+
+export function createValidatedArtifactCatalogAdapter(
+  input: ValidatedArtifactCatalogInput,
+): NetworkCatalogAdapterV1 {
+  return {
+    async load(signal) {
+      if (signal?.aborted) {
+        return {
+          state: "UNAVAILABLE",
+          code: "CATALOG_UNAVAILABLE",
+          retryable: true,
+          issues: [],
+        };
+      }
+      try {
+        const artifacts = await input.load();
+        if (signal?.aborted) {
+          return {
+            state: "UNAVAILABLE",
+            code: "CATALOG_UNAVAILABLE",
+            retryable: true,
+            issues: [],
+          };
+        }
+        const catalog = decodeNetworkCatalogSeam(artifacts.networkCatalog);
+        const identity = decodeNetworkCatalogIdentity(
+          artifacts.networkCatalogIdentity,
+        );
+        if (
+          !catalog ||
+          !identity ||
+          identity.routeCount !== catalog.routes.length ||
+          identity.portCount !== catalog.ports.length ||
+          identity.uniquePortSeriesCount !==
+            new Set(catalog.ports.map(({ upstreamPortWatchId }) => upstreamPortWatchId))
+              .size ||
+          identity.chokepointCount !== catalog.chokepoints.length ||
+          identity.weatherCount !== catalog.weather.length ||
+          identity.referenceManifestSha256 !== catalog.referenceManifestSha256
+        ) {
+          return {
+            state: "UNAVAILABLE",
+            code: "CATALOG_CONTRACT_MISMATCH",
+            retryable: false,
+            issues: ["CATALOG_STRUCTURE_INVALID"],
+          };
+        }
+        return {
+          state: "READY",
+          mode: "canonical",
+          catalog,
+          identity,
+          source: input.source,
+          attribution: input.attribution,
+          asOf: catalog.capturedAt,
+        };
+      } catch {
+        return {
+          state: "UNAVAILABLE",
+          code: "CATALOG_CONTRACT_MISMATCH",
+          retryable: false,
+          issues: ["CATALOG_STRUCTURE_INVALID"],
+        };
+      }
+    },
+  };
 }
 
 export interface ReferenceCatalogInput {

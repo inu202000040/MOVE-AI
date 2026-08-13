@@ -457,7 +457,9 @@ export function decodeNetworkCatalogSeam(
   };
 }
 
-function parseIdentity(value: unknown): NetworkCatalogIdentity | null {
+export function decodeNetworkCatalogIdentity(
+  value: unknown,
+): NetworkCatalogIdentity | null {
   if (!isRecord(value) || !hasExactKeys(value, IDENTITY_KEYS)) {
     return null;
   }
@@ -510,7 +512,7 @@ export async function validateNetworkCatalogHandoff(
   handoff: NetworkCatalogHandoff,
 ): Promise<NetworkCatalogValidation> {
   const issues: CatalogValidationIssue[] = [];
-  const identity = parseIdentity(handoff.identity);
+  const identity = decodeNetworkCatalogIdentity(handoff.identity);
   if (!identity) {
     return { compatible: false, issues: ["IDENTITY_INVALID"] };
   }

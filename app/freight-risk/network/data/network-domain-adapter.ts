@@ -1,39 +1,77 @@
-import {
-  GATEWAY_SCHEMA_VERSION,
-  type GatewayResultV1,
+import type {
+  DataGatewayV1,
+  GatewayResultV1,
 } from "../../../contracts/gateway";
+import type {
+  ChokepointDetailQueryV1,
+  ChokepointTrafficDataV1,
+  PortDetailQueryV1,
+  PortTrafficDataV1,
+} from "../../../data/runtime/domains";
+import {
+  decodeChokepointDetailResultV1,
+  decodeChokepointSummaryResultV1,
+  decodePortDetailResultV1,
+  decodePortSummaryResultV1,
+  decodeWeatherUnavailableResultV1,
+  type ChokepointStateV1,
+  type PortStateV1,
+} from "../../../data/runtime/method-decoders";
 
-export type PortStateV1 = "LIVE" | "PARTIAL" | "STALE" | "UNAVAILABLE";
-export type ChokepointStateV1 = "LIVE" | "STALE" | "UNAVAILABLE";
-export type WeatherStateV1 = "LIVE" | "PARTIAL" | "UNAVAILABLE";
+export type { ChokepointStateV1, PortStateV1 };
+export type WeatherStateV1 = "UNAVAILABLE";
 
-export interface PortDetailQueryV1 {
-  readonly id: string;
-  readonly days?: number;
-}
-
-export interface ChokepointDetailQueryV1 {
-  readonly id: string;
-}
-
-export interface NetworkSharedDataGatewayV1 {
+export interface NetworkDomainGatewayV1 {
   portSummary(
     signal?: AbortSignal,
-  ): Promise<GatewayResultV1<unknown, PortStateV1>>;
+  ): Promise<GatewayResultV1<PortTrafficDataV1, PortStateV1>>;
   portDetail(
     query: PortDetailQueryV1,
     signal?: AbortSignal,
-  ): Promise<GatewayResultV1<unknown, PortStateV1>>;
+  ): Promise<GatewayResultV1<PortTrafficDataV1, PortStateV1>>;
   chokeSummary(
     signal?: AbortSignal,
-  ): Promise<GatewayResultV1<unknown, ChokepointStateV1>>;
+  ): Promise<GatewayResultV1<ChokepointTrafficDataV1, ChokepointStateV1>>;
   chokeDetail(
     query: ChokepointDetailQueryV1,
     signal?: AbortSignal,
-  ): Promise<GatewayResultV1<unknown, ChokepointStateV1>>;
+  ): Promise<GatewayResultV1<ChokepointTrafficDataV1, ChokepointStateV1>>;
   weather(
     signal?: AbortSignal,
-  ): Promise<GatewayResultV1<unknown, WeatherStateV1>>;
+  ): Promise<GatewayResultV1<never, WeatherStateV1>>;
+}
+
+export function adaptNetworkDataGatewayV1(
+  gateway: DataGatewayV1,
+): NetworkDomainGatewayV1 {
+  return {
+    async portSummary(signal) {
+      return decodePortSummaryResultV1(await gateway.portSummary(signal));
+    },
+    async portDetail(query, signal) {
+      return decodePortDetailResultV1(
+        await gateway.portDetail(
+          query.days === undefined
+            ? { id: query.id }
+            : { id: query.id, days: query.days },
+          signal,
+        ),
+        query,
+      );
+    },
+    async chokeSummary(signal) {
+      return decodeChokepointSummaryResultV1(await gateway.chokeSummary(signal));
+    },
+    async chokeDetail(query, signal) {
+      return decodeChokepointDetailResultV1(
+        await gateway.chokeDetail({ id: query.id }, signal),
+        query,
+      );
+    },
+    async weather(signal) {
+      return decodeWeatherUnavailableResultV1(await gateway.weather(signal));
+    },
+  };
 }
 
 export type NetworkResourceState<TData, TDomainState extends string> =
@@ -75,55 +113,4 @@ export function resolveNetworkResource<TData, TDomainState extends string>(
     return { status: "empty", attempt, result };
   }
   return { status: "ready", attempt, result };
-}
-
-function unavailable<TState extends string>(
-  state: TState,
-  source: string,
-): GatewayResultV1<never, TState> {
-  return {
-    schemaVersion: GATEWAY_SCHEMA_VERSION,
-    state,
-    data: null,
-    meta: {
-      mode: "unavailable",
-      source,
-      sourceUrl: null,
-      asOf: null,
-      fetchedAt: "2026-08-13T00:00:00+09:00",
-      unit: null,
-      isEstimate: false,
-      attribution: "",
-      warnings: [],
-      provider: null,
-      cache: { hit: false, stale: false, ageSeconds: null },
-    },
-    error: {
-      code: "UPSTREAM_UNAVAILABLE",
-      message: "데이터를 불러올 수 없습니다.",
-      retryable: true,
-      upstreamStatus: null,
-      details: { reasonCode: "SHARED_GATEWAY_PENDING" },
-    },
-  };
-}
-
-export function createUnavailableNetworkGateway(): NetworkSharedDataGatewayV1 {
-  return {
-    async portSummary() {
-      return unavailable("UNAVAILABLE", "network-port-summary");
-    },
-    async portDetail() {
-      return unavailable("UNAVAILABLE", "network-port-detail");
-    },
-    async chokeSummary() {
-      return unavailable("UNAVAILABLE", "network-chokepoint-summary");
-    },
-    async chokeDetail() {
-      return unavailable("UNAVAILABLE", "network-chokepoint-detail");
-    },
-    async weather() {
-      return unavailable("UNAVAILABLE", "network-weather");
-    },
-  };
 }
