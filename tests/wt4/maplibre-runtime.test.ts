@@ -156,11 +156,9 @@ function createModule(
   version: string = REQUIRED_MAPLIBRE_VERSION,
 ): NetworkMapLibreModule {
   return {
-    Map: class extends RuntimeMap {
-      constructor(options: NetworkMapLibreOptions) {
-        events.push("constructor");
-        super(options);
-      }
+    createMap: (options: NetworkMapLibreOptions) => {
+      events.push("constructor");
+      return new RuntimeMap(options);
     },
     setWorkerUrl: (url) => events.push(`worker:${url}`),
     getVersion: () => version,

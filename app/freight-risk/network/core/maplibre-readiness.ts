@@ -24,9 +24,9 @@ export type MapLibreMapEventName = "style.load" | "load" | "idle" | "error";
 
 export interface MapLibreMapCandidate {
   getCanvas(): MapLibreCanvasLike;
-  getProjection(): { readonly type: string };
+  getProjection(): { readonly type?: unknown };
   setProjection(projection: { readonly type: "globe" }): void;
-  isStyleLoaded(): boolean;
+  isStyleLoaded(): boolean | void;
   once(type: "style.load", listener: () => void): unknown;
   on(type: "load" | "idle", listener: () => void): unknown;
   on(type: "error", listener: (event: MapLibreErrorEventLike) => void): unknown;

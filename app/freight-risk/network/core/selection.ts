@@ -80,6 +80,7 @@ export type NetworkSelectionAction =
   | { readonly type: "SHOW_OVERLAP"; readonly routeIds: readonly string[] }
   | { readonly type: "SELECT_OVERLAP_ROUTE"; readonly routeId: string }
   | { readonly type: "CLOSE_WEATHER" }
+  | { readonly type: "CLOSE_DETAIL" }
   | { readonly type: "CHANGE_NAVIGATION_ROUTE"; readonly routeId: string };
 
 export function reduceNetworkSelection(
@@ -136,6 +137,15 @@ export function reduceNetworkSelection(
       };
     case "CLOSE_WEATHER":
       return { ...state, weatherId: null };
+    case "CLOSE_DETAIL":
+      return {
+        ...state,
+        portId: null,
+        mapRouteId: null,
+        chokepointId: null,
+        weatherId: null,
+        overlapRouteIds: [],
+      };
     case "CHANGE_NAVIGATION_ROUTE":
       return { ...state, navigationRouteId: action.routeId };
   }

@@ -1,7 +1,9 @@
 import type {
   Coordinate,
-  NetworkCatalogSeam,
+  NetworkChokepointRecord,
   NetworkPortRecord,
+  NetworkRouteRecord,
+  NetworkWeatherRecord,
 } from "./catalog-consumer";
 import { splitAntimeridian } from "./geometry";
 
@@ -44,6 +46,13 @@ export type NetworkGeoJsonSources = Readonly<
   Record<NetworkGeoJsonSourceId, GeoJsonFeatureCollection>
 >;
 
+export interface NetworkGeometryCatalog {
+  readonly routes: readonly NetworkRouteRecord[];
+  readonly ports: readonly NetworkPortRecord[];
+  readonly chokepoints: readonly NetworkChokepointRecord[];
+  readonly weather: readonly NetworkWeatherRecord[];
+}
+
 function emptyFeatureCollection(): GeoJsonFeatureCollection {
   return { type: "FeatureCollection", features: [] };
 }
@@ -53,7 +62,7 @@ function point(longitude: number, latitude: number): GeoJsonGeometry {
 }
 
 function routeFeature(
-  route: NetworkCatalogSeam["routes"][number],
+  route: NetworkRouteRecord,
 ): GeoJsonFeature {
   return {
     type: "Feature",
@@ -94,7 +103,7 @@ function connectorFeature(
 }
 
 export function catalogToNetworkGeoJson(
-  catalog: NetworkCatalogSeam,
+  catalog: NetworkGeometryCatalog,
 ): NetworkGeoJsonSources {
   const primaryPortByRoute = new Map(
     catalog.ports

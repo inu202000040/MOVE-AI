@@ -45,7 +45,7 @@ export interface NetworkMapLibreOptions {
 }
 
 export interface NetworkMapLibreModule {
-  readonly Map: new (options: NetworkMapLibreOptions) => NetworkMapLibreMap;
+  readonly createMap: (options: NetworkMapLibreOptions) => NetworkMapLibreMap;
   readonly setWorkerUrl: (workerUrl: string) => void;
   readonly getVersion: () => string;
 }
@@ -140,7 +140,7 @@ export function startNetworkMapLibreGlobe(
   const readiness = startMapLibreGlobe<NetworkMapLibreMap>({
     webGl2Supported: true,
     createMap: () =>
-      new options.module.Map(
+      options.module.createMap(
         createNetworkMapLibreOptions(options.container, options.style),
       ),
     scheduleMicrotask: options.scheduleMicrotask,

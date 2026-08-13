@@ -155,6 +155,20 @@ test("weather panel temporarily overrides and restores the base selection", () =
   assert.equal(restored.navigationRouteId, "KNEI");
 });
 
+test("detail close clears the visible entity without changing navigation route", () => {
+  const selected: NetworkSelectionState = {
+    navigationRouteId: "KNEI",
+    portId: "KNEI-RTM",
+    mapRouteId: "KNEI",
+    chokepointId: null,
+    weatherId: null,
+    overlapRouteIds: [],
+  };
+  const closed = reduceNetworkSelection(selected, { type: "CLOSE_DETAIL" });
+  assert.deepEqual(visibleNetworkPanel(closed), { kind: "none" });
+  assert.equal(closed.navigationRouteId, "KNEI");
+});
+
 test("static fallback supports pan, zoom, and exact reset", () => {
   assert.equal(staticViewportToViewBox(DEFAULT_STATIC_VIEWPORT), "0 18 1000 464");
   const changed = zoomStaticViewport(

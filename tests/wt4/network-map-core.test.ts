@@ -173,17 +173,26 @@ test("network layers retain the specified depth order", () => {
   const hitLayers = layers.filter(({ id }) =>
     (NETWORK_HIT_LAYER_IDS as readonly string[]).includes(id),
   );
-  assert.equal(hitLayers.length, 4);
-  assert.equal(
-    hitLayers.find(({ id }) => id === "network-port-hit")?.paint["circle-radius"],
-    13,
+  assert.equal(hitLayers.length, 5);
+  const portHit = hitLayers.find(({ id }) => id === "network-port-hit");
+  assert.equal(portHit?.type, "circle");
+  if (portHit?.type === "circle") {
+    assert.equal(portHit.paint?.["circle-radius"], 13);
+  }
+  const corridorHit = hitLayers.find(
+    ({ id }) => id === "network-chokepoint-corridor-hit",
   );
-  assert.equal(
-    hitLayers.find(({ id }) => id === "network-chokepoint-corridor-hit")?.paint[
-      "line-width"
-    ],
-    32,
+  assert.equal(corridorHit?.type, "line");
+  if (corridorHit?.type === "line") {
+    assert.equal(corridorHit.paint?.["line-width"], 32);
+  }
+  const centerHit = hitLayers.find(
+    ({ id }) => id === "network-chokepoint-center-hit",
   );
+  assert.equal(centerHit?.type, "circle");
+  if (centerHit?.type === "circle") {
+    assert.equal(centerHit.paint?.["circle-radius"], 13);
+  }
 });
 
 test("promotion installs controls, sources, layers, interactions and exposure once", () => {

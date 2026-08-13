@@ -1,3 +1,11 @@
+import type {
+  CircleLayerSpecification,
+  ExpressionSpecification,
+  LineLayerSpecification,
+  SkySpecification,
+  StyleSpecification,
+} from "maplibre-gl";
+
 import type { NetworkGeoJsonSourceId } from "./network-geojson";
 
 export interface NetworkMapPalette {
@@ -15,22 +23,18 @@ export interface NetworkMapPalette {
   readonly weatherSevere: string;
 }
 
-export interface RemoteFreeGlobeStyle {
-  readonly version: 8;
-  readonly name: "MOVE AI Network Globe";
-  readonly projection: { readonly type: "globe" };
-  readonly sky: Readonly<Record<string, unknown>>;
-  readonly sources: Readonly<Record<string, never>>;
-  readonly layers: readonly Readonly<Record<string, unknown>>[];
-}
+export type RemoteFreeGlobeStyle = StyleSpecification & {
+  name: "MOVE AI Network Globe";
+  projection: { type: "globe" };
+  sky: SkySpecification;
+};
 
-export interface NetworkMapLayer {
-  readonly id: string;
-  readonly type: "line" | "circle";
-  readonly source: NetworkGeoJsonSourceId;
-  readonly filter?: readonly unknown[];
-  readonly paint: Readonly<Record<string, unknown>>;
-}
+export type NetworkMapLayer = (
+  | LineLayerSpecification
+  | CircleLayerSpecification
+) & {
+  source: NetworkGeoJsonSourceId;
+};
 
 export const NETWORK_LAYER_IDS = [
   "network-chokepoint-corridor-halo",
@@ -43,6 +47,7 @@ export const NETWORK_LAYER_IDS = [
   "network-port-marker",
   "network-weather-marker",
   "network-chokepoint-corridor-hit",
+  "network-chokepoint-center-hit",
   "network-route-hit",
   "network-port-hit",
   "network-weather-hit",
@@ -56,6 +61,7 @@ export const NETWORK_HIT_LAYER_IDS = [
   "network-weather-hit",
   "network-port-hit",
   "network-chokepoint-corridor-hit",
+  "network-chokepoint-center-hit",
   "network-route-hit",
 ] as const;
 
@@ -86,7 +92,11 @@ export function createRemoteFreeGlobeStyle(
   };
 }
 
-const selected = ["boolean", ["feature-state", "selected"], false] as const;
+const selected: ExpressionSpecification = [
+  "boolean",
+  ["feature-state", "selected"],
+  false,
+];
 
 export function createNetworkMapLayers(
   palette: NetworkMapPalette,
@@ -202,6 +212,15 @@ export function createNetworkMapLayers(
       paint: {
         "line-color": "rgba(0,0,0,0)",
         "line-width": 32,
+      },
+    },
+    {
+      id: "network-chokepoint-center-hit",
+      type: "circle",
+      source: "network-chokepoints",
+      paint: {
+        "circle-color": "rgba(0,0,0,0)",
+        "circle-radius": 13,
       },
     },
     {
