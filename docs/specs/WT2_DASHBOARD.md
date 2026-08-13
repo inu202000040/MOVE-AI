@@ -4,7 +4,7 @@
 
 이 문서는 빈 저장소에서 Page 1 메인 대시보드를 처음부터 구축하는 담당자를 위한 greenfield build packet이다.
 
-담당자는 이 문서, 승인된 Figma/PNG 기준, 승인된 데이터 팩, 동결 계약으로 다음을 재현해야 한다.
+담당자는 이 문서를 화면·기능·상태·numeric geometry의 권위로 사용하고, 승인된 데이터 팩과 동결 계약으로 다음을 재현해야 한다. Figma/PNG는 rough composition과 flow를 위한 `REFERENCE_ONLY` 자료다.
 
 - 선택 노선의 전체 KCCI history
 - 대표모델의 1~4주 forecast path
@@ -19,7 +19,7 @@
 
 “데이터가 보이는 dashboard”는 충분하지 않다.
 
-승인된 Figma/PNG 기준과 다른 component hierarchy, chart geometry, interaction, state transition은 실패다.
+본 문서의 component hierarchy, chart geometry, interaction, state transition과 다르면 실패다. Figma/PNG에 항목이 없다는 이유로 본 문서 요구를 생략할 수 없고, Figma/PNG 차이 자체는 실패 근거가 아니다.
 
 실행 코드는 이 문서에 포함하지 않는다.
 
@@ -46,14 +46,14 @@ WT2 완료는 다음이 동시에 성립하는 상태다.
 
 | 우선순위 | 승인 기준 | 용도 |
 |---:|---|---|
-| 1 | 승인된 Figma 프레임과 PNG 기준 이미지 | visible UI·geometry·order·responsive·interaction의 최종 판정 |
-| 2 | 본 문서 | Dashboard 상세 동작·상태·acceptance 계약 |
-| 3 | 동결된 공유 계약 | DTO, literal union, gateway envelope, query와 seam 판정 |
-| 4 | 승인된 데이터 팩과 그로부터 생성한 fixture | 수치·시계열·이벤트·market·news·insight 검증 |
+| 1 | 본 문서 | visible UI·numeric geometry·order·responsive·interaction·상태의 최종 판정 |
+| 2 | 동결된 공유 계약 | DTO, literal union, gateway envelope, query와 seam 판정 |
+| 3 | 승인된 데이터 팩과 그로부터 생성한 fixture | 수치·시계열·이벤트·market·news·insight 검증 |
+| 4 | Figma/PNG (`REFERENCE_ONLY`) | rough composition과 flow 참고; 구현 누락·차이·실패 판정 금지 |
 
 구현과 fixture는 과거 저장소, 배포 화면, API 캡처, 소스 덤프를 입력으로 사용하지 않는다.
 
-Figma와 PNG가 충돌하면 승인 기록이 있는 최신 Figma 프레임을 우선하고, 데이터와 상태는 동결 계약 및 승인된 데이터 팩을 우선한다. 승인 기준끼리 충돌하면 임의로 해석하지 않고 contract freeze를 다시 연다.
+Figma/PNG와 본 문서가 충돌하면 본 문서를 우선하고, 데이터와 상태는 동결 계약 및 승인된 데이터 팩을 우선한다. 권위 자료끼리 충돌하면 임의로 해석하지 않고 contract freeze를 다시 연다. pixel·SSIM·mismatch 또는 Figma difference는 release gate가 아니다.
 
 본 문서의 `NEW MANDATORY`는 typed seam, truthfulness, 검증 gate처럼 **visible UI를 바꾸지 않는** greenfield 보강에만 우선한다. 승인 기준에 없는 card, tooltip field, badge, 표시 문구, status strip, action을 `NEW MANDATORY`라는 이름으로 선승인할 수 없다.
 
@@ -170,8 +170,8 @@ API endpoint가 없으면 contract fixture로 UI를 검증할 수는 있다.
 
 | 계약 | 승인 기준 | 확인 포인트 |
 |---|---|---|
-| page composition | Figma desktop/mobile 프레임 | section 순서, responsive composition, dialogs |
-| geometry와 visual tokens | Figma inspection 값과 승인 PNG | size, spacing, color, typography, shadow, breakpoint 결과 |
+| page composition | 본 문서의 IA·visible inventory·responsive 절 | section 순서, responsive composition, dialogs |
+| geometry와 visual tokens | 본 문서의 numeric geometry·token·final-cascade 표 | size, spacing, color, typography, shadow, breakpoint 결과 |
 | route/model/horizon registry | 동결 계약과 승인 데이터 팩 | ordering, labels, literal values |
 | deterministic core | 승인 데이터 팩에서 생성한 fixture | 13 routes, observations, forecast, metrics, agreement |
 | representative selection | WT3 동결 seam | `RepresentativeSelectionV1`의 단일 생산자 |
@@ -179,7 +179,7 @@ API endpoint가 없으면 contract fixture로 UI를 검증할 수는 있다.
 | market/news/insight | WT6 동결 gateway 계약과 데이터 팩 fixture | query, provider state, cache, response envelope |
 | shell/navigation | WT1 동결 seam | page id, route hydration, topbar action, drawer lifecycle |
 
-모든 검수 근거는 Figma frame/node 식별자, PNG 기준 이미지 식별자, 데이터 팩 버전, 동결 계약 버전으로 기록한다. 과거 소스 파일명·줄 번호·저장소 식별자는 근거로 사용하지 않는다.
+모든 검수 근거는 본 문서 절 번호, browser screenshot 식별자, computed-geometry/style ledger, 상태·상호작용 기록, 데이터 팩 버전과 동결 계약 버전으로 기록한다. Figma/PNG는 rough composition/flow 참고 이력으로만 선택적으로 남기며 판정 근거로 사용하지 않는다.
 
 ## 4.1 Required assets and immutable inputs
 
@@ -271,8 +271,8 @@ market, news, insight의 typed gateway 결과는 모두 다음 root field를 삭
 
 구현 전 다음을 동결한다.
 
-- 승인 Figma desktop/mobile frame과 component variant 식별자
-- 승인 PNG 기준 이미지의 viewport와 상태 식별자
+- 본 문서의 desktop/mobile numeric geometry와 component state checklist
+- 1440/375 상세 및 900/640 smoke screenshot의 viewport와 상태 식별자
 - 승인 데이터 팩 버전과 생성 fixture metadata
 - 동결 공유 계약 버전
 - browser/version
@@ -286,11 +286,11 @@ market, news, insight의 typed gateway 결과는 모두 다음 root field를 삭
 - news cold/empty storage 상태
 - news cached storage fixture
 - market provider fixture timestamp
-- 1440/900/640/375 PNG 기준 이미지
+- 1440/900/640/375 browser screenshot evidence 계획
 - chart interaction acceptance scenario
 - 두 dialog interaction acceptance scenario
 
-승인 PNG 기준 이미지는 다음 상태를 분리한다.
+browser screenshot evidence는 다음 상태를 분리한다.
 
 - deterministic core ready
 - market loading
@@ -316,12 +316,12 @@ viewport는 모두 버리는 셀 없이 확인하되 검수 깊이는 다음처�
 
 | viewport | 등급 | 필수 증거 | 판정 |
 |---|---|---|---|
-| 1440×900 | 상세 parity | Figma frame, full/crop PNG 기준, 구현 렌더, computed style, primary interaction recording | pixel·geometry·표시 문구 상세 승인 |
-| 375×812 | 상세 parity | Figma frame, full/crop PNG 기준, 구현 렌더, overflow metric, touch/keyboard recording | pixel·geometry·표시 문구 상세 승인 |
+| 1440×900 | 상세 명세 검증 | full/crop browser screenshot, computed style/geometry, primary interaction recording | geometry·표시 문구·상태·상호작용 상세 승인 |
+| 375×812 | 상세 명세 검증 | full/crop browser screenshot, overflow metric, computed geometry, touch/keyboard recording | geometry·표시 문구·상태·상호작용 상세 승인 |
 | 900×900 | smoke | ready screenshot, breakpoint composition, dialog, market/news state, keyboard path, overflow | 구조·기능·상태 전이 승인 |
 | 640×900 | smoke | ready screenshot, compact controls, dialog, market/news state, keyboard path, overflow | 구조·기능·상태 전이 승인 |
 
-- `smoke`는 생략이나 미검증을 뜻하지 않는다. Figma/PNG와 구현 렌더의 full perceptual 비교 수치만 상세 셀처럼 요구하지 않는다.
+- `smoke`는 생략이나 미검증을 뜻하지 않는다. 900/640은 1440/375와 같은 전체 state capture 대신 구조·상태·상호작용·overflow의 명세 assertion을 집중 검증한다.
 - 900/640에서도 column 수, order, breakpoint, clipped control, document overflow, missing state, 표시 문구 차이는 자동 실패다.
 - 1280px breakpoint는 별도 targeted structural smoke를 수행한다.
 - `responsive cells: 24/24` 같은 기존 표기는 증거 index에서 `detail checked / smoke checked`로 분리한다.
@@ -352,7 +352,7 @@ viewport는 모두 버리는 셀 없이 확인하되 검수 깊이는 다음처�
 - all-routes trend dialog
 - dialog lifecycle utility
 - dashboard state fixtures
-- Figma/PNG visual parity suite
+- MD 기반 visual audit와 screenshot·computed-geometry suite
 
 하나의 거대한 component에서 gateway 호출, chart math, dialog, storage를 함께 처리하지 않는다.
 
@@ -362,7 +362,7 @@ data selector는 표시 문구를 임의 생성하지 않는다.
 
 ## 7. 구현 순서 개요
 
-1. 승인 Figma/PNG, 데이터 팩, 동결 계약과 data invariants를 동결한다.
+1. 본 문서, 데이터 팩, 동결 계약과 data invariants를 동결한다. Figma/PNG는 rough composition/flow 참고로만 등록한다.
 2. WT1 AppShell seam에 빈 dashboard content를 연결한다.
 3. WT3 `RepresentativeSelectionV1` consumer를 연결한다.
 4. static hero chart를 정확히 그린다.
@@ -374,7 +374,7 @@ data selector는 표시 문구를 임의 생성하지 않는다.
 10. current-route history dialog를 만든다.
 11. all-routes dialog를 만든다.
 12. responsive, accessibility, animation을 닫는다.
-13. Figma/PNG visual parity와 functional matrix를 닫는다.
+13. MD 기반 visual audit와 functional matrix를 닫는다.
 
 API부터 만들고 UI를 나중에 추측하지 않는다.
 
@@ -534,7 +534,7 @@ card shadow는 blue-tinted 10px/24px과 reverse white shadow다.
 
 ### 11.5 Dashboard/market/readout final-cascade truth table — MANDATORY
 
-이 표는 승인 Figma/PNG에서 확인된 **최종 computed layout** 기준이다. 구현과 computed-style ledger가 다르면 승인 기준을 다시 대조한다.
+이 표 자체가 **최종 computed layout** 권위다. 구현과 computed-style ledger가 다르면 본 표와 관련 numeric geometry 절을 다시 대조한다.
 
 | viewport | shell | dashboard grid | market stack | lower grid | forecast lead | forecast detail |
 |---|---|---|---|---|---|---|
@@ -548,7 +548,7 @@ card shadow는 blue-tinted 10px/24px과 reverse white shadow다.
 - `900`은 `@media (max-width:900px)`가 포함되는 경계라 market/lower/readout 전환이 모두 적용된다.
 - `640`과 `375`에서도 selector는 `40px minmax(0,1fr)` row와 내부 4 equal tabs를 보존한다.
 - market card padding 18px은 `<=640`의 hero/insight/news 16px 축소 대상이 아니다.
-- 375 전용 규칙을 임의로 발명하지 않는다. 승인 Figma/PNG에 없는 overflow용 visible 재설계를 추가하지 않는다.
+- 375 전용 규칙을 임의로 발명하지 않는다. 본 문서에 없는 overflow용 visible 재설계를 추가하지 않는다.
 
 ## 12. Shared visual tokens consumed by WT2
 
@@ -754,7 +754,7 @@ WT2는 representative/tuning storage presence를 직접 해석하지 않는다. 
 
 1주 PI90 coverage는 46/52, 88.5%다.
 
-숫자 format은 승인 Figma/PNG의 locale과 USD/FEU 표현을 따른다.
+숫자 format은 본 문서가 동결한 `ko-KR` locale과 USD/FEU 표현을 따른다.
 
 ## 18. Hero heading exact contract
 
@@ -903,7 +903,7 @@ y(value) = top + ((yMax-value)/(yMax-yMin))*(height-top-bottom)
 - PI90 cap half-width는 viewport span이 365일 초과면 5px, 아니면 8px이다. vertical/cap stroke는 selected horizon 4px, 나머지 2.5px, unselected opacity .55다.
 - actual stroke는 2.6px이고 forecast stroke는 4.4px, dash는 `7 6`이다. visible actual point cadence는 `max(1,floor(renderedPoints/8))`; forecast endpoint는 radius 7 + radius 13/opacity .16 halo다.
 - Dashboard forecast zone start는 `clamp(dataLeft + ((actualEndTime-viewStart)/viewSpan)*(dataRight-dataLeft), dataLeft, dataRight)`다. zone은 여기서 `plotRight`까지, plot top~bottom, radius8; divider도 같은 x다. final fill/stroke는 `rgba(63,161,235,.09)`/`rgba(21,38,157,.1)`, divider는 `rgba(21,38,157,.4)`, 1.5px, dash `5 5`; label은 blue, 10px/900, letter-spacing .08em이고 x=divider+14px, y=top+17px다.
-- 위 수식을 `nice()`나 chart library auto-domain/auto-tick으로 치환해 pixel geometry를 바꾸면 실패다.
+- 위 수식을 `nice()`나 chart library auto-domain/auto-tick으로 치환해 numeric plot geometry를 바꾸면 실패다.
 
 ## 23. Forecast zone and endpoint geometry
 
@@ -1049,7 +1049,7 @@ keyboard `+/-`를 생략하면 기능 parity 실패다.
 
 ## 28. Chart hover, focus, tooltip
 
-### 28.1 승인 Figma/PNG parity baseline
+### 28.1 명세 기반 tooltip visual baseline
 
 - actual 또는 forecast point hover/focus는 point tooltip을 연다.
 - 동결 Dashboard projection의 `forecastSeries.points`는 date/value/label만 전달한다. 따라서 승인 point tooltip은 title, formatted date, `{value} USD/FEU`만 보인다.
@@ -1151,7 +1151,7 @@ summary grid는 세 article이다.
 | 1280 | 변화 없음; desktop lead/detail 유지 |
 | 900 | lead 1 column, align start, gap 6px; helper left; tools start; detail 2 columns; article 2 right border/padding 제거; validation spans both columns with left padding 0 and top separator |
 | 640 | outer padding 15px; horizon selector width 100%, 4 equal grid columns; detail 1 column; 모든 article padding `12px 0`, right border 제거, article 1·2 bottom separator; last는 separator 없음 |
-| 375 | 별도 query 없음; 640 규칙과 동일하며 four horizon control과 nowrap value가 351px content 안에 실제로 맞는지 detailed PNG comparison으로 확인 |
+| 375 | 별도 query 없음; 640 규칙과 동일하며 four horizon control과 nowrap value가 351px content 안에 실제로 맞는지 detailed screenshot·computed-geometry 검증으로 확인 |
 
 1280에서 readout을 조기 stack하거나 900에서 곧바로 detail 1열로 만들면 실패다.
 
@@ -1447,7 +1447,7 @@ chart y-domain은 series 값에 맞춘다.
 
 ### 42.2 Market state geometry — MANDATORY
 
-LOADING, UNAVAILABLE, validated EMPTY는 chart/footer 자리에 같은 external-empty box를 쓴다: min-height 150px, centered grid, gap 7px, `#8a9aab`, center aligned. icon은 승인 Figma component 22px, strong은 `#415b72` 11px, helper는 Dashboard final 10px다.
+LOADING, UNAVAILABLE, validated EMPTY는 chart/footer 자리에 같은 external-empty box를 쓴다: min-height 150px, centered grid, gap 7px, `#8a9aab`, center aligned. icon은 본 문서 기준 22px, strong은 `#415b72` 11px, helper는 Dashboard final 10px다.
 
 - LOADING 시작과 series switch 순간에는 payload/chart/footer를 즉시 제거한다.
 - LIVE/REFERENCE에서 points가 있으면 exact chart+footer를 렌더하고 state badge만 truthfully 다르게 한다.
@@ -1559,7 +1559,7 @@ KNEI golden query는 `route={routeId}`, `asOf=latest`, `providerVersion=18`, `re
 - primary admission은 resolve된 asOf의 최근 30일, fallback admission은 최근 90일이다.
 - 이 최신 기사 목록은 News panel용이다. Insight serializer는 모델 기준일 이후 기사를 별도로 제외한다.
 
-표시 상한 5건은 `latest` query가 아니라 v18 news contract의 고정 정책이다.
+표시 상한 5건은 `latest` query가 아니라 동결 news contract의 고정 정책이다.
 
 gateway transport cache mode는 no-store다.
 
@@ -1616,15 +1616,15 @@ title, short summary, source, date, 동결 계약의 article link와 분류만 �
 
 ## 47. News cache contract
 
-현재 key는 동결 cache namespace 아래 `route-news:v19:{routeId}` 의미구조다.
+현재 key는 동결 cache namespace 아래 `move-ai:route-news:v1:{routeId}` 의미구조다.
 
-asOf를 v19 key에 넣지 않는다.
+asOf를 현재 key에 넣지 않는다.
 
-legacy key는 같은 동결 namespace 아래 `route-news:v18:{routeId}:{asOf}` 의미구조다.
+이전 namespace의 news cache key는 읽거나 migrate하지 않는다.
 
-legacy 중 최신 valid payload를 v19로 migrate할 수 있다.
+현재 key에서 완전한 schema validation을 통과한 payload만 채택한다.
 
-route 변경 시 해당 route v19 cache를 읽는다.
+route 변경 시 해당 route의 현재 cache를 읽는다.
 
 cache schema validation에 실패하면 discard한다.
 
@@ -1634,7 +1634,7 @@ storage event를 listen해 다른 tab update를 반영한다.
 
 empty/UNAVAILABLE gateway result도 기존 larger cache를 파괴하지 않는다.
 
-article이 하나 이상인 adopted LIVE gateway result만 v19 localStorage에 저장한다.
+article이 하나 이상인 adopted LIVE gateway result만 현재 news namespace의 localStorage에 저장한다.
 
 0-article payload는 새 cache로 persist하지 않는다.
 
@@ -1891,7 +1891,7 @@ LLM key가 없어도 rule fallback으로 deterministic core가 동작해야 한�
 
 LLM success만 저장한다.
 
-key는 동결 cache namespace 아래 `forecast-insight:v1:{routeId}:{currentDate}:{horizon}w:{modelId}:{newsFetchedAt}` 의미구조다.
+key는 동결 cache namespace 아래 `move-ai:forecast-insight:v1:{routeId}:{currentDate}:{horizon}w:{modelId}:{newsFetchedAt}` 의미구조다.
 
 RULE_FALLBACK은 장기 저장하지 않는다.
 
@@ -2005,7 +2005,7 @@ saved LLM을 즉시 표시한다.
 
 - `result.state=UNAVAILABLE`, `result.data=null`이다.
 - visible composition은 payload가 없는 deterministic headline/summary, direction pill, model note, method notice를 유지한다. evidence grid는 렌더하지 않는다.
-- news가 있으면 badge text는 `Gemini 연결 중`, news가 없으면 `해석 대기`다. 승인 Figma/PNG에 없는 UNAVAILABLE banner, error paragraph, retry button, confidence label을 추가하지 않는다.
+- news가 있으면 badge text는 `Gemini 연결 중`, news가 없으면 `해석 대기`다. 본 문서에 없는 UNAVAILABLE banner, error paragraph, retry button, confidence label을 추가하지 않는다.
 - `result.error`는 typed gateway의 진단/stale-control에 쓰되 이번 visible surface에 새 문구를 만들지 않는다.
 - retained cached LLM이 동결 cache key로 조회되면 기존 LLM content/engine badge를 표시한다. 임의 cache warning bar를 추가하지 않는다.
 
@@ -2268,7 +2268,7 @@ event card date column은 66px이다.
 
 ## 68.1 전체 그래프 승인 기준
 
-current-route 전체 이력과 13개 전체노선 그래프는 승인 Figma/PNG 및 승인 데이터 팩에서 생성한 경량 fixture를 함께 기준으로 사용한다.
+current-route 전체 이력과 13개 전체노선 그래프는 본 문서의 chart/dialog 계약 및 승인 데이터 팩에서 생성한 경량 fixture를 함께 기준으로 사용한다.
 
 - title: `KCCI 13개 항로 운임 추이`
 - series: KCCI 13개 노선, 2022-11-07~2026-08-03 주간 운임, USD/FEU
@@ -2513,7 +2513,7 @@ PI90와 coverage는 readout에서도 읽을 수 있다.
 | deterministic data pack | scoped boot | core data empty | schema error | bundled asset | 187 points |
 | representative | WT3 selector resolve | no valid selection | selector/path contract error | WT3-owned manual state reflected | `RepresentativeSelectionV1` 1~4 path |
 | market slot | spinner/metadata title | 0 points | UNAVAILABLE | HTTP cache | LIVE/REFERENCE chart |
-| route news | processing 표시 문구 | verified no articles | error/no cache | v19 articles retained | up to 5 articles |
+| route news | processing 표시 문구 | verified no articles | error/no cache | current cached articles retained | up to 5 articles |
 | insight | analysis state | waiting without news | rule fallback | saved LLM | LLM/DERIVED content |
 | history events | chart still ready | KCI/KJI event empty | catalog fault | static catalog | markers/list |
 | dialogs | entrance | event empty allowed | render error boundary | data already local | interactive |
@@ -2529,7 +2529,7 @@ PI90와 coverage는 readout에서도 읽을 수 있다.
 5. selection의 동일 model 1~4주 forecast/error bars를 chart에 전달한다.
 6. default horizon 1주 readout을 만든다.
 7. typed `DataGateway.market`으로 upper fx, lower oil 결과를 독립 요청한다.
-8. route v19 news cache를 읽는다.
+8. 현재 route news cache를 읽는다.
 9. cache가 없으면 news IDLE을 유지한다.
 10. cache가 있으면 news와 eligible insight cache를 표시한다.
 11. 사용자 collection 시 `DataGateway.news`에 literal `asOf=latest`를 전달한다.
@@ -2543,9 +2543,9 @@ PI90와 coverage는 readout에서도 읽을 수 있다.
 WT2가 직접 소비하는 keys는 동결 계약의 다음 의미구조다.
 
 - WT1-owned route key
-- `route-news:v19:{routeId}`
-- legacy route-news v18 keys
-- `forecast-insight:v1:{route}:{date}:{horizon}w:{model}:{newsFetchedAt}`
+- `move-ai:route-news:v1:{routeId}`
+- 이전 namespace의 news cache key는 소비하거나 migrate하지 않음
+- `move-ai:forecast-insight:v1:{route}:{date}:{horizon}w:{model}:{newsFetchedAt}`
 
 WT3-owned tuning/representative keys는 WT2가 직접 읽거나 parse하지 않는다. 그 변화는 WT3 selector가 새 `RepresentativeSelectionV1`을 발행하는 방식으로만 WT2에 전달된다.
 
@@ -2643,15 +2643,15 @@ history event를 추정으로 추가하지 않는다.
 - keyboard handler에서 `+`와 `-` parity를 빠뜨리는 것
 - readout을 여러 개별 tile이나 추가 model version/score로 바꿔 세 article hierarchy를 깨뜨리는 것
 - all-routes observational surface에 route 선택 action을 추가하는 것
-- 승인 Figma/PNG에 없는 mobile fixed action이나 provenance 문장을 추가하는 것
+- 본 문서에 없는 mobile fixed action이나 provenance 문장을 추가하는 것
 
 재발 방지 gate:
 
-- Figma/PNG 및 데이터 팩 식별자 동결
+- 본 문서 버전 및 데이터 팩 식별자 동결
 - 187/13/8/4 invariant test 선행
 - KNEI smoke fixture 선행
 - chart interaction matrix 전부 통과
-- readout DOM hierarchy PNG 확인
+- readout DOM hierarchy screenshot·DOM assertion 확인
 - all-routes observational-only test
 - unapproved visible UI inventory 0건
 
@@ -2661,14 +2661,14 @@ history event를 추정으로 추가하지 않는다.
 
 산출물:
 
-- 승인 Figma frame과 PNG state inventory
+- 본 문서 visible inventory와 screenshot state inventory
 - 승인 데이터 팩 버전 및 fixture generation report
 - event catalog validation report
 - `RepresentativeSelectionV1` contract fixture validation
 - WT3 projection field audit: currentObservation, automaticChampion, forecasts, metricsByHorizon nested Coverage, modelAgreementByHorizon registry-order 8 members, representativeRevision
 - `GatewayResultV1<TData, TState>` market/news/insight fixture validation
 - canonical query ledger
-- state별 PNG 기준 inventory
+- state별 screenshot evidence inventory
 - visible 표시 문구 ledger
 - Dashboard visible-inventory ledger; absent UI ledger에는 rich PI90/Coverage tooltip, insight confidence, explicit insight error/retry UI를 기록
 
@@ -2676,7 +2676,7 @@ commit intent: `docs(wt2): freeze dashboard clean-room contracts`
 
 acceptance:
 
-- Figma/PNG, 데이터 팩, 동결 계약 식별자와 승인 기록 존재
+- 본 문서, 데이터 팩, 동결 계약 식별자와 승인 기록 존재
 - 187/13/8/4 invariant 확인
 - KNEI smoke 확인
 - WT3/WT6 contract fixtures runtime validation 통과
@@ -2782,7 +2782,7 @@ acceptance:
 
 - IDLE/LOADING/READY/ERROR/CACHED state
 - typed news `DataGateway` consumer
-- v19 cache/migration
+- 현재 news cache validation과 이전 namespace payload 거부
 - retry selection
 - article list/stats
 
@@ -2856,7 +2856,7 @@ acceptance:
 - 1440/900/640/375 layouts
 - reduced-motion
 - keyboard/focus QA
-- Figma/PNG visual parity report
+- MD 기반 visual audit report
 - functional report
 
 commit intent: `test(wt2): close dashboard parity evidence`
@@ -2875,53 +2875,53 @@ API와 unrelated page change를 WT2 commit에 섞지 않는다.
 
 | surface | viewport/state | 비교 핵심 | evidence | 종료값 |
 |---|---|---|---|---|
-| dashboard | 1440 ready · detailed | 1.7:1 hero/market, lower 2-col, exact computed geometry/type/color | Figma/PNG+구현 렌더+computed style | CHECKED |
-| dashboard | 900 ready · smoke | all primary stacks 1-col, states/actions/overflow | 구현 렌더+structural assertions | CHECKED |
-| dashboard | 640 ready · smoke | compact card/readout, states/actions/overflow | 구현 렌더+structural assertions | CHECKED |
-| dashboard | 375 ready · detailed | no overflow, labels visible, exact computed geometry/type/color | Figma/PNG+구현 렌더+computed style | CHECKED |
-| hero | KNEI 1w | actual/forecast/error bars | crop PNG comparison | CHECKED |
-| hero | KNEI 4w | selected endpoint emphasis | crop PNG comparison | CHECKED |
-| toolbar | recent | dates/button disabled state | crop PNG comparison | CHECKED |
-| toolbar | full | full range/button state | crop PNG comparison | CHECKED |
-| tooltip | forecast point | 승인 기준의 title/date/value only; rich PI90/Coverage content absent | crop PNG comparison | CHECKED |
-| readout | auto | three articles | crop PNG comparison | CHECKED |
-| readout | manual | manual helper | crop PNG comparison | CHECKED |
+| dashboard | 1440 ready · detailed | 1.7:1 hero/market, lower 2-col, exact computed geometry/type/color | browser screenshot+computed geometry/style | CHECKED |
+| dashboard | 900 ready · smoke | all primary stacks 1-col, states/actions/overflow | browser screenshot+structural assertions | CHECKED |
+| dashboard | 640 ready · smoke | compact card/readout, states/actions/overflow | browser screenshot+structural assertions | CHECKED |
+| dashboard | 375 ready · detailed | no overflow, labels visible, exact computed geometry/type/color | browser screenshot+computed geometry/style | CHECKED |
+| hero | KNEI 1w | actual/forecast/error bars | crop screenshot+DOM/SVG assertions | CHECKED |
+| hero | KNEI 4w | selected endpoint emphasis | crop screenshot+DOM/SVG assertions | CHECKED |
+| toolbar | recent | dates/button disabled state | crop screenshot+state assertion | CHECKED |
+| toolbar | full | full range/button state | crop screenshot+state assertion | CHECKED |
+| tooltip | forecast point | 본 문서의 title/date/value only; rich PI90/Coverage content absent | crop screenshot+text assertion | CHECKED |
+| readout | auto | three articles | crop screenshot+DOM assertion | CHECKED |
+| readout | manual | manual helper | crop screenshot+DOM assertion | CHECKED |
 
 ## 87. Visual evidence matrix — market/news/insight
 
 | surface | state | 비교 핵심 | evidence | 종료값 |
 |---|---|---|---|---|
-| market | initial fx/oil ready | two distinct cards | crop PNG comparison | CHECKED |
+| market | initial fx/oil ready | two distinct cards | crop screenshot+DOM assertion | CHECKED |
 | market | swapping | selector/card titles | recording | CHECKED |
-| market | loading | stale chart absent | state PNG | CHECKED |
-| market | REFERENCE | REFERENCE truth | state PNG | CHECKED |
-| market | unavailable | no synthetic chart | state PNG | CHECKED |
-| news | idle | 표시 문구/button | crop PNG comparison | CHECKED |
-| news | loading cold | spinner/process 표시 문구 | crop PNG comparison | CHECKED |
-| news | ready 5 | stats/articles/badges | crop PNG comparison | CHECKED |
-| news | verified empty | empty 표시 문구 | crop PNG comparison | CHECKED |
-| news | cached refresh | prior list+bar | crop PNG comparison | CHECKED |
-| news | cached error | failure+prior list | crop PNG comparison | CHECKED |
-| insight | waiting | deterministic summary | crop PNG comparison | CHECKED |
-| insight | loading | analysis badge | crop PNG comparison | CHECKED |
-| insight | Gemini | evidence/caution | crop PNG comparison | CHECKED |
-| insight | rule | rule badge/notice | crop PNG comparison | CHECKED |
-| all three panels | 1440+375 detailed | exact geometry/type/color/표시 문구, no invented UI | Figma/PNG+구현 렌더+computed style | CHECKED |
+| market | loading | stale chart absent | state screenshot+state assertion | CHECKED |
+| market | REFERENCE | REFERENCE truth | state screenshot+state assertion | CHECKED |
+| market | unavailable | no synthetic chart | state screenshot+state assertion | CHECKED |
+| news | idle | 표시 문구/button | crop screenshot+text assertion | CHECKED |
+| news | loading cold | spinner/process 표시 문구 | crop screenshot+state assertion | CHECKED |
+| news | ready 5 | stats/articles/badges | crop screenshot+DOM assertion | CHECKED |
+| news | verified empty | empty 표시 문구 | crop screenshot+state assertion | CHECKED |
+| news | cached refresh | prior list+bar | crop screenshot+state assertion | CHECKED |
+| news | cached error | failure+prior list | crop screenshot+state assertion | CHECKED |
+| insight | waiting | deterministic summary | crop screenshot+state assertion | CHECKED |
+| insight | loading | analysis badge | crop screenshot+state assertion | CHECKED |
+| insight | Gemini | evidence/caution | crop screenshot+DOM assertion | CHECKED |
+| insight | rule | rule badge/notice | crop screenshot+DOM assertion | CHECKED |
+| all three panels | 1440+375 detailed | exact geometry/type/color/표시 문구, no invented UI | browser screenshot+computed geometry/style | CHECKED |
 | all three panels | 900+640 smoke | breakpoint/state/action/keyboard/overflow | structural assertions+state capture | CHECKED |
 
 ## 88. Visual evidence matrix — dialogs
 
 | surface | viewport/state | 비교 핵심 | evidence | 종료값 |
 |---|---|---|---|---|
-| history | 1440 KNEI | width/KPI/chart/events | Figma/PNG+구현 렌더 | CHECKED |
+| history | 1440 KNEI | width/KPI/chart/events | browser screenshot+computed geometry/state | CHECKED |
 | history | 900 KNEI · smoke | KPI2/event1, lifecycle/overflow | structural assertions+state capture | CHECKED |
-| history | 375 KNEI | scroll/compact header | Figma/PNG+구현 렌더 | CHECKED |
-| history | KCI empty | factual event empty | crop PNG comparison | CHECKED |
+| history | 375 KNEI | scroll/compact header | browser screenshot+computed geometry/state | CHECKED |
+| history | KCI empty | factual event empty | crop screenshot+state assertion | CHECKED |
 | history | event selected | marker/list/detail sync | recording | CHECKED |
-| all-routes | 1440 | 13 cards/3 columns | Figma/PNG+구현 렌더 | CHECKED |
+| all-routes | 1440 | 13 cards/3 columns | browser screenshot+computed geometry/state | CHECKED |
 | all-routes | 900 · smoke | 1 column/dialog inset, lifecycle/overflow | structural assertions+state capture | CHECKED |
 | all-routes | 640 · smoke | compact controls/sources, lifecycle/overflow | structural assertions+state capture | CHECKED |
-| all-routes | 375 | no overflow/tooltips clamp | Figma/PNG+구현 렌더 | CHECKED |
+| all-routes | 375 | no overflow/tooltips clamp | browser screenshot+computed geometry/state | CHECKED |
 | all-routes | events off | markers all hidden | recording | CHECKED |
 
 ## 89. Functional tests — deterministic core
@@ -3039,8 +3039,8 @@ API와 unrelated page change를 WT2 commit에 섞지 않는다.
 | WT2-N008 | 30-day short | 90-day B fallback | CHECKED |
 | WT2-N009 | max items | at most 5 | CHECKED |
 | WT2-N010 | no verified items | empty 표시 문구 | CHECKED |
-| WT2-N011 | v19 cache entry | immediate cached render | CHECKED |
-| WT2-N012 | v18 migration | latest valid to v19 | CHECKED |
+| WT2-N011 | current news cache entry | immediate cached render | CHECKED |
+| WT2-N012 | previous namespace payload | rejected and not migrated | CHECKED |
 | WT2-N013 | storage event | cross-tab update | CHECKED |
 | WT2-N014 | refresh cached | previous articles remain | CHECKED |
 | WT2-N015 | refresh error cached | failure+previous articles | CHECKED |
@@ -3101,29 +3101,25 @@ API와 unrelated page change를 WT2 commit에 섞지 않는다.
 | WT2-D024 | all-routes close | topbar focus restored | CHECKED |
 | WT2-D025 | body overflow restore | prior value restored | CHECKED |
 
-## 94. Figma/PNG parity acceptance
+## 94. 명세 기반 visual acceptance
 
-승인 Figma/PNG 기준과 구현 렌더는 같은 viewport, state, route, 데이터 팩 fixture를 사용한다.
+browser screenshot과 구현 렌더는 같은 viewport, state, route, 데이터 팩 fixture를 사용하며 본 문서의 numeric geometry·표시 문구·상태·상호작용을 검증한다.
 
 viewport, DPR, browser zoom, font, route, storage fixture를 같게 한다.
 
 market/news timestamps는 fixture로 고정한다.
 
-고정할 수 없는 fetchedAt만 명시적 mask를 허용한다.
+고정할 수 없는 fetchedAt은 screenshot evidence에서 동적 값으로 명시한다.
 
-route name, forecast value, PI90, date, provider state는 mask하지 않는다.
+route name, forecast value, PI90, date, provider state는 명세 assertion에서 제외하지 않는다.
 
-dialog source count와 card count는 mask하지 않는다.
+dialog source count와 card count는 반드시 검증한다.
 
-권장 automated gate는 SSIM 0.995 이상이다.
+pixel·SSIM·mismatch 또는 Figma 차이는 automated gate가 아니다.
 
-권장 mismatch pixel 비율은 0.5% 이하다.
+column count, card order, chart boundary, dialog width가 본 문서와 다르면 fail이다.
 
-24×24px보다 큰 contiguous mismatch는 manual review한다.
-
-column count, card order, chart boundary, dialog width 차이는 numeric score와 무관하게 fail이다.
-
-chart line antialias 차이는 허용 mask가 아니라 PNG overlay manual review 대상이다.
+chart line은 DOM/SVG attribute, numeric geometry와 browser screenshot으로 review한다.
 
 PI90를 band로 바꾼 차이는 fail이다.
 
@@ -3137,12 +3133,12 @@ font fallback으로 한글 wrap이 바뀌면 fail이다.
 
 ```text
 coreLogicPass = passed required functional/invariant/state tests / applicable required tests
-minorVisualPass = passed non-structural computed-style/PNG comparison assertions / applicable minor assertions
+minorVisualPass = passed non-structural computed-style assertions / applicable minor assertions
 
 release =
   coreLogicPass == 100%
   AND minorVisualPass >= 95%
-  AND detailed viewport Figma/PNG gates pass
+  AND detailed viewport spec-text/computed-geometry/state/interaction gates pass
   AND openP0 == 0
   AND openP1 == 0
   AND unapprovedVisibleAdditions == 0
@@ -3158,22 +3154,22 @@ minor visual은 구조·표시 문구·data·state를 제외한 anti-alias, shad
 - 승인 기준에 없는 card, rich PI90/Coverage tooltip, confidence, status/error bar, retry action 또는 표시 문구.
 - 1440/375 detailed evidence 누락 또는 900/640 smoke evidence 누락.
 
-95%는 minor floor일 뿐이며 §94의 SSIM 0.995, mismatch 0.5%, contiguous mismatch/manual review처럼 더 엄격한 surface gate를 완화하지 않는다.
+95%는 minor floor일 뿐이며 §94의 numeric geometry·표시 문구·상태·상호작용 gate를 완화하지 않는다.
 
 test/evidence aggregator는 `coreLogicPass`, `minorVisualPass`, detailed/smoke cell, P0/P1, unapproved addition count를 machine-readable report로 만들고 위 조건 중 하나라도 false면 non-zero로 종료한다. 수동 DONE 문구가 이 exit를 덮을 수 없다.
 
 ## 95. Required evidence pack
 
-- 승인 Figma frame/node inventory
-- 승인 PNG viewport/state inventory
+- 본 문서 visible inventory와 절 번호
+- browser screenshot viewport/state inventory
 - 승인 데이터 팩과 생성 fixture version report
 - route-event catalog validation report
 - 표시 문구 ledger
 - computed-style ledger
 - component state inventory
 - 1440/900/640/375 screenshots
-- crop-level PNG comparisons
-- full-page PNG comparisons
+- crop-level browser screenshots와 computed geometry
+- full-page browser screenshots와 overflow metric
 - wheel anchor recording
 - pointer drag recording
 - keyboard navigation recording
@@ -3216,7 +3212,7 @@ localStorage unavailable에서도 location query route와 deterministic core는 
 
 | review | question | 종료값 |
 |---|---|---|
-| authority | 승인 Figma/PNG, 데이터 팩, 동결 계약 식별자가 있는가 | CHECKED |
+| authority | 본 문서, 데이터 팩, 동결 계약 식별자가 있는가 | CHECKED |
 | scope | WT2와 WT1/3/6 경계가 지켜졌는가 | CHECKED |
 | representative owner | WT3 selector만 소비하고 WT2 재계산이 0건인가 | CHECKED |
 | gateway | market/news/insight가 typed `GatewayResultV1<TData, TState>`만 소비하는가 | CHECKED |
@@ -3234,7 +3230,7 @@ localStorage unavailable에서도 location query route와 deterministic core는 
 | all-routes | 13 independent charts/lifecycle가 맞는가 | CHECKED |
 | responsive | 1440/900/640/375가 맞는가 | CHECKED |
 | accessibility | focus/ARIA/keyboard가 맞는가 | CHECKED |
-| evidence | PNG comparison/recording/report가 모두 있는가 | CHECKED |
+| evidence | screenshot/computed-geometry/recording/report가 모두 있는가 | CHECKED |
 | regression | clean-room deviation risk가 재발하지 않았는가 | CHECKED |
 
 ## 98. 최종 DONE gate
@@ -3250,10 +3246,10 @@ localStorage unavailable에서도 location query route와 deterministic core는 
 - news/insight tests 전 셀 CHECKED
 - dialog tests 전 셀 CHECKED
 - self-review 전 셀 CHECKED
-- 1440/375 detailed Figma/PNG comparison과 computed-style gate 통과
+- 1440/375 detailed spec-text/computed-geometry/state/interaction screenshot gate 통과
 - 900/640 structural/state/interaction smoke gate 통과
 - core logic pass 100%
-- minor visual pass 95% 이상이며 §94의 더 엄격한 surface threshold도 통과
+- minor visual pass 95% 이상이며 §94의 필수 geometry·상태·상호작용 gate도 통과
 - KNEI smoke values 전부 일치
 - 187/13/8/4 invariants 일치
 - external failure에서 synthetic data 0건
@@ -3271,10 +3267,10 @@ localStorage unavailable에서도 location query route와 deterministic core는 
 - automated release aggregator exit 0
 - 미검증 상태를 종료 상태로 사용하지 않음
 
-완료 보고에는 승인 Figma/PNG, 데이터 팩, 동결 계약 식별자를 적는다.
+완료 보고에는 본 문서, 데이터 팩, 동결 계약 식별자를 적는다.
 
 완료 보고에는 CHECKED cell 수를 적는다.
 
-완료 보고에는 Figma/PNG visual evidence 식별자를 적는다.
+완료 보고에는 browser screenshot·computed-geometry·state·interaction evidence 식별자를 적는다.
 
 “얼추 비슷함”, “데모로 충분함”, “핵심만 구현”이라는 표현은 완료 근거가 아니다.
