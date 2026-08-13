@@ -122,7 +122,7 @@ interface DataGateway {
   news(query: NewsQuery, signal?: AbortSignal): Promise<NewsResult>;
   insight(query: InsightQuery, signal?: AbortSignal): Promise<InsightResult>;
   tuningHealth(signal?: AbortSignal): Promise<TuningHealthResult>;
-  tune(request: TuneRequest, signal?: AbortSignal): Promise<TuneResult>;
+  tuningRun(body: TuneRequest, signal?: AbortSignal): Promise<TuneResult>;
   portSummary(signal?: AbortSignal): Promise<PortSummaryResult>;
   portDetail(query: PortDetailQuery, signal?: AbortSignal): Promise<PortDetailResult>;
   chokeSummary(signal?: AbortSignal): Promise<ChokeSummaryResult>;

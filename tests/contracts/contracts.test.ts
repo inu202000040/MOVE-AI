@@ -52,6 +52,13 @@ test("freezes storage ownership keys and prefixes", () => {
     routeNewsPrefix: "move-ai:route-news:v1:",
     forecastInsightPrefix: "move-ai:forecast-insight:v1:",
   });
+  const storageValues = Object.values(STORAGE_KEYS);
+  assert.equal(storageValues.every((value) => value.startsWith("move-ai:")), true);
+  assert.equal(
+    storageValues.some((value) => /^(?:freight-risk|glovis)(?::|-)/u.test(value)),
+    false,
+    "legacy storage namespaces must stay forbidden",
+  );
 });
 
 test("freezes the gateway envelope surface and method manifest", () => {
@@ -79,7 +86,8 @@ test("freezes the gateway envelope surface and method manifest", () => {
   ]);
   assert.deepEqual(GATEWAY_CACHE_KEYS, ["hit", "stale", "ageSeconds"]);
   assert.deepEqual(DATA_GATEWAY_METHODS, [
-    "snapshot", "market", "news", "insight", "tuningHealth", "tune",
+    "snapshot", "market", "news", "insight", "tuningHealth", "tuningRun",
     "portSummary", "portDetail", "chokeSummary", "chokeDetail", "weather",
   ]);
+  assert.equal(new Set<string>(DATA_GATEWAY_METHODS).has("tune"), false);
 });

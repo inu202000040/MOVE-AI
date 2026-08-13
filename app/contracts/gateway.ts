@@ -102,7 +102,7 @@ export const DATA_GATEWAY_METHODS = [
   "news",
   "insight",
   "tuningHealth",
-  "tune",
+  "tuningRun",
   "portSummary",
   "portDetail",
   "chokeSummary",
@@ -125,7 +125,7 @@ export interface DataGatewayV1 {
     signal?: AbortSignal,
   ): Promise<PendingGatewayResultV1>;
   tuningHealth(signal?: AbortSignal): Promise<PendingGatewayResultV1>;
-  tune(
+  tuningRun(
     request: PendingQueryContractV1,
     signal?: AbortSignal,
   ): Promise<PendingGatewayResultV1>;
