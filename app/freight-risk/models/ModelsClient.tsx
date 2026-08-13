@@ -442,7 +442,7 @@ export default function ModelsClient({ catalog, dataGateway }: ModelsClientProps
           : acceptedByModel[evidence.modelId];
         const records = candidate?.result.evaluationByHorizon[horizon - 1].records
           ?? routeData.evaluationByModel[evidence.modelId][horizon - 1];
-        return <EvidenceDialog horizon={horizon} metricName={evidence.metric} model={model} onClose={closeEvidence} records={records} />;
+        return <EvidenceDialog history={routeData.history} horizon={horizon} metricName={evidence.metric} model={model} onClose={closeEvidence} records={records} routeName={routeData.routeName} />;
       })() : null}
       <TuningDrawer acceptedByModel={acceptedByModel} gateway={tuningGateway} history={routeData.history} initialModelId={selectedModels.size === 1 ? [...selectedModels][0] : representative.modelId} onClose={closeDrawer} onSuccess={previewTuningCandidate} open={drawerOpen} routeCode={routeId} routeName={routeData.routeName} />
       {comparison !== null ? (
