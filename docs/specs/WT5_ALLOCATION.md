@@ -2436,7 +2436,7 @@ numeric geometry 또는 visible contract 변경은 reviewer 두 명의 승인 �
 - REQUIRED — 계산 방법 여섯 block과 caution이 있다. 종료값: `CHECKED`.
 - REQUIRED — CSV header, BOM, LF, row count가 정확하다. 종료값: `CHECKED`.
 - REQUIRED — 1440·375 명세 기반 시각 검증과 900·640 smoke를 통과했다. 종료값: `CHECKED`.
-- REQUIRED — 승인 화면에 없는 focus trap/restore, chart keyboard 후보 탐색, compatibility UI를 추가하지 않았다. 종료값: `CHECKED`.
+- REQUIRED — 본 문서의 active visible inventory에 없는 focus trap/restore, chart keyboard 후보 탐색, compatibility UI를 추가하지 않았다. 종료값: `CHECKED`.
 - REQUIRED — body 전체 horizontal overflow가 없다. 종료값: `CHECKED`.
 - REQUIRED — 오류에서 fake result를 만들지 않는다. 종료값: `CHECKED`.
 - REQUIRED — 승인 failure injection 외 unexpected error가 0건이다. 종료값: `CHECKED`.
