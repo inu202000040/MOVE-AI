@@ -12,6 +12,7 @@ test("recursively discovers feature suites and excludes contract/bootstrap suite
   const files = [
     "allocation/deep/allocation.test.ts",
     "dashboard/dashboard.spec.tsx",
+    "qa/visual-baseline.test.ts",
     "wt4/network.test.mts",
     "contracts/contracts.test.ts",
     "bootstrap/manifest.test.ts",
@@ -29,6 +30,7 @@ test("recursively discovers feature suites and excludes contract/bootstrap suite
     assert.deepEqual(discovered, [
       resolve(testsRoot, "allocation/deep/allocation.test.ts"),
       resolve(testsRoot, "dashboard/dashboard.spec.tsx"),
+      resolve(testsRoot, "qa/visual-baseline.test.ts"),
       resolve(testsRoot, "wt4/network.test.mts"),
     ]);
   } finally {
