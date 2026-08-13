@@ -218,6 +218,8 @@ function ActualForecastChart({
       <svg
         aria-label="52개 목표일의 실측 운임과 모델 예측값"
         className={styles.evidenceLineChart}
+        onMouseLeave={() => setHoveredIndex(null)}
+        onPointerCancel={() => setHoveredIndex(null)}
         onPointerLeave={() => setHoveredIndex(null)}
         role="img"
         viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
@@ -257,7 +259,10 @@ function ActualForecastChart({
               data-evidence-hit-index={index}
               height={CHART_HEIGHT - CHART_PAD.top - CHART_PAD.bottom}
               key={`hit-${record.targetDate}`}
+              onMouseLeave={() => setHoveredIndex(null)}
+              onPointerCancel={() => setHoveredIndex(null)}
               onPointerEnter={() => setHoveredIndex(index)}
+              onPointerLeave={() => setHoveredIndex(null)}
               onPointerMove={() => setHoveredIndex(index)}
               width={Math.max(4, hitRight - hitLeft)}
               x={hitLeft}
@@ -343,6 +348,8 @@ function ErrorContributionChart({
       <svg
         aria-label={metricName === "MSE" ? "52개 기록별 제곱오차와 평균선" : "52개 기록별 scaled error와 기준선 1"}
         className={styles.evidenceBarChart}
+        onMouseLeave={() => setHoveredIndex(null)}
+        onPointerCancel={() => setHoveredIndex(null)}
         onPointerLeave={() => setHoveredIndex(null)}
         role="img"
         viewBox={`0 0 ${width} ${height}`}
@@ -377,7 +384,10 @@ function ErrorContributionChart({
             data-evidence-hit-index={index}
             height={plotHeight}
             key={`hit-${record.targetDate}`}
+            onMouseLeave={() => setHoveredIndex(null)}
+            onPointerCancel={() => setHoveredIndex(null)}
             onPointerEnter={() => setHoveredIndex(index)}
+            onPointerLeave={() => setHoveredIndex(null)}
             onPointerMove={() => setHoveredIndex(index)}
             width={barWidth}
             x={pad.left + index * barWidth}
