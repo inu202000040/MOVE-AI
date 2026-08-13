@@ -16,6 +16,7 @@ import {
   modelChangePct,
   performanceRows,
   selectedLegendLabel,
+  zoomedHistoryWindowSize,
 } from "../../app/freight-risk/models/view-model";
 
 const current = { date: "2026-08-03", value: 4884, unit: "USD/FEU" } as const;
@@ -62,4 +63,12 @@ test("view helpers preserve selection and signed change semantics", () => {
   assert.equal(selectedLegendLabel(new Set()), "전체 보기 · 0개 선택");
   assert.equal(selectedLegendLabel(new Set(["sarimax", "timesfm"])), "전체 보기 · 2개 선택");
   assert.ok(Math.abs(modelChangePct(4828.98, 4884) - -1.1265356265356241) < 1e-12);
+});
+
+test("forecast history zoom clamps between the recent and full ranges", () => {
+  assert.equal(zoomedHistoryWindowSize(187, 187, "in"), 124);
+  assert.equal(zoomedHistoryWindowSize(4, 187, "in"), 4);
+  assert.equal(zoomedHistoryWindowSize(4, 187, "out"), 6);
+  assert.equal(zoomedHistoryWindowSize(180, 187, "out"), 187);
+  assert.equal(zoomedHistoryWindowSize(1, 3, "in"), 3);
 });
