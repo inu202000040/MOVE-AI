@@ -10,18 +10,17 @@
 
 | 입력 | 상태 | 동결 조건 |
 |---|---|---|
-| 초기 Figma UI 가안 | `REJECTED_DRAFT` | 기능 명세만으로 구성한 초기 가안이며 승인된 완성 화면과 시각 차이가 커 구현·QA 입력에서 제외 |
-| 초기 UI PNG exports | `REJECTED_DRAFT` | 초기 Figma 가안의 기록 보존용 export이며 구현·시각 QA 입력에서 제외 |
-| 텍스트 전용 화면 구현 계약 | `APPROVED_PRIMARY_V2` | `MOVE_AI_IMPLEMENTATION_SPECS/`의 WT1~WT6 문서; 블랙박스 관찰 결과를 치수·문구·상태·상호작용으로 기술 |
+| 초기 Figma UI 가안 | `REFERENCE_ONLY` | 구성과 화면 흐름을 이해하는 선택 참고자료. 디자인·기능·로직·정보 밀도·상태·반응형은 `docs/specs`가 우선하며 Figma 불일치만으로 QA 실패 처리하지 않음 |
+| 초기 UI PNG exports | `REFERENCE_ONLY` | Figma 가안의 선택 참고자료. pixel parity 기준, 필수 acceptance 또는 누락 기능의 대체 명세로 사용하지 않음 |
 | Landing 영상·poster·로고 | `PENDING_USER_SUPPLY` | 원본 파일, 사용 권한, bytes, SHA-256 |
 
-초기 Figma와 PNG는 `2026-08-13`에 새로 만든 가안이라는 사실을 보존한다. 완성 화면과 다르다는 검토 결과에 따라 승인 기준에서 제외했으며, 삭제하거나 과거에 완성된 디자인으로 소급 표기하지 않는다.
+초기 Figma와 PNG는 `2026-08-13`에 새로 만든 가안이라는 사실을 보존한다. 완성 구현 계약이 아니라 선택 참고자료이며, 삭제하거나 과거에 완성된 디자인으로 소급 표기하지 않는다.
 
-현재 구현자 handoff에는 PNG를 포함하지 않는다. 1440×900과 375×812의 주 기준, 900×900과 640×900의 breakpoint smoke는 텍스트 구현 계약으로 전달한다.
+구현자는 필요할 때 Figma/PNG를 구도 참고로 볼 수 있지만 그대로 복제하거나 누락된 카드·차트·KPI를 정당화할 수 없다. 1440×900과 375×812의 주 기준, 900×900과 640×900의 breakpoint smoke 및 최종 판정은 승인된 `docs/specs` 계약으로 수행한다.
 
 ## 2. 구현 명세
 
-다음 clean-room 문서는 WT별 정제가 완료되고 금지 참조 검사를 통과한 버전만 허용한다. `docs/specs`는 계산·데이터·상태 계약을 제공하며, 보이는 결과는 `MOVE_AI_IMPLEMENTATION_SPECS`가 우선한다.
+다음 clean-room 문서는 WT별 정제가 완료되고 금지 참조 검사를 통과한 버전만 허용한다. `docs/specs`는 디자인·표시 문구·기능·계산·데이터·상태·반응형·검수 조건을 모두 제공하는 단일 구현 권위다.
 
 | 문서 | 상태 | SHA-256 |
 |---|---|---|
@@ -32,16 +31,6 @@
 | `docs/specs/WT4_NETWORK.md` | `APPROVED` | `632790a809dbcc59944a91be8dedd696433317324019701549d6d2281da63809` |
 | `docs/specs/WT5_ALLOCATION.md` | `APPROVED` | `a7e78e3e8850689216ce37966bdf53ee120d2abe166d87c63f0d073f2a8b34d5` |
 | `docs/specs/WT6_DATA_API.md` | `APPROVED` | `4fca56132506218b8e8a4fe287889ad1e3eac295bce38bffa9516ea833597ef0` |
-
-텍스트 화면 계약:
-
-- `MOVE_AI_IMPLEMENTATION_SPECS/README.md`
-- `MOVE_AI_IMPLEMENTATION_SPECS/WT1_FOUNDATION_LANDING.md`
-- `MOVE_AI_IMPLEMENTATION_SPECS/WT2_DASHBOARD.md`
-- `MOVE_AI_IMPLEMENTATION_SPECS/WT3_MODELS.md`
-- `MOVE_AI_IMPLEMENTATION_SPECS/WT4_NETWORK.md`
-- `MOVE_AI_IMPLEMENTATION_SPECS/WT5_ALLOCATION.md`
-- `MOVE_AI_IMPLEMENTATION_SPECS/WT6_DATA_API.md`
 
 WT7 clean-room provenance/visual-input 검사와 WT8 cross-contract/data-lineage 검사는 위 exact bytes에서 모두 `P0=0, P1=0`으로 종료됐다. 문서를 수정하면 해당 SHA와 두 PASS는 즉시 무효가 된다.
 
@@ -101,17 +90,14 @@ WT7 clean-room provenance/visual-input 검사와 WT8 cross-contract/data-lineage
 
 `19_KCCI_ROUTE_TRENDS_REFERENCE.html`의 허용 가능한 데이터·상호작용 요구는 승인된 WT2 명세에 독립 기술된 항목만 사용한다. HTML·CSS·JavaScript 자체는 구현 입력이 아니다.
 
-예외적으로 지정된 관찰 담당자는 승인된 완성 애플리케이션의 사용자 화면을 블랙박스 방식으로 조작하고, 보이는 문구·치수·상태·상호작용을 텍스트 계약으로 전사할 수 있다. 관찰 담당자는 코드, 번들, source map, 스타일 원문 또는 마크업 원문을 구현 입력으로 전달하지 않는다. 구현자는 관찰 대상에 접근하지 않고 최종 텍스트 계약만 사용한다.
-
 ## 6. 시작 게이트
 
 다음 core 시작 게이트는 모두 충족됐다.
 
-- 초기 Figma/PNG는 rejected draft로 분리되고 구현 입력에서 제외됨
-- WT1~WT6 텍스트 화면 구현 계약이 등록됨
+- 초기 Figma/PNG는 비구속 참고자료로 분리되고 MD 우선순위가 동결됨
 - WT1~WT6 clean-room MD가 WT7 금지참조 검사 PASS
 - WT1~WT6 계약이 WT8 교차검사 PASS
 - 데이터 SHA-256 검증 PASS
 - `02_FROZEN_CONTRACTS_DRAFT.md`의 core 계약 동결
 
-따라서 WT1~WT6의 독립 구현을 시작할 수 있다. 구현자는 텍스트 화면 계약, 승인 데이터, 동결 계약과 공식 문서만 사용한다. 승인 원본이 없는 Landing 영상·poster·logo는 새로 만들거나 대체했다고 속이지 않고 placeholder로 유지하며, 해당 자산 등록 전에는 WT1 PAGE_COMPLETE와 최종 release를 선언하지 않는다.
+따라서 WT1~WT6의 독립 구현을 시작할 수 있다. 구현자는 승인된 `docs/specs`, 승인 데이터, 동결 계약과 공식 문서만 사용한다. 승인 원본이 없는 Landing 영상·poster·logo는 새로 만들거나 대체했다고 속이지 않고 placeholder로 유지하며, 해당 자산 등록 전에는 WT1 PAGE_COMPLETE와 최종 release를 선언하지 않는다.
