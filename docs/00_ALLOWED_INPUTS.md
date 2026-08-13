@@ -10,35 +10,29 @@
 
 | 입력 | 상태 | 동결 조건 |
 |---|---|---|
-| Figma UI 원본 | `APPROVED_CLEAN_ROOM_V1` | `MOVE AI Clean-room UI`, file key `RvydVRm2bD59KlTzfemK7F`, [Figma 파일](https://www.figma.com/design/RvydVRm2bD59KlTzfemK7F), 실제 생성 시각과 frame ID는 `03_FIGMA_DESIGN_BASELINE.md`에 기록 |
-| UI PNG exports | `APPROVED_PRIMARY_V1` | `design/exports/`의 1440×900·375×812 주 화면, Allocation drawer, runtime states, Network 2D fallback; bytes·SHA-256 동결 |
+| 초기 Figma UI 가안 | `REFERENCE_ONLY` | 구성과 화면 흐름을 이해하는 선택 참고자료. 디자인·기능·로직·정보 밀도·상태·반응형은 `docs/specs`가 우선하며 Figma 불일치만으로 QA 실패 처리하지 않음 |
+| 초기 UI PNG exports | `REFERENCE_ONLY` | Figma 가안의 선택 참고자료. pixel parity 기준, 필수 acceptance 또는 누락 기능의 대체 명세로 사용하지 않음 |
 | Landing 영상·poster·로고 | `PENDING_USER_SUPPLY` | 원본 파일, 사용 권한, bytes, SHA-256 |
 
-현재 승인된 Figma와 PNG는 `2026-08-13`에 새로 생성한 clean-room 디자인이다. 이를 과거 시각에 만들어진 파일로 소급 표기하지 않는다. 별도의 이전 디자인 파일을 추가하려면 실제 파일·버전·생성 기록을 별도 입력으로 등록해야 한다.
+초기 Figma와 PNG는 `2026-08-13`에 새로 만든 가안이라는 사실을 보존한다. 완성 구현 계약이 아니라 선택 참고자료이며, 삭제하거나 과거에 완성된 디자인으로 소급 표기하지 않는다.
 
-필수 PNG 최소 세트:
-
-- Landing, Dashboard, Models, Network, Allocation의 `1440x900` 및 `375x812` ready 화면 — 현재 승인 완료
-- `900x900`, `640x900`은 구현 후 breakpoint smoke로 검증하며 primary Figma source는 1440·375로 고정
-- loading, empty/unavailable, error, 주요 modal/drawer/panel
-- hover, focus, selected 상태
-- Network WebGL2 3D 정상 상태와 장애 시 2D fallback
+구현자는 필요할 때 Figma/PNG를 구도 참고로 볼 수 있지만 그대로 복제하거나 누락된 카드·차트·KPI를 정당화할 수 없다. 1440×900과 375×812의 주 기준, 900×900과 640×900의 breakpoint smoke 및 최종 판정은 승인된 `docs/specs` 계약으로 수행한다.
 
 ## 2. 구현 명세
 
-다음 clean-room 문서는 WT별 정제가 완료되고 금지 참조 검사를 통과한 버전만 허용한다.
+다음 clean-room 문서는 WT별 정제가 완료되고 금지 참조 검사를 통과한 버전만 허용한다. `docs/specs`는 디자인·표시 문구·기능·계산·데이터·상태·반응형·검수 조건을 모두 제공하는 단일 구현 권위다.
 
 | 문서 | 상태 | SHA-256 |
 |---|---|---|
-| `docs/specs/README.md` 공통 운영 규칙 | `APPROVED` | `be766e2c3cc60406ad60d64e8fad9ec3c92867a8ed72a51142761b703d4aa5fd` |
-| `docs/specs/WT1_FOUNDATION_LANDING.md` | `APPROVED` | `e09a7d55a11f71cee1bd7408c1531c1c57b2673964759536dccafd7333473531` |
-| `docs/specs/WT2_DASHBOARD.md` | `APPROVED` | `a611a9712ede969e7e88537777983cde59c26136294dacdb6ead6baa4ce4659f` |
-| `docs/specs/WT3_MODELS.md` | `APPROVED` | `702e611a4017eeb9b3a50708f2fcc31098c86a20c731cc6e4debfbf7a3f3d6c6` |
+| `docs/specs/README.md` 공통 운영 규칙 | `APPROVED` | `64d35ccb6dc5fe03f16d5f55d1724436b449f406a33df6d0c59a9b23bd03d978` |
+| `docs/specs/WT1_FOUNDATION_LANDING.md` | `APPROVED` | `294040bcb1bfcd523b20fee78c66270717ba197ab3e0cb1046715887ec80ded1` |
+| `docs/specs/WT2_DASHBOARD.md` | `APPROVED` | `26fbc2789da0c7a84acd2e967c52c0b8f26a571fdfb479f3a32d5dd9bea7d2ff` |
+| `docs/specs/WT3_MODELS.md` | `APPROVED` | `2fc3dbd13e7141a7b8ea786fe5f539b554b33f4d5bb777fa13151eadc1dd1f12` |
 | `docs/specs/WT4_NETWORK.md` | `APPROVED` | `632790a809dbcc59944a91be8dedd696433317324019701549d6d2281da63809` |
-| `docs/specs/WT5_ALLOCATION.md` | `APPROVED` | `a7e78e3e8850689216ce37966bdf53ee120d2abe166d87c63f0d073f2a8b34d5` |
+| `docs/specs/WT5_ALLOCATION.md` | `APPROVED` | `0b574cc09f7697138b0bf66920fda00f22f82d936427f85c43d1be4e115a4e8e` |
 | `docs/specs/WT6_DATA_API.md` | `APPROVED` | `4fca56132506218b8e8a4fe287889ad1e3eac295bce38bffa9516ea833597ef0` |
 
-WT7 clean-room provenance/visual-input 검사와 WT8 cross-contract/data-lineage 검사는 위 exact bytes에서 모두 `P0=0, P1=0`으로 종료됐다. 문서를 수정하면 해당 SHA와 두 PASS는 즉시 무효가 된다.
+이 표의 exact bytes는 저장소와 공용 원본 명세가 동일해야 한다. 문서를 수정하면 이전 WT7/WT8 PASS는 즉시 무효가 되며, 변경된 SHA를 대상으로 focused delta 검사를 다시 통과해야 한다.
 
 허용 문서는 기능, 표시 문구, 수식, DTO, 데이터 변환 규칙, 디자인 치수, 상태 전이, acceptance 조건만 포함해야 한다. 이전 구현의 저장소명·URL·커밋·파일 경로·행 번호·파일 hash·코드 비교 지시는 포함하지 않는다.
 
@@ -88,7 +82,7 @@ WT7 clean-room provenance/visual-input 검사와 WT8 cross-contract/data-lineage
 
 - 이전 애플리케이션 저장소와 프로토타입 저장소의 TS, TSX, CSS, HTML, JS, test, fixture, generated JSON
 - 이전 저장소의 Git commit, branch, patch, cherry-pick, archive 또는 code export
-- 이전 저장소나 배포 사이트의 화면 캡처, DOM, computed style, 이미지, 영상, SVG, catalog 또는 시각 비교 결과
+- 이전 애플리케이션의 화면 캡처, 이미지, 영상, SVG 또는 catalog를 구현자에게 전달하는 행위
 - 이전 저장소의 clone, fetch, fork, import와 파일명·행 번호·함수 구조 열람
 - 이전 소스 파일 경로·행 번호·파일 hash를 구현 지시로 사용하는 문서
 - 이전 snapshot·catalog·news artifact 복사
@@ -100,10 +94,10 @@ WT7 clean-room provenance/visual-input 검사와 WT8 cross-contract/data-lineage
 
 다음 core 시작 게이트는 모두 충족됐다.
 
-- Figma 원본과 PNG export가 실제 파일/버전으로 등록됨
+- 초기 Figma/PNG는 비구속 참고자료로 분리되고 MD 우선순위가 동결됨
 - WT1~WT6 clean-room MD가 WT7 금지참조 검사 PASS
 - WT1~WT6 계약이 WT8 교차검사 PASS
 - 데이터 SHA-256 검증 PASS
 - `02_FROZEN_CONTRACTS_DRAFT.md`의 core 계약 동결
 
-따라서 WT1~WT6의 독립 구현을 시작할 수 있다. 단, 승인 원본이 없는 Landing 영상·poster·logo는 새로 만들거나 대체했다고 속이지 않고 placeholder로 유지하며, 해당 자산 등록 전에는 WT1 PAGE_COMPLETE와 최종 release를 선언하지 않는다.
+따라서 WT1~WT6의 독립 구현을 시작할 수 있다. 구현자는 승인된 `docs/specs`, 승인 데이터, 동결 계약과 공식 문서만 사용한다. 승인 원본이 없는 Landing 영상·poster·logo는 새로 만들거나 대체했다고 속이지 않고 placeholder로 유지하며, 해당 자산 등록 전에는 WT1 PAGE_COMPLETE와 최종 release를 선언하지 않는다.
