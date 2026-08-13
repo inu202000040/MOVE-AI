@@ -13,6 +13,7 @@ import {
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { DataGatewayV1 } from "../../contracts/gateway";
 import { useFreightRiskRoute } from "../../components/shell";
+import { createSameOriginDataGatewayV1 } from "../../data/runtime/data-gateway.client";
 import {
   DEFAULT_ROUTE_ID,
   isRouteId,
@@ -492,12 +493,16 @@ export function NetworkPageClient({
     routeId: navigationRouteId,
     changeRoute,
   } = useFreightRiskRoute();
+  const productionGateway = useMemo(
+    () => dataGateway ?? createSameOriginDataGatewayV1(),
+    [dataGateway],
+  );
   const runtimeAdapters = useMemo(
     () => createNetworkRuntimeAdapters({
       artifacts: initialCatalogArtifacts,
-      gateway: dataGateway,
+      gateway: productionGateway,
     }),
-    [dataGateway, initialCatalogArtifacts],
+    [initialCatalogArtifacts, productionGateway],
   );
   const focusButtonRefs = useRef(
     new Map<NetworkFocusMode, HTMLButtonElement>(),

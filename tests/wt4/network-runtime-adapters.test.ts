@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   createFixtureDataGatewayV1,
   validatedArtifactSeamV1,
-} from "../../app/data/runtime/data-gateway";
+} from "../../app/data/runtime/data-gateway.server";
 import { decodeNetworkCatalogSeam } from "../../app/freight-risk/network/core/catalog-consumer";
 import {
   createValidatedArtifactCatalogAdapter,
