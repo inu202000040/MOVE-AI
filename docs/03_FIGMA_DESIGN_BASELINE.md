@@ -1,6 +1,8 @@
 # 03. Figma Design Baseline
 
-상태: `APPROVED_CLEAN_ROOM_V1`
+상태: `REJECTED_DRAFT`
+
+이 파일은 2026-08-13에 기능 명세만으로 제작한 초기 시각 가안의 사실 기록이다. 승인된 완성 화면과 시각 차이가 커 최종 구현 및 시각 QA 입력에서 제외됐다. 삭제하거나 승인 디자인으로 다시 표기하지 않는다.
 
 기록 시각: `2026-08-13T13:16:12+09:00`
 
@@ -12,7 +14,7 @@
 - 제작 입력: 승인된 clean-room 구현 명세, 동결 계약, 승인 데이터팩
 - 제외 입력: 이전 애플리케이션 저장소·배포 사이트·프로토타입의 코드, CSS, DOM, 화면 캡처, Git history
 
-이 파일은 위 기록 시각에 새로 만든 구현용 디자인 원본이다. 과거 시각에 제작된 파일로 소급 표기하지 않는다.
+이 파일은 위 기록 시각에 새로 만든 초기 가안이다. 과거 시각에 제작된 파일로 소급 표기하지 않으며, 현재 구현 기준은 `MOVE_AI_IMPLEMENTATION_SPECS/`의 텍스트 계약이다.
 
 ## 2. Foundations
 
@@ -48,7 +50,7 @@
 
 ## 5. PNG export manifest
 
-모든 파일은 이 Figma의 해당 frame을 직접 export한 신규 산출물이다.
+모든 파일은 이 Figma 가안의 해당 frame을 직접 export한 신규 산출물이다. 파일은 감사 기록으로만 보존하고 구현 입력으로 사용하지 않는다.
 
 | 파일 | Bytes | SHA-256 |
 |---|---:|---|
@@ -66,8 +68,11 @@
 | `network-fallback-375x812.png` | 43,056 | `2b8a6b3ac0d9661a4b087005b381f45a1a8a4de1ead7316445079312216abb69` |
 | `runtime-states-1440x900.png` | 123,713 | `4d23f834cd79f343b5df1e6ac93026b4fb7d30f969a117a2688dbd9c435e8dc7` |
 
-## 6. 남은 입력
+## 6. 제외 결정과 남은 입력
+
+- 모든 frame과 PNG는 `REJECTED_DRAFT`다.
+- 구현자에게 frame URL, node ID 또는 PNG를 전달하지 않는다.
+- 보이는 결과는 `MOVE_AI_IMPLEMENTATION_SPECS/`의 텍스트 계약으로 전달한다.
 
 - Landing 11초 실제 영상·poster·logo는 소유 자산을 받기 전까지 Figma와 PNG에서 명시적 placeholder다.
-- 900px·640px은 primary 디자인을 새로 만들지 않고 구현 단계 breakpoint smoke로 검증한다.
-- 명세가 변경되면 관련 frame과 PNG hash를 새 revision으로 다시 동결한다.
+- 900px·640px은 텍스트 계약에 따라 구현 단계 breakpoint smoke로 검증한다.
