@@ -16,6 +16,7 @@
     "test:bootstrap": "tsx --test tests/bootstrap/**/*.test.ts",
     "test:contracts": "tsx --test tests/contracts/**/*.test.ts",
     "test:features": "tsx scripts/run-feature-tests.ts",
+    "test:qa": "tsx --test tests/qa/**/*.test.ts",
     "verify": "npm run typecheck && npm run lint && npm test && npm run build"
   },
   "dependencies": {

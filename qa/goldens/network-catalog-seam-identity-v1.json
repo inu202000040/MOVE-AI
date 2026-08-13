@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "network-catalog-seam-identity/v1",
+  "catalogSeamSha256": "b3b351cfd1c2e61d2b0c78b96ff506437afa25ff38101bae8d2abbcc706070be",
+  "byteSize": 18362,
+  "routeCount": 13,
+  "portCount": 57,
+  "uniquePortSeriesCount": 56,
+  "chokepointCount": 11,
+  "weatherCount": 82,
+  "referenceManifestSha256": "991690557c80d0820228f8d6c63b78c82e74677d64aa91ba1be2906b681bfa71"
+}

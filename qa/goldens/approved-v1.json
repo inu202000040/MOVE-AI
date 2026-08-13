@@ -1,0 +1,731 @@
+{
+  "schemaVersion": "move-ai/qa-golden-manifest/v1",
+  "generator": "wt8-approved-golden-generator/v1",
+  "authority": {
+    "specs": {
+      "docs/specs/README.md": "64d35ccb6dc5fe03f16d5f55d1724436b449f406a33df6d0c59a9b23bd03d978",
+      "docs/specs/WT1_FOUNDATION_LANDING.md": "294040bcb1bfcd523b20fee78c66270717ba197ab3e0cb1046715887ec80ded1",
+      "docs/specs/WT2_DASHBOARD.md": "26fbc2789da0c7a84acd2e967c52c0b8f26a571fdfb479f3a32d5dd9bea7d2ff",
+      "docs/specs/WT3_MODELS.md": "f82e5f23b4f9649a31dbdc5ef77d09e49e893c14954c0b93cc0a779f76e5b200",
+      "docs/specs/WT4_NETWORK.md": "632790a809dbcc59944a91be8dedd696433317324019701549d6d2281da63809",
+      "docs/specs/WT5_ALLOCATION.md": "6cbadd0ecafd91d144770300cf03801cf36a80ce886237f494ce207e97ced2b3",
+      "docs/specs/WT6_DATA_API.md": "4fca56132506218b8e8a4fe287889ad1e3eac295bce38bffa9516ea833597ef0"
+    },
+    "dataPack": {
+      "00_API_CATALOG.xlsx": {
+        "byteSize": 32351,
+        "sha256": "423544876b745a09eda602858d8659d2103a943bc7f55cda2d23790e707b71c0"
+      },
+      "01_ROUTE_PORT_CATALOG.xlsx": {
+        "byteSize": 47539,
+        "sha256": "baae5167e2a73cc81e4adefc57bcafaeefe5a0fb5f4297b3d730c1261a0be38a"
+      },
+      "02_KCCI_WEEKLY.xlsx": {
+        "byteSize": 155927,
+        "sha256": "ee03da280ab5d520f44ee738e857e382e2268648bef494f3dfff4402a116b8fd"
+      },
+      "03_USDKRW_ECB.xlsx": {
+        "byteSize": 427569,
+        "sha256": "54f976eec014c453ca115bf83aa12a776625b39c7238e922d498888eaef76d99"
+      },
+      "04_BRENT_EIA.xlsx": {
+        "byteSize": 99961,
+        "sha256": "7608b039c11fe55dd0310ba7dad5596e51846847b7a212aa8da8ba6955f3ba5e"
+      },
+      "05_VLSFO_USDA.xlsx": {
+        "byteSize": 108429,
+        "sha256": "2fd22fa5f47d02e7edc48b9999e377ff4d9d2a3e8e66a1d591b435480c52be37"
+      },
+      "06_HARPEX_REFERENCE.xlsx": {
+        "byteSize": 13544,
+        "sha256": "544302ac112733f91032bd78b254b5009c7250b6376f641c34bfe64a0d809804"
+      },
+      "07_PORTWATCH_PORT_TRAFFIC.xlsx": {
+        "byteSize": 1616510,
+        "sha256": "b2bf91993b776e1a2451f5a5b3b2ca299e590527c3eb8707a6a70753c033403d"
+      },
+      "08_PORTWATCH_CHOKEPOINT_TRAFFIC.xlsx": {
+        "byteSize": 255340,
+        "sha256": "72a2bee17955d4a00baaa9a4930ea41b4610169940476d8dd3d4d14fbf853529"
+      },
+      "09_WEATHER_API_REFERENCE.xlsx": {
+        "byteSize": 23546,
+        "sha256": "2798b8ad5668f4df3a6d84306cb3ceb2ced4903842f144be8de4d420308dc87e"
+      },
+      "10_ROUTE_NEWS_REFERENCE.xlsx": {
+        "byteSize": 21346,
+        "sha256": "6886e9684f6297b5854c87dcbea8b9098b487df4661825add1163c6db7e23431"
+      },
+      "11_PORTMIS_TEU_OPTIONAL.xlsx": {
+        "byteSize": 11871,
+        "sha256": "170bcbf9a43ebc1da549ce929eaf501efe4faa0c5db3ca02e279202db913c7cf"
+      },
+      "12_DATA_MANIFEST.xlsx": {
+        "byteSize": 18969,
+        "sha256": "991690557c80d0820228f8d6c63b78c82e74677d64aa91ba1be2906b681bfa71"
+      },
+      "13_MODEL_FORECAST_SNAPSHOT.xlsx": {
+        "byteSize": 151229,
+        "sha256": "0297028336741e43cbc9820ce9d8c387d45682b68035a26cadc80cc4505e7c4c"
+      },
+      "14_MODEL_EVALUATION.xlsx": {
+        "byteSize": 2309944,
+        "sha256": "3973875c93a68c430be9fa2c9d7fde1b806c1f238dde0d680bbd7396af6e8f1e"
+      },
+      "15_MODEL_TUNING_CONFIG.xlsx": {
+        "byteSize": 22336,
+        "sha256": "32e1d0bde567585f21ced1d1564c04da0de9613a9c9a70119b6278c552119c3a"
+      },
+      "16_ROUTE_EVENTS_AND_CORRIDORS.xlsx": {
+        "byteSize": 67294,
+        "sha256": "2bfe8ed28f43baf82268ae012d228c6051fb47898548a719afbcb07f3322fe02"
+      },
+      "17_RUNTIME_PROVIDER_CATALOG.xlsx": {
+        "byteSize": 23309,
+        "sha256": "a11e7bff4bd204eb6daeb974630cd5d57fa6f0fec13da451b2815809c4b01e7f"
+      },
+      "18_CVAR_ALLOCATION_CONFIG.xlsx": {
+        "byteSize": 19735,
+        "sha256": "9da8647b07057bee547d5b0d9c90369957b9534fa3e79f3d0b2877023b504652"
+      },
+      "APP_DATA_USAGE_MANIFEST.json": {
+        "byteSize": 3893,
+        "sha256": "47f01f91233e63a59207daf154246113a84abb1587bea168f618a83d21798e93"
+      },
+      "PACKAGE_MANIFEST.json": {
+        "byteSize": 9669,
+        "sha256": "8d35ec037144ef024ceaafbb6cf1266d6d9f74238369f9c013614c8f74825c18"
+      },
+      "SHA256SUMS.txt": {
+        "byteSize": 2383,
+        "sha256": "25f678142dce948bca64809bb7043422d0e0eddc4bff6e628877334eb8e8e2e4"
+      }
+    },
+    "forbiddenInputPolicy": "docs/00_ALLOWED_INPUTS.md",
+    "quarantinedReferenceRead": false
+  },
+  "contracts": {
+    "gateway": {
+      "schemaVersion": "move-ai/gateway/v1",
+      "dataModes": [
+        "live",
+        "fixture",
+        "cached",
+        "unavailable"
+      ],
+      "rootKeys": [
+        "schemaVersion",
+        "state",
+        "data",
+        "meta",
+        "error"
+      ],
+      "metaKeys": [
+        "mode",
+        "source",
+        "sourceUrl",
+        "asOf",
+        "fetchedAt",
+        "unit",
+        "isEstimate",
+        "attribution",
+        "warnings",
+        "provider",
+        "cache"
+      ],
+      "cacheKeys": [
+        "hit",
+        "stale",
+        "ageSeconds"
+      ],
+      "errorKeys": [
+        "code",
+        "message",
+        "retryable",
+        "upstreamStatus",
+        "details"
+      ],
+      "methods": [
+        "snapshot",
+        "market",
+        "news",
+        "insight",
+        "tuningHealth",
+        "tuningRun",
+        "portSummary",
+        "portDetail",
+        "chokeSummary",
+        "chokeDetail",
+        "weather"
+      ],
+      "negativeCases": [
+        "extra-root",
+        "extra-meta",
+        "extra-cache",
+        "extra-error",
+        "unknown-state",
+        "unavailable-with-data",
+        "success-with-error",
+        "cached-without-hit",
+        "fixture-live"
+      ]
+    },
+    "routeStorage": {
+      "routeIds": [
+        "KUWI",
+        "KUEI",
+        "KNEI",
+        "KMDI",
+        "KMEI",
+        "KAUI",
+        "KLEI",
+        "KLWI",
+        "KSAI",
+        "KWAI",
+        "KCI",
+        "KJI",
+        "KSEI"
+      ],
+      "routeLabels": {
+        "KUWI": "북미서안",
+        "KUEI": "북미동안",
+        "KNEI": "유럽",
+        "KMDI": "지중해",
+        "KMEI": "중동",
+        "KAUI": "호주",
+        "KLEI": "남미동안",
+        "KLWI": "남미서안",
+        "KSAI": "남아프리카",
+        "KWAI": "서아프리카",
+        "KCI": "중국",
+        "KJI": "일본",
+        "KSEI": "동남아"
+      },
+      "defaultRouteId": "KNEI",
+      "initialPriority": [
+        "valid-query",
+        "valid-storage",
+        "KNEI"
+      ],
+      "changeTransaction": [
+        "shared-state",
+        "storage",
+        "replace-query",
+        "shared-publication"
+      ],
+      "keys": {
+        "route": "move-ai:route:v1",
+        "representativePrefix": "move-ai:representative:v1:",
+        "tuningPrefix": "move-ai:tuning:v1:",
+        "routeNewsPrefix": "move-ai:route-news:v1:",
+        "forecastInsightPrefix": "move-ai:forecast-insight:v1:"
+      }
+    },
+    "insight": {
+      "runtimeEngines": [
+        "GEMINI",
+        "RULE_FALLBACK"
+      ],
+      "forbiddenRuntimeProviders": [
+        "OpenAI"
+      ],
+      "geminiKeys": [
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY"
+      ],
+      "approvedProviderInputRows": 3,
+      "note": "WT6 approved spec overrides obsolete provider rows in data pack 17."
+    }
+  },
+  "model": {
+    "routeCount": 13,
+    "historyObservationsPerRoute": 187,
+    "modelIds": [
+      "naive",
+      "sarimax",
+      "lightgbm",
+      "xgboost",
+      "random_forest",
+      "prophet",
+      "timesfm",
+      "chronos"
+    ],
+    "horizonWeeks": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "forecastRowCount": 416,
+    "metricRowCount": 416,
+    "evaluationRowCount": 21632,
+    "rollingOriginCount": 52,
+    "unit": "USD/FEU",
+    "tuningParameterRowCount": 33,
+    "knei": {
+      "currentObservation": {
+        "date": "2026-08-03",
+        "value": 4884,
+        "unit": "USD/FEU"
+      },
+      "automaticChampion": {
+        "modelId": "sarimax",
+        "modelName": "SARIMAX",
+        "modelVersion": "statsmodels-0.14.6",
+        "totalScore": 99.53184164830071
+      },
+      "forecasts": [
+        {
+          "horizonWeeks": 1,
+          "targetDate": "2026-08-10",
+          "point": 4828.98,
+          "lower90": 4482.47,
+          "upper90": 5175.49,
+          "calibrationSampleSize": 78
+        },
+        {
+          "horizonWeeks": 2,
+          "targetDate": "2026-08-17",
+          "point": 4791.32,
+          "lower90": 4227.22,
+          "upper90": 5355.43,
+          "calibrationSampleSize": 78
+        },
+        {
+          "horizonWeeks": 3,
+          "targetDate": "2026-08-24",
+          "point": 4767.23,
+          "lower90": 3935.75,
+          "upper90": 5598.72,
+          "calibrationSampleSize": 78
+        },
+        {
+          "horizonWeeks": 4,
+          "targetDate": "2026-08-31",
+          "point": 4753.74,
+          "lower90": 3439.8,
+          "upper90": 6067.68,
+          "calibrationSampleSize": 78
+        }
+      ],
+      "metricsByHorizon": [
+        {
+          "horizonWeeks": 1,
+          "mapePct": 3.6,
+          "mse": 22818.49,
+          "rmse": 151.06,
+          "mase": 0.037,
+          "coveragePct": 88.5,
+          "coverageHits": 46,
+          "coverageTotal": 52,
+          "sampleSize": 52
+        },
+        {
+          "horizonWeeks": 2,
+          "mapePct": 6.8,
+          "mse": 68438.82,
+          "rmse": 261.61,
+          "mase": 0.067,
+          "coveragePct": 94.2,
+          "coverageHits": 49,
+          "coverageTotal": 52,
+          "sampleSize": 52
+        },
+        {
+          "horizonWeeks": 3,
+          "mapePct": 11.19,
+          "mse": 181485.66,
+          "rmse": 426.01,
+          "mase": 0.111,
+          "coveragePct": 92.3,
+          "coverageHits": 48,
+          "coverageTotal": 52,
+          "sampleSize": 52
+        },
+        {
+          "horizonWeeks": 4,
+          "mapePct": 15.55,
+          "mse": 342939.33,
+          "rmse": 585.61,
+          "mase": 0.157,
+          "coveragePct": 94.2,
+          "coverageHits": 49,
+          "coverageTotal": 52,
+          "sampleSize": 52
+        }
+      ],
+      "modelAgreementByHorizon": [
+        {
+          "horizonWeeks": 1,
+          "thresholdPct": 3,
+          "up": 1,
+          "down": 4,
+          "flat": 3,
+          "total": 8,
+          "members": [
+            {
+              "modelId": "naive",
+              "point": 4884,
+              "changePct": 0,
+              "direction": "flat"
+            },
+            {
+              "modelId": "sarimax",
+              "point": 4828.98,
+              "changePct": -1.1265356265356408,
+              "direction": "flat"
+            },
+            {
+              "modelId": "lightgbm",
+              "point": 4728.06,
+              "changePct": -3.192874692874681,
+              "direction": "down"
+            },
+            {
+              "modelId": "xgboost",
+              "point": 4647.04,
+              "changePct": -4.851760851760856,
+              "direction": "down"
+            },
+            {
+              "modelId": "random_forest",
+              "point": 4701.08,
+              "changePct": -3.7452907452907414,
+              "direction": "down"
+            },
+            {
+              "modelId": "prophet",
+              "point": 5140.34,
+              "changePct": 5.248566748566752,
+              "direction": "up"
+            },
+            {
+              "modelId": "timesfm",
+              "point": 4800.28,
+              "changePct": -1.7141687141687179,
+              "direction": "flat"
+            },
+            {
+              "modelId": "chronos",
+              "point": 4530.97,
+              "changePct": -7.228296478296469,
+              "direction": "down"
+            }
+          ]
+        },
+        {
+          "horizonWeeks": 2,
+          "thresholdPct": 3,
+          "up": 1,
+          "down": 4,
+          "flat": 3,
+          "total": 8,
+          "members": [
+            {
+              "modelId": "naive",
+              "point": 4884,
+              "changePct": 0,
+              "direction": "flat"
+            },
+            {
+              "modelId": "sarimax",
+              "point": 4791.32,
+              "changePct": -1.8976248976249055,
+              "direction": "flat"
+            },
+            {
+              "modelId": "lightgbm",
+              "point": 4537.62,
+              "changePct": -7.092137592137593,
+              "direction": "down"
+            },
+            {
+              "modelId": "xgboost",
+              "point": 4810.33,
+              "changePct": -1.50839475839476,
+              "direction": "flat"
+            },
+            {
+              "modelId": "random_forest",
+              "point": 4204.79,
+              "changePct": -13.90683865683866,
+              "direction": "down"
+            },
+            {
+              "modelId": "prophet",
+              "point": 5252.27,
+              "changePct": 7.540335790335795,
+              "direction": "up"
+            },
+            {
+              "modelId": "timesfm",
+              "point": 4675.18,
+              "changePct": -4.275593775593767,
+              "direction": "down"
+            },
+            {
+              "modelId": "chronos",
+              "point": 4328.23,
+              "changePct": -11.379402129402138,
+              "direction": "down"
+            }
+          ]
+        },
+        {
+          "horizonWeeks": 3,
+          "thresholdPct": 3,
+          "up": 2,
+          "down": 4,
+          "flat": 2,
+          "total": 8,
+          "members": [
+            {
+              "modelId": "naive",
+              "point": 4884,
+              "changePct": 0,
+              "direction": "flat"
+            },
+            {
+              "modelId": "sarimax",
+              "point": 4767.23,
+              "changePct": -2.390868140868152,
+              "direction": "flat"
+            },
+            {
+              "modelId": "lightgbm",
+              "point": 5073.39,
+              "changePct": 3.8777641277641273,
+              "direction": "up"
+            },
+            {
+              "modelId": "xgboost",
+              "point": 4671.69,
+              "changePct": -4.34705159705161,
+              "direction": "down"
+            },
+            {
+              "modelId": "random_forest",
+              "point": 4337.34,
+              "changePct": -11.192874692874689,
+              "direction": "down"
+            },
+            {
+              "modelId": "prophet",
+              "point": 5167.86,
+              "changePct": 5.812039312039308,
+              "direction": "up"
+            },
+            {
+              "modelId": "timesfm",
+              "point": 4539.48,
+              "changePct": -7.05405405405406,
+              "direction": "down"
+            },
+            {
+              "modelId": "chronos",
+              "point": 4170.49,
+              "changePct": -14.609131859131864,
+              "direction": "down"
+            }
+          ]
+        },
+        {
+          "horizonWeeks": 4,
+          "thresholdPct": 3,
+          "up": 0,
+          "down": 4,
+          "flat": 4,
+          "total": 8,
+          "members": [
+            {
+              "modelId": "naive",
+              "point": 4884,
+              "changePct": 0,
+              "direction": "flat"
+            },
+            {
+              "modelId": "sarimax",
+              "point": 4753.74,
+              "changePct": -2.6670761670761767,
+              "direction": "flat"
+            },
+            {
+              "modelId": "lightgbm",
+              "point": 4643.73,
+              "changePct": -4.9195331695331745,
+              "direction": "down"
+            },
+            {
+              "modelId": "xgboost",
+              "point": 4424.6,
+              "changePct": -9.406224406224394,
+              "direction": "down"
+            },
+            {
+              "modelId": "random_forest",
+              "point": 4944.96,
+              "changePct": 1.2481572481572556,
+              "direction": "flat"
+            },
+            {
+              "modelId": "prophet",
+              "point": 4841.74,
+              "changePct": -0.8652743652743711,
+              "direction": "flat"
+            },
+            {
+              "modelId": "timesfm",
+              "point": 4401.22,
+              "changePct": -9.88493038493038,
+              "direction": "down"
+            },
+            {
+              "modelId": "chronos",
+              "point": 4037.41,
+              "changePct": -17.333947583947584,
+              "direction": "down"
+            }
+          ]
+        }
+      ]
+    },
+    "canonicalHashVector": {
+      "input": {
+        "z": 0,
+        "a": {
+          "😀": 3,
+          "aa": 2,
+          "a": 1
+        },
+        "tuple": [
+          4,
+          3,
+          2,
+          1
+        ]
+      },
+      "canonicalJson": "{\"a\":{\"a\":1,\"aa\":2,\"😀\":3},\"tuple\":[4,3,2,1],\"z\":0}",
+      "sha256": "5278cdb913fb4f4642bca5ff02f752454006129f6a87fd59d093b423003f892d",
+      "representativeRevision": "rep-v1:5278cdb913fb4f4642bca5ff02f752454006129f6a87fd59d093b423003f892d"
+    }
+  },
+  "network": {
+    "identity": {
+      "schemaVersion": "network-catalog-seam-identity/v1",
+      "catalogSeamSha256": "b3b351cfd1c2e61d2b0c78b96ff506437afa25ff38101bae8d2abbcc706070be",
+      "byteSize": 18362,
+      "routeCount": 13,
+      "portCount": 57,
+      "uniquePortSeriesCount": 56,
+      "chokepointCount": 11,
+      "weatherCount": 82,
+      "referenceManifestSha256": "991690557c80d0820228f8d6c63b78c82e74677d64aa91ba1be2906b681bfa71"
+    },
+    "catalogFixture": "network-catalog-seam-v1.json",
+    "identityFixture": "network-catalog-seam-identity-v1.json"
+  },
+  "cvar": {
+    "config": {
+      "scenarioCount": 100000,
+      "candidateCount": 101,
+      "alpha": 0.9,
+      "tailCount": 10000,
+      "weeklyCorrelation": 0.75,
+      "pi90Z": 1.645,
+      "volume": 1000,
+      "spotFloor": 1,
+      "riskWeight": 1
+    },
+    "routeSeeds": {
+      "KUWI": 2401824767,
+      "KUEI": 2401824209,
+      "KNEI": 2401817482,
+      "KMDI": 2401816490,
+      "KMEI": 2401816521,
+      "KAUI": 2401805485,
+      "KLEI": 2401815560,
+      "KLWI": 2401816118,
+      "KSAI": 2401822163,
+      "KWAI": 2401826007,
+      "KCI": 2294234958,
+      "KJI": 2294235175,
+      "KSEI": 2401822287
+    },
+    "kneiGolden": {
+      "routeId": "KNEI",
+      "current": {
+        "date": "2026-08-03",
+        "value": 4884,
+        "unit": "USD/FEU"
+      },
+      "selectedHorizon": 1,
+      "fixed": 4998,
+      "volume": 1000,
+      "riskWeight": 1,
+      "meanSpot": 4830.245747781964,
+      "firstThreePaths": [
+        [
+          4795.126399112393,
+          4644.894291399679,
+          4059.130496665477,
+          4185.428554856431
+        ],
+        [
+          5142.993755072583,
+          5139.728478022085,
+          4687.027025871008,
+          4852.9519563651065
+        ],
+        [
+          4581.697533476982,
+          4607.595273172003,
+          4580.990192058628,
+          4165.090252552109
+        ]
+      ],
+      "best": {
+        "fixedSharePct": 13,
+        "expectedCost": 4852053.800570308,
+        "cvar90": 176052.3334165043,
+        "upwardCvar90": 171726.88913580717,
+        "downwardCvar90": 4325.444280697138,
+        "objective": 5028106.133986812
+      },
+      "checkpoints": [
+        {
+          "fixedSharePct": 0,
+          "expectedCost": 4830245.747781964,
+          "cvar90": 201847.1799435443,
+          "upwardCvar90": 201847.1799435443,
+          "downwardCvar90": 0,
+          "objective": 5032092.927725508
+        },
+        {
+          "fixedSharePct": 13,
+          "expectedCost": 4852053.800570308,
+          "cvar90": 176052.3334165043,
+          "upwardCvar90": 171726.88913580717,
+          "downwardCvar90": 4325.444280697138,
+          "objective": 5028106.133986812
+        },
+        {
+          "fixedSharePct": 50,
+          "expectedCost": 4914122.873890982,
+          "cvar90": 269864.522619871,
+          "upwardCvar90": 4287.54610143725,
+          "downwardCvar90": 265576.97651843383,
+          "objective": 5183987.396510853
+        },
+        {
+          "fixedSharePct": 100,
+          "expectedCost": 4998000,
+          "cvar90": 538732.694130965,
+          "upwardCvar90": 0,
+          "downwardCvar90": 538732.694130965,
+          "objective": 5536732.694130965
+        }
+      ],
+      "resultsSha256": "89b1f212c8f9ca92f46d9de0d9b6b3e4930c8cfe6bfa4b524be0af254383a689"
+    }
+  }
+}
