@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { fixedSeasonalNaiveScale } from "./core/metrics";
@@ -138,20 +138,76 @@ function ChartLegend() {
   );
 }
 
+function EvidenceHoverCard({
+  x,
+  y,
+  title,
+  lines,
+}: Readonly<{
+  x: number;
+  y: number;
+  title: string;
+  lines: readonly string[];
+}>) {
+  return (
+    <g
+      aria-hidden="true"
+      className={styles.evidenceHoverCard}
+      data-evidence-hover-card="true"
+      pointerEvents="none"
+      transform={`translate(${x} ${y})`}
+    >
+      <rect height="88" rx="11" width="220" />
+      <text className={styles.evidenceHoverTitle} x="13" y="20">{title}</text>
+      <line x1="13" x2="207" y1="29" y2="29" />
+      {lines.slice(0, 3).map((line, index) => (
+        <text className={index === 2 ? styles.evidenceHoverAccent : styles.evidenceHoverText} key={line} x="13" y={46 + index * 16}>
+          {line}
+        </text>
+      ))}
+    </g>
+  );
+}
+
 function ActualForecastChart({
   metricName,
   records,
+  maseScale,
 }: Readonly<{
   metricName: EvidenceMetricV1;
   records: readonly EvaluationEvidenceV1[];
+  maseScale: number;
 }>) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const scale = buildChartScale(records);
+  const plotLeft = CHART_PAD.left;
+  const plotRight = CHART_WIDTH - CHART_PAD.right;
   const tickIndices = [0, 13, 26, 39, records.length - 1]
     .filter((index, position, all) => index >= 0 && index < records.length && all.indexOf(index) === position);
   const highIndices = metricName === "MAPE"
     ? new Set(records.map((record, index) => record.apePct > 7 ? index : -1).filter((index) => index >= 0))
     : topIndices(records.map((record) => metricName === "MSE" ? record.difference ** 2 : record.absoluteError));
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => scale.min + (scale.max - scale.min) * ratio);
+  const hoveredRecord = hoveredIndex === null ? null : records[hoveredIndex];
+  const hoveredX = hoveredIndex === null ? 0 : scale.x(hoveredIndex);
+  const hoveredY = hoveredRecord === null
+    ? 0
+    : Math.min(scale.y(hoveredRecord.actual), scale.y(hoveredRecord.predicted));
+  const hoverCardX = Math.min(
+    CHART_WIDTH - 220 - 8,
+    Math.max(8, hoveredX > CHART_WIDTH / 2 ? hoveredX - 232 : hoveredX + 12),
+  );
+  const hoverCardY = Math.min(
+    CHART_HEIGHT - 88 - 8,
+    Math.max(8, hoveredY > 112 ? hoveredY - 98 : hoveredY + 12),
+  );
+  const hoveredMetric = hoveredRecord === null
+    ? ""
+    : metricName === "MAPE"
+      ? `APE ${hoveredRecord.apePct.toFixed(2)}%`
+      : metricName === "MSE"
+        ? `제곱오차 ${formatNumber(hoveredRecord.difference ** 2, 2)}`
+        : `Scaled error ${(hoveredRecord.absoluteError / maseScale).toFixed(3)}`;
 
   return (
     <div className={styles.evidenceChartCard}>
@@ -159,7 +215,13 @@ function ActualForecastChart({
         <div><span>ACTUAL VS FORECAST</span><h3>실측값과 예측값 비교</h3></div>
         <ChartLegend />
       </header>
-      <svg aria-label="52개 목표일의 실측 운임과 모델 예측값" className={styles.evidenceLineChart} role="img" viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}>
+      <svg
+        aria-label="52개 목표일의 실측 운임과 모델 예측값"
+        className={styles.evidenceLineChart}
+        onPointerLeave={() => setHoveredIndex(null)}
+        role="img"
+        viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+      >
         {yTicks.map((value) => {
           const y = scale.y(value);
           return (
@@ -178,18 +240,50 @@ function ActualForecastChart({
         <path className={styles.evidenceForecast} d={chartPath(records, scale, "predicted")} />
         {records.map((record, index) => (
           <g key={`${record.forecastOrigin}-${record.targetDate}`}>
-            <circle className={styles.evidenceActualPoint} cx={scale.x(index)} cy={scale.y(record.actual)} r="3.2">
-              <title>{`${formatDate(record.targetDate)} · 실측 ${formatMoney(record.actual)} · 예측 ${formatMoney(record.predicted)} · 차이 ${formatSignedMoney(record.difference)} · APE ${record.apePct.toFixed(2)}%`}</title>
-            </circle>
-            <circle className={highIndices.has(index) ? styles.highError : styles.evidenceForecastPoint} cx={scale.x(index)} cy={scale.y(record.predicted)} r={highIndices.has(index) ? "4.4" : "3.2"}>
-              <title>{`${formatDate(record.targetDate)} · 예측 ${formatMoney(record.predicted)} · 실측 ${formatMoney(record.actual)} · 차이 ${formatSignedMoney(record.difference)} · APE ${record.apePct.toFixed(2)}%`}</title>
-            </circle>
+            <circle className={styles.evidenceActualPoint} cx={scale.x(index)} cy={scale.y(record.actual)} r="3.2" />
+            <circle className={highIndices.has(index) ? styles.highError : styles.evidenceForecastPoint} cx={scale.x(index)} cy={scale.y(record.predicted)} r={highIndices.has(index) ? "4.4" : "3.2"} />
           </g>
         ))}
+        {records.map((record, index) => {
+          const pointX = scale.x(index);
+          const previousX = index === 0 ? plotLeft : scale.x(index - 1);
+          const nextX = index === records.length - 1 ? plotRight : scale.x(index + 1);
+          const hitLeft = index === 0 ? plotLeft : (previousX + pointX) / 2;
+          const hitRight = index === records.length - 1 ? plotRight : (pointX + nextX) / 2;
+          return (
+            <rect
+              aria-label={`${formatDate(record.targetDate)} 상세 정보`}
+              className={styles.evidenceHitArea}
+              data-evidence-hit-index={index}
+              height={CHART_HEIGHT - CHART_PAD.top - CHART_PAD.bottom}
+              key={`hit-${record.targetDate}`}
+              onPointerEnter={() => setHoveredIndex(index)}
+              onPointerMove={() => setHoveredIndex(index)}
+              width={Math.max(4, hitRight - hitLeft)}
+              x={hitLeft}
+              y={CHART_PAD.top}
+            />
+          );
+        })}
+        {hoveredRecord === null ? null : (
+          <>
+            <line className={styles.evidenceHoverGuide} x1={hoveredX} x2={hoveredX} y1={CHART_PAD.top} y2={CHART_HEIGHT - CHART_PAD.bottom} />
+            <EvidenceHoverCard
+              lines={[
+                `실측 ${formatMoney(hoveredRecord.actual)} · 예측 ${formatMoney(hoveredRecord.predicted)}`,
+                `차이 ${formatSignedMoney(hoveredRecord.difference)}`,
+                hoveredMetric,
+              ]}
+              title={`${formatDate(hoveredRecord.targetDate)} · ${metricName}`}
+              x={hoverCardX}
+              y={hoverCardY}
+            />
+          </>
+        )}
         <text className={styles.evidenceAxisTitle} textAnchor="middle" transform="rotate(-90 14 143)" x="14" y="143">USD/FEU</text>
         <text className={styles.evidenceAxisTitle} textAnchor="middle" x={CHART_WIDTH / 2} y={CHART_HEIGHT - 1}>목표일</text>
       </svg>
-      <p className={styles.chartHelp}>점에 마우스를 올리면 목표일·예측·실측·차이·APE 원시 기록을 확인할 수 있습니다.</p>
+      <p className={styles.chartHelp}>그래프 위에 마우스를 올리면 목표일·예측·실측·차이와 {metricName} 계산값을 정보창으로 확인할 수 있습니다.</p>
     </div>
   );
 }
@@ -203,11 +297,13 @@ function ErrorContributionChart({
   records: readonly EvaluationEvidenceV1[];
   maseScale: number;
 }>) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const values = records.map((record) => metricName === "MSE"
     ? record.difference ** 2
     : record.absoluteError / maseScale);
   const max = Math.max(...values, metricName === "MASE" ? 1 : 0, 1);
   const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const total = values.reduce((sum, value) => sum + value, 0);
   const highIndices = topIndices(values);
   const width = 520;
   const height = CHART_HEIGHT;
@@ -219,6 +315,18 @@ function ErrorContributionChart({
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => ratio * max);
   const tickIndices = [0, 17, 34, records.length - 1]
     .filter((index, position, all) => index >= 0 && index < records.length && all.indexOf(index) === position);
+  const hoveredRecord = hoveredIndex === null ? null : records[hoveredIndex];
+  const hoveredValue = hoveredIndex === null ? 0 : values[hoveredIndex];
+  const hoveredX = hoveredIndex === null ? 0 : pad.left + (hoveredIndex + 0.5) * barWidth;
+  const hoveredY = hoveredIndex === null ? 0 : y(hoveredValue);
+  const hoverCardX = Math.min(
+    width - 220 - 8,
+    Math.max(8, hoveredX > width / 2 ? hoveredX - 230 : hoveredX + 10),
+  );
+  const hoverCardY = Math.min(
+    height - 88 - 8,
+    Math.max(8, hoveredY > 112 ? hoveredY - 96 : hoveredY + 10),
+  );
 
   return (
     <div className={styles.evidenceChartCard}>
@@ -232,7 +340,13 @@ function ErrorContributionChart({
           <span><i className={styles.errorSwatch} />상위 오차 5개</span>
         </div>
       </header>
-      <svg aria-label={metricName === "MSE" ? "52개 기록별 제곱오차와 평균선" : "52개 기록별 scaled error와 기준선 1"} className={styles.evidenceBarChart} role="img" viewBox={`0 0 ${width} ${height}`}>
+      <svg
+        aria-label={metricName === "MSE" ? "52개 기록별 제곱오차와 평균선" : "52개 기록별 scaled error와 기준선 1"}
+        className={styles.evidenceBarChart}
+        onPointerLeave={() => setHoveredIndex(null)}
+        role="img"
+        viewBox={`0 0 ${width} ${height}`}
+      >
         {yTicks.map((value) => (
           <g key={value}>
             <line className={styles.evidenceGridLine} x1={pad.left} x2={width - pad.right} y1={y(value)} y2={y(value)} />
@@ -250,14 +364,41 @@ function ErrorContributionChart({
         {values.map((value, index) => {
           const barHeight = value / max * plotHeight;
           return (
-            <rect className={highIndices.has(index) ? styles.highErrorBar : styles.errorBar} height={barHeight} key={`${records[index].targetDate}-${value}`} width={Math.max(2.5, barWidth - 2.2)} x={pad.left + index * barWidth + 1} y={height - pad.bottom - barHeight}>
-              <title>{`${formatDate(records[index].targetDate)} · ${metricName === "MSE" ? `제곱오차 ${formatNumber(value, 2)}` : `scaled error ${value.toFixed(3)}`} · 실측 ${formatMoney(records[index].actual)} · 예측 ${formatMoney(records[index].predicted)}`}</title>
-            </rect>
+            <rect className={highIndices.has(index) ? styles.highErrorBar : styles.errorBar} height={barHeight} key={`${records[index].targetDate}-${value}`} width={Math.max(2.5, barWidth - 2.2)} x={pad.left + index * barWidth + 1} y={height - pad.bottom - barHeight} />
           );
         })}
         {tickIndices.map((index) => (
           <text className={styles.evidenceAxisLabel} key={index} textAnchor={index === 0 ? "start" : index === records.length - 1 ? "end" : "middle"} x={pad.left + (index + 0.5) * barWidth} y={height - 12}>{formatDate(records[index].targetDate).slice(2)}</text>
         ))}
+        {records.map((record, index) => (
+          <rect
+            aria-label={`${formatDate(record.targetDate)} ${metricName} 상세 정보`}
+            className={styles.evidenceHitArea}
+            data-evidence-hit-index={index}
+            height={plotHeight}
+            key={`hit-${record.targetDate}`}
+            onPointerEnter={() => setHoveredIndex(index)}
+            onPointerMove={() => setHoveredIndex(index)}
+            width={barWidth}
+            x={pad.left + index * barWidth}
+            y={pad.top}
+          />
+        ))}
+        {hoveredRecord === null ? null : (
+          <>
+            <line className={styles.evidenceHoverGuide} x1={hoveredX} x2={hoveredX} y1={pad.top} y2={height - pad.bottom} />
+            <EvidenceHoverCard
+              lines={[
+                `실측 ${formatMoney(hoveredRecord.actual)} · 예측 ${formatMoney(hoveredRecord.predicted)}`,
+                metricName === "MSE" ? `제곱오차 ${formatNumber(hoveredValue, 2)}` : `Scaled error ${hoveredValue.toFixed(3)}`,
+                `전체 기여도 ${total === 0 ? "0.00" : (hoveredValue / total * 100).toFixed(2)}%`,
+              ]}
+              title={`${formatDate(hoveredRecord.targetDate)} · ${metricName}`}
+              x={hoverCardX}
+              y={hoverCardY}
+            />
+          </>
+        )}
         <text className={styles.evidenceAxisTitle} textAnchor="middle" x={width / 2} y={height - 1}>목표일</text>
       </svg>
       {metricName === "MASE" ? (
@@ -380,7 +521,7 @@ export function EvidenceDialog({ metricName, model, horizon, routeName, history,
           </section>
 
           <section className={metricName === "MAPE" ? styles.evidenceSingleChart : styles.evidenceChartGrid} aria-label={`${metricName} 시각화`}>
-            <ActualForecastChart metricName={metricName} records={records} />
+            <ActualForecastChart maseScale={maseScale} metricName={metricName} records={records} />
             {metricName !== "MAPE" ? <ErrorContributionChart maseScale={maseScale} metricName={metricName} records={records} /> : null}
           </section>
 

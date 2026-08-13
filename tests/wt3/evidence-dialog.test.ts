@@ -56,9 +56,13 @@ test("evidence UI keeps the three metric-specific analysis structures and respon
   }
   assert.ok(source.includes("slice(0, count)"));
   assert.ok(source.includes("fixedSeasonalNaiveScale"));
+  assert.ok(source.includes("data-evidence-hover-card=\"true\""));
+  assert.ok(source.includes("onPointerEnter={() => setHoveredIndex(index)}"));
+  assert.ok(source.includes("전체 기여도"));
   assert.ok(client.includes("history={routeData.history}"));
   assert.ok(client.includes("routeName={routeData.routeName}"));
   assert.ok(css.includes("width: min(1440px, 96vw)"));
   assert.ok(css.includes(".evidenceChartGrid, .evidenceDetailGrid { grid-template-columns: 1fr; }"));
   assert.ok(css.includes(".evidenceTableWrap { width: 100%; height: 210px; overflow: auto; }"));
+  assert.ok(css.includes(".evidenceHoverCard rect { fill: #001290; stroke: #3fa1eb;"));
 });

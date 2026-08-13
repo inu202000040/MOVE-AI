@@ -205,6 +205,14 @@
 .evidenceActualPoint { fill: #202b39; stroke: white; stroke-width: 1.4; }
 .evidenceForecastPoint { fill: var(--cyan); stroke: white; stroke-width: 1.4; }
 .highError { fill: #ef684f; stroke: white; stroke-width: 1.6; }
+.evidenceHitArea { fill: transparent; cursor: crosshair; pointer-events: all; }
+.evidenceHoverGuide { stroke: rgba(0,18,144,.38); stroke-width: 1.2; stroke-dasharray: 3 3; pointer-events: none; vector-effect: non-scaling-stroke; }
+.evidenceHoverCard { pointer-events: none; filter: drop-shadow(0 8px 12px rgba(0,18,80,.25)); }
+.evidenceHoverCard rect { fill: #001290; stroke: #3fa1eb; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.evidenceHoverCard line { stroke: rgba(255,255,255,.2); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.evidenceHoverTitle { fill: #8ed8ff; font-size: 10px; font-weight: 900; letter-spacing: .035em; }
+.evidenceHoverText { fill: #fff; font-size: 9px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.evidenceHoverAccent { fill: #7de2ff; font-size: 9px; font-weight: 900; font-variant-numeric: tabular-nums; }
 .chartHelp { margin: 0; padding: 0 18px 13px; color: #8191a4; font-size: 8px; }
 .errorBar { fill: rgba(63,161,235,.83); }
 .highErrorBar { fill: #ef684f; }
