@@ -1,4 +1,3 @@
-import type { GatewayResultV1 } from "../../../contracts";
 import { isRouteId, type RouteId } from "../../../contracts";
 
 import {
@@ -14,9 +13,7 @@ import {
   isRecord,
   unreachable,
 } from "./decode";
-import { decodeGatewayResult } from "./gateway";
 
-export type NewsGatewayState = "LIVE" | "UNAVAILABLE";
 export type NewsDirectionCode = "UP" | "DOWN" | "MIXED" | "NEUTRAL";
 export type NewsGrade = "S" | "A" | "B";
 export type NewsProvenance = "VERIFIED" | "LIVE_SEARCH";
@@ -77,8 +74,6 @@ export interface NewsDataV1 {
   readonly attempts: readonly JsonObject[];
 }
 
-export type NewsResultV1 = GatewayResultV1<NewsDataV1, NewsGatewayState>;
-
 const DATA_KEYS = ["routeId", "stage", "llmAnalyzed", "window", "policy", "stats", "articles", "attempts"] as const;
 const ARTICLE_KEYS = [
   "id",
@@ -110,10 +105,6 @@ const STATS_KEYS = [
   "candidateBreakdown",
 ] as const;
 const BREAKDOWN_KEYS = ["directImpact", "contextual", "routeFallback"] as const;
-
-function decodeNewsState(value: unknown): NewsGatewayState | null {
-  return value === "LIVE" || value === "UNAVAILABLE" ? value : null;
-}
 
 function decodeDirectionCode(value: unknown): NewsDirectionCode | null {
   switch (value) {
@@ -280,7 +271,7 @@ function decodeNewsStats(value: unknown): NewsStatsV1 | null {
   };
 }
 
-function decodeNewsData(value: unknown): NewsDataV1 | null {
+export function decodeNewsData(value: unknown, expectedRoute?: RouteId): NewsDataV1 | null {
   if (!isRecord(value) || !hasExactKeys(value, DATA_KEYS) || !isRouteId(value.routeId)) {
     return null;
   }
@@ -318,7 +309,7 @@ function decodeNewsData(value: unknown): NewsDataV1 | null {
   if (stats.selectedArticles !== articles.length || new Set(articles.map((article) => article.id)).size !== articles.length) {
     return null;
   }
-  return {
+  const decoded: NewsDataV1 = {
     routeId: value.routeId,
     stage: "FILTERED",
     llmAnalyzed: false,
@@ -328,90 +319,59 @@ function decodeNewsData(value: unknown): NewsDataV1 | null {
     articles,
     attempts,
   };
+  return expectedRoute === undefined || decoded.routeId === expectedRoute ? decoded : null;
 }
 
-export function decodeNewsResult(value: unknown, expectedRoute?: RouteId): NewsResultV1 | null {
-  const decoded = decodeGatewayResult(value, {
-    decodeData: decodeNewsData,
-    decodeState: decodeNewsState,
-    unavailableState: "UNAVAILABLE",
-    isCompatible: (state, data, error, meta) => {
-      if (meta.unit !== null) {
-        return false;
-      }
-      if (state === "UNAVAILABLE") {
-        return data === null && error !== null;
-      }
-      return data !== null
-        && error === null
-        && (expectedRoute === undefined || data.routeId === expectedRoute);
-    },
-  });
-  if (decoded === null) {
-    return null;
-  }
-  if (decoded.data !== null && expectedRoute !== undefined && decoded.data.routeId !== expectedRoute) {
-    return null;
-  }
-  return decoded;
-}
+export type NewsRequestResolution =
+  | { readonly kind: "READY"; readonly data: NewsDataV1 }
+  | { readonly kind: "VERIFIED_EMPTY" | "ERROR"; readonly data: null };
 
 export type NewsClientState =
   | { readonly status: "IDLE"; readonly retained: null; readonly error: null }
   | { readonly status: "LOADING"; readonly retained: null; readonly error: null }
-  | { readonly status: "READY" | "CACHED"; readonly retained: NewsResultV1; readonly error: null }
-  | { readonly status: "READY_EMPTY" | "ERROR"; readonly retained: null; readonly error: NewsResultV1 }
-  | { readonly status: "LOADING_CACHED"; readonly retained: NewsResultV1; readonly error: null }
-  | { readonly status: "ERROR_CACHED"; readonly retained: NewsResultV1; readonly error: NewsResultV1 };
+  | { readonly status: "READY" | "CACHED"; readonly retained: NewsDataV1; readonly error: null }
+  | { readonly status: "READY_EMPTY" | "ERROR"; readonly retained: null; readonly error: NewsRequestResolution }
+  | { readonly status: "LOADING_CACHED"; readonly retained: NewsDataV1; readonly error: null }
+  | { readonly status: "ERROR_CACHED"; readonly retained: NewsDataV1; readonly error: NewsRequestResolution };
 
 export type NewsClientAction =
   | { readonly type: "ROUTE_CHANGED" }
-  | { readonly type: "CACHE_HYDRATED"; readonly result: NewsResultV1 }
+  | { readonly type: "CACHE_HYDRATED"; readonly data: NewsDataV1 }
   | { readonly type: "COLLECT_STARTED" }
-  | { readonly type: "REQUEST_RESOLVED"; readonly result: NewsResultV1 };
+  | { readonly type: "REQUEST_RESOLVED"; readonly resolution: NewsRequestResolution };
 
 export const INITIAL_NEWS_STATE: NewsClientState = { status: "IDLE", retained: null, error: null };
-
-function isLiveWithArticles(result: NewsResultV1): boolean {
-  return result.state === "LIVE" && result.data !== null && result.data.articles.length > 0;
-}
-
-function isVerifiedEmpty(result: NewsResultV1): boolean {
-  return result.state === "UNAVAILABLE" && result.error?.code === "NO_VALID_DATA";
-}
 
 export function reduceNewsState(state: NewsClientState, action: NewsClientAction): NewsClientState {
   switch (action.type) {
     case "ROUTE_CHANGED":
       return INITIAL_NEWS_STATE;
     case "CACHE_HYDRATED":
-      return isLiveWithArticles(action.result)
-        ? { status: "CACHED", retained: action.result, error: null }
+      return action.data.articles.length > 0
+        ? { status: "CACHED", retained: action.data, error: null }
         : state;
     case "COLLECT_STARTED":
       return state.retained === null
         ? { status: "LOADING", retained: null, error: null }
         : { status: "LOADING_CACHED", retained: state.retained, error: null };
     case "REQUEST_RESOLVED":
-      if (isLiveWithArticles(action.result)) {
-        return { status: "READY", retained: action.result, error: null };
+      if (action.resolution.kind === "READY") {
+        return { status: "READY", retained: action.resolution.data, error: null };
       }
       if (state.retained !== null) {
-        return { status: "ERROR_CACHED", retained: state.retained, error: action.result };
+        return { status: "ERROR_CACHED", retained: state.retained, error: action.resolution };
       }
-      return isVerifiedEmpty(action.result)
-        ? { status: "READY_EMPTY", retained: null, error: action.result }
-        : { status: "ERROR", retained: null, error: action.result };
+      return action.resolution.kind === "VERIFIED_EMPTY"
+        ? { status: "READY_EMPTY", retained: null, error: action.resolution }
+        : { status: "ERROR", retained: null, error: action.resolution };
     default:
       return unreachable(action);
   }
 }
 
-export function chooseNewsRetryResult(
-  first: NewsResultV1,
-  retried: NewsResultV1,
-): NewsResultV1 {
-  const firstCount = first.data?.articles.length ?? 0;
-  const retriedCount = retried.data?.articles.length ?? 0;
-  return retriedCount > firstCount ? retried : first;
+export function chooseNewsRetryData(
+  first: NewsDataV1,
+  retried: NewsDataV1,
+): NewsDataV1 {
+  return retried.articles.length > first.articles.length ? retried : first;
 }
