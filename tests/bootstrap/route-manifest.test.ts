@@ -16,7 +16,7 @@ test("the basic route manifest is present", async () => {
   );
   assert.equal(sources.length, 5);
   for (const source of sources) {
-    assert.match(source, /export default function/u);
+    assert.match(source, /export default (?:async )?function/u);
   }
 });
 
