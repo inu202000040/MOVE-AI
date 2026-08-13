@@ -1,11 +1,9 @@
 import { isRouteId, type RouteId } from "../../../contracts";
 
 import {
-  type JsonObject,
   decodeFiniteNumber,
   decodeHttpUrl,
   decodeIsoDateOrTimestamp,
-  decodeJsonRecord,
   decodeNonEmptyString,
   decodeNonNegativeInteger,
   decodeStringArray,
@@ -17,6 +15,14 @@ import {
 export type NewsDirectionCode = "UP" | "DOWN" | "MIXED" | "NEUTRAL";
 export type NewsGrade = "S" | "A" | "B";
 export type NewsProvenance = "VERIFIED" | "LIVE_SEARCH";
+
+export interface NewsQueryV1 {
+  readonly route: RouteId;
+  readonly asOf: "latest";
+  readonly providerVersion: 18;
+  readonly retry: 0 | 1;
+  readonly refresh?: string;
+}
 
 export const NEWS_IMPACT_SIGNALS = [
   "운임·할증료",
@@ -63,15 +69,32 @@ export interface NewsStatsV1 {
   };
 }
 
+export interface NewsWindowV1 {
+  readonly requestedAsOf: "latest" | string;
+  readonly primaryDays: 30;
+  readonly fallbackDays: 90;
+}
+
+export interface NewsPolicyV1 {
+  readonly providerVersion: 18;
+  readonly maximumArticles: 5;
+}
+
+export interface NewsAttemptV1 {
+  readonly provider: string;
+  readonly resultCode: string;
+  readonly elapsedMs: number;
+}
+
 export interface NewsDataV1 {
   readonly routeId: RouteId;
   readonly stage: "FILTERED";
   readonly llmAnalyzed: false;
-  readonly window: JsonObject;
-  readonly policy: JsonObject;
+  readonly window: NewsWindowV1;
+  readonly policy: NewsPolicyV1;
   readonly stats: NewsStatsV1;
   readonly articles: readonly NewsArticleV1[];
-  readonly attempts: readonly JsonObject[];
+  readonly attempts: readonly NewsAttemptV1[];
 }
 
 const DATA_KEYS = ["routeId", "stage", "llmAnalyzed", "window", "policy", "stats", "articles", "attempts"] as const;
@@ -105,6 +128,61 @@ const STATS_KEYS = [
   "candidateBreakdown",
 ] as const;
 const BREAKDOWN_KEYS = ["directImpact", "contextual", "routeFallback"] as const;
+const WINDOW_KEYS = ["requestedAsOf", "primaryDays", "fallbackDays"] as const;
+const POLICY_KEYS = ["providerVersion", "maximumArticles"] as const;
+const ATTEMPT_KEYS = ["provider", "resultCode", "elapsedMs"] as const;
+
+export function createNewsQuery(
+  route: RouteId,
+  retry: 0 | 1,
+  refresh?: string,
+): NewsQueryV1 {
+  return {
+    route,
+    asOf: "latest",
+    providerVersion: 18,
+    retry,
+    ...(refresh === undefined ? {} : { refresh }),
+  };
+}
+
+function decodeNewsWindow(value: unknown): NewsWindowV1 | null {
+  if (!isRecord(value) || !hasExactKeys(value, WINDOW_KEYS)) {
+    return null;
+  }
+  const requestedAsOf = value.requestedAsOf === "latest"
+    ? "latest"
+    : decodeIsoDateOrTimestamp(value.requestedAsOf);
+  if (requestedAsOf === null || value.primaryDays !== 30 || value.fallbackDays !== 90) {
+    return null;
+  }
+  return { requestedAsOf, primaryDays: 30, fallbackDays: 90 };
+}
+
+function decodeNewsPolicy(value: unknown): NewsPolicyV1 | null {
+  if (
+    !isRecord(value)
+    || !hasExactKeys(value, POLICY_KEYS)
+    || value.providerVersion !== 18
+    || value.maximumArticles !== 5
+  ) {
+    return null;
+  }
+  return { providerVersion: 18, maximumArticles: 5 };
+}
+
+function decodeNewsAttempt(value: unknown): NewsAttemptV1 | null {
+  if (!isRecord(value) || !hasExactKeys(value, ATTEMPT_KEYS)) {
+    return null;
+  }
+  const provider = decodeNonEmptyString(value.provider);
+  const resultCode = decodeNonEmptyString(value.resultCode);
+  const elapsedMs = decodeFiniteNumber(value.elapsedMs);
+  if (provider === null || resultCode === null || elapsedMs === null || elapsedMs < 0) {
+    return null;
+  }
+  return { provider, resultCode, elapsedMs };
+}
 
 function decodeDirectionCode(value: unknown): NewsDirectionCode | null {
   switch (value) {
@@ -275,8 +353,8 @@ export function decodeNewsData(value: unknown, expectedRoute?: RouteId): NewsDat
   if (!isRecord(value) || !hasExactKeys(value, DATA_KEYS) || !isRouteId(value.routeId)) {
     return null;
   }
-  const window = decodeJsonRecord(value.window);
-  const policy = decodeJsonRecord(value.policy);
+  const window = decodeNewsWindow(value.window);
+  const policy = decodeNewsPolicy(value.policy);
   const stats = decodeNewsStats(value.stats);
   if (
     value.stage !== "FILTERED"
@@ -298,9 +376,9 @@ export function decodeNewsData(value: unknown, expectedRoute?: RouteId): NewsDat
     }
     articles.push(article);
   }
-  const attempts: JsonObject[] = [];
+  const attempts: NewsAttemptV1[] = [];
   for (const item of value.attempts) {
-    const attempt = decodeJsonRecord(item);
+    const attempt = decodeNewsAttempt(item);
     if (attempt === null) {
       return null;
     }
