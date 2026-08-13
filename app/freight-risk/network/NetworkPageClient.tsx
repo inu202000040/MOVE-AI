@@ -12,6 +12,8 @@ import {
 } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 
+type MapLibrePaintProperty = Parameters<MapLibreMap["setPaintProperty"]>[1];
+
 import {
   catalogToNetworkGeoJson,
   createNetworkFeatureStateController,
@@ -84,7 +86,10 @@ function supportsWebGl2(): boolean {
   return context !== null;
 }
 
-function activationKey(event: KeyboardEvent<SVGGElement>, activate: () => void): void {
+function activationKey<TElement extends SVGElement>(
+  event: KeyboardEvent<TElement>,
+  activate: () => void,
+): void {
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
     activate();
@@ -102,9 +107,12 @@ interface StaticMapProps {
   readonly viewport: StaticViewport;
   readonly onViewport: (viewport: StaticViewport) => void;
   readonly selection: NetworkSelectionState;
-  readonly onRoute: () => void;
-  readonly onPort: (portId: string) => void;
-  readonly onChokepoint: (chokepointId: string) => void;
+  readonly onRoute: (trigger?: HTMLElement | SVGElement) => void;
+  readonly onPort: (portId: string, trigger?: HTMLElement | SVGElement) => void;
+  readonly onChokepoint: (
+    chokepointId: string,
+    trigger?: HTMLElement | SVGElement,
+  ) => void;
 }
 
 function StaticNetworkMap({
@@ -198,8 +206,10 @@ function StaticNetworkMap({
                 : "network-static-map__route"
             }
             key={`route-${index}`}
-            onClick={onRoute}
-            onKeyDown={(event) => activationKey(event, onRoute)}
+            onClick={(event) => onRoute(event.currentTarget)}
+            onKeyDown={(event) =>
+              activationKey(event, () => onRoute(event.currentTarget))
+            }
             points={segment.map(({ x, y }) => `${x},${y}`).join(" ")}
             role="button"
             tabIndex={0}
@@ -211,7 +221,8 @@ function StaticNetworkMap({
             1000,
             500,
           );
-          const activate = () => onChokepoint(chokepoint.id);
+          const activate = (trigger?: HTMLElement | SVGElement) =>
+            onChokepoint(chokepoint.id, trigger);
           return (
             <g
               aria-label={KNEI_CHOKEPOINT_LABELS[chokepoint.id] ?? chokepoint.id}
@@ -221,8 +232,10 @@ function StaticNetworkMap({
                   : "network-static-map__choke"
               }
               key={chokepoint.id}
-              onClick={activate}
-              onKeyDown={(event) => activationKey(event, activate)}
+              onClick={(event) => activate(event.currentTarget)}
+              onKeyDown={(event) =>
+                activationKey(event, () => activate(event.currentTarget))
+              }
               role="button"
               tabIndex={0}
               transform={`translate(${point.x} ${point.y})`}
@@ -234,7 +247,8 @@ function StaticNetworkMap({
         })}
         {KNEI_REFERENCE_FIXTURE.ports.map((port) => {
           const point = projectWebMercator([port.longitude, port.latitude], 1000, 500);
-          const activate = () => onPort(port.id);
+          const activate = (trigger?: HTMLElement | SVGElement) =>
+            onPort(port.id, trigger);
           return (
             <g
               aria-label={`${KNEI_PORT_LABELS[port.id] ?? port.id}, KNEI 노선`}
@@ -244,8 +258,10 @@ function StaticNetworkMap({
                   : "network-static-map__port"
               }
               key={port.id}
-              onClick={activate}
-              onKeyDown={(event) => activationKey(event, activate)}
+              onClick={(event) => activate(event.currentTarget)}
+              onKeyDown={(event) =>
+                activationKey(event, () => activate(event.currentTarget))
+              }
               role="button"
               tabIndex={0}
               transform={`translate(${point.x} ${point.y})`}
@@ -282,6 +298,7 @@ function StaticNetworkMap({
 export function NetworkPageClient() {
   const hostRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const selectionTriggerRef = useRef<HTMLElement | SVGElement | null>(null);
   const featureStateRef = useRef<ReturnType<typeof createNetworkFeatureStateController> | null>(
     null,
   );
@@ -295,18 +312,27 @@ export function NetworkPageClient() {
   const layers = useMemo(() => createNetworkMapLayers(MAP_PALETTE), []);
   const panel = visibleNetworkPanel(selection);
 
-  const selectRoute = useCallback((): void => {
+  const selectRoute = useCallback((trigger?: HTMLElement | SVGElement): void => {
+    if (trigger) selectionTriggerRef.current = trigger;
     dispatchSelection({ type: "SELECT_ROUTE", routeId: "KNEI" });
     mapRef.current?.easeTo({ center: [65, 30], zoom: 1.55, duration: 800 });
   }, []);
-  const selectPort = useCallback((portId: string): void => {
+  const selectPort = useCallback((
+    portId: string,
+    trigger?: HTMLElement | SVGElement,
+  ): void => {
+    if (trigger) selectionTriggerRef.current = trigger;
     dispatchSelection({ type: "SELECT_PORT", portId, routeId: "KNEI" });
     const port = KNEI_REFERENCE_FIXTURE.ports.find(({ id }) => id === portId);
     if (port) {
       mapRef.current?.easeTo({ center: [port.longitude, port.latitude], zoom: 4.6, duration: 700 });
     }
   }, []);
-  const selectChokepoint = useCallback((chokepointId: string): void => {
+  const selectChokepoint = useCallback((
+    chokepointId: string,
+    trigger?: HTMLElement | SVGElement,
+  ): void => {
+    if (trigger) selectionTriggerRef.current = trigger;
     dispatchSelection({ type: "SELECT_CHOKEPOINT", chokepointId });
     const chokepoint = KNEI_REFERENCE_FIXTURE.chokepoints.find(
       ({ id }) => id === chokepointId,
@@ -320,9 +346,53 @@ export function NetworkPageClient() {
     }
   }, []);
 
+  const closeDetail = useCallback((): void => {
+    dispatchSelection({ type: "CLOSE_DETAIL" });
+    queueMicrotask(() => selectionTriggerRef.current?.focus());
+  }, []);
+
+  const resetView = useCallback((): void => {
+    setViewport(resetStaticViewport());
+    mapRef.current?.easeTo({ center: [126.2, 27.5], zoom: 1.42, bearing: -7, duration: 700 });
+  }, []);
+
+  useEffect(() => {
+    const handleEscape = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === "Escape" && visibleNetworkPanel(selection).kind !== "none") {
+        closeDetail();
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [closeDetail, selection]);
+
   useEffect(() => {
     featureStateRef.current?.apply(selection);
   }, [selection]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || renderer.kind !== "globe_ready") return;
+    const routesPrimary = focusMode !== "chokepoints";
+    const chokesPrimary = focusMode !== "routes";
+    const paintUpdates: readonly [string, MapLibrePaintProperty, number][] = [
+      ["network-route-shadow", "line-opacity", routesPrimary ? 0.72 : 0.16],
+      ["network-route-line", "line-opacity", routesPrimary ? 0.9 : 0.28],
+      ["network-connector-line", "line-opacity", routesPrimary ? 0.46 : 0.18],
+      ["network-port-marker", "circle-opacity", routesPrimary ? 1 : 0.38],
+      ["network-chokepoint-corridor-halo", "line-opacity", chokesPrimary ? 0.16 : 0.05],
+      ["network-chokepoint-corridor", "line-opacity", chokesPrimary ? 0.78 : 0.25],
+      ["network-chokepoint-gate", "line-opacity", chokesPrimary ? 0.84 : 0.3],
+      ["network-chokepoint-center", "circle-opacity", chokesPrimary ? 1 : 0.38],
+    ];
+    for (const [layerId, property, value] of paintUpdates) {
+      try {
+        if (map.getLayer(layerId)) map.setPaintProperty(layerId, property, value);
+      } catch {
+        dispatchRenderer({ type: "DEGRADE", degradation: "CATALOG_UNAVAILABLE" });
+      }
+    }
+  }, [focusMode, renderer.kind]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -451,6 +521,7 @@ export function NetworkPageClient() {
     <main
       aria-label="글로벌 항만 네트워크"
       className="network-page"
+      data-focus-mode={focusMode}
       data-renderer-stage={renderer.kind}
       data-renderer-diagnostic={diagnosticCode}
     >
@@ -499,24 +570,30 @@ export function NetworkPageClient() {
             </button>
           ))}
         </div>
-        <button className="network-reset" onClick={selectRoute} type="button">
+        <button className="network-reset" onClick={resetView} type="button">
           Reset
         </button>
       </section>
 
       <nav aria-label="네트워크 항목 탐색" className="network-explorer">
-        <button onClick={selectRoute} type="button">
+        <button onClick={(event) => selectRoute(event.currentTarget)} type="button">
           KNEI · 유럽 노선
         </button>
         {KNEI_REFERENCE_FIXTURE.ports.map((port) => (
-          <button key={port.id} onClick={() => selectPort(port.id)} type="button">
+          <button
+            key={port.id}
+            onClick={(event) => selectPort(port.id, event.currentTarget)}
+            type="button"
+          >
             {KNEI_PORT_LABELS[port.id] ?? port.id}
           </button>
         ))}
         {KNEI_REFERENCE_FIXTURE.chokepoints.map((chokepoint) => (
           <button
             key={chokepoint.id}
-            onClick={() => selectChokepoint(chokepoint.id)}
+            onClick={(event) =>
+              selectChokepoint(chokepoint.id, event.currentTarget)
+            }
             type="button"
           >
             {KNEI_CHOKEPOINT_LABELS[chokepoint.id] ?? chokepoint.id}
@@ -561,7 +638,7 @@ export function NetworkPageClient() {
           <button
             aria-label="선택 정보 닫기"
             className="network-detail-panel__close"
-            onClick={() => dispatchSelection({ type: "CLOSE_DETAIL" })}
+            onClick={closeDetail}
             type="button"
           >
             ×

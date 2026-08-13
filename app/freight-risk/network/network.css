@@ -464,6 +464,12 @@ button,
   stroke-width: 3;
 }
 
+.network-page[data-focus-mode="routes"] .network-static-map__choke:not(.is-selected),
+.network-page[data-focus-mode="chokepoints"] .network-static-map__port:not(.is-selected),
+.network-page[data-focus-mode="chokepoints"] .network-static-map__route:not(.is-selected) {
+  opacity: 0.3;
+}
+
 .network-static-map__hit {
   fill: transparent;
   stroke: transparent;
