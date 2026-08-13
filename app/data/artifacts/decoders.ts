@@ -10,7 +10,6 @@ import {
   isoTimestamp,
   literal,
   nullableFinite,
-  nullableString,
   oneOf,
   record,
   sortedUnique,
@@ -473,11 +472,9 @@ export function assertNetworkCatalogSeamV1(value: unknown): void {
   sortedUnique(chokepointIds, "$network chokepoint IDs");
   const weatherIds = weather.map((value, index) => {
     const item = record(value, `$network.weather[${index}]`);
-    exactKeys(item, ["id", "kind", "entityId", "routeId", "longitude", "latitude"], `$network.weather[${index}]`);
+    exactKeys(item, ["id", "kind", "entityId", "longitude", "latitude"], `$network.weather[${index}]`);
     oneOf(item.kind, ["port", "chokepoint", "route"], `$network.weather[${index}].kind`);
     string(item.entityId, "entityId");
-    const routeId = nullableString(item.routeId, "routeId");
-    if (routeId !== null) oneOf(routeId, ROUTE_IDS, "routeId");
     finite(item.longitude, "longitude");
     finite(item.latitude, "latitude");
     return string(item.id, `$network.weather[${index}].id`);
@@ -672,6 +669,122 @@ export function assertInsightPolicyV1(value: unknown): void {
   record(root.fallback, "fallback");
 }
 
+export function assertRuntimeProviderPolicyV1(value: unknown): void {
+  const root = record(value, "$runtimeProviderPolicy");
+  exactKeys(
+    root,
+    ["schemaVersion", "generatedAt", "providers", "allowedHosts", "serverEnvironmentNames", "policies"],
+    "$runtimeProviderPolicy",
+  );
+  literal(root.schemaVersion, "move-ai/runtime-provider-policy/v1", "$runtimeProviderPolicy.schemaVersion");
+  isoTimestamp(root.generatedAt, "$runtimeProviderPolicy.generatedAt");
+  const providers = array(root.providers, "$runtimeProviderPolicy.providers");
+  if (providers.length < 10) throw new Error("Runtime provider policy is incomplete");
+  providers.forEach((value, index) => {
+    const provider = record(value, `$runtimeProviderPolicy.providers[${index}]`);
+    exactKeys(
+      provider,
+      ["category", "order", "provider", "execution", "endpoint", "authentication", "unit", "notes"],
+      `$runtimeProviderPolicy.providers[${index}]`,
+    );
+    string(provider.category, "category");
+    integer(provider.order, "order");
+    const providerName = string(provider.provider, "provider");
+    const endpoint = string(provider.endpoint, "endpoint");
+    if (/openai/iu.test(providerName) || /api\.openai\.com/iu.test(endpoint)) {
+      throw new Error("Prohibited runtime provider");
+    }
+    if (providerName !== "Rule fallback" && !endpoint.startsWith("https://")) {
+      throw new Error("Runtime provider endpoint must use HTTPS");
+    }
+    string(provider.execution, "execution");
+    string(provider.authentication, "authentication");
+    string(provider.unit, "unit");
+    string(provider.notes, "notes");
+    if (provider.category === "HARPEX" && provider.unit !== "Index") {
+      throw new Error("HARPEX runtime unit must be Index");
+    }
+  });
+  const hosts = stringArray(root.allowedHosts, "$runtimeProviderPolicy.allowedHosts");
+  sortedUnique(hosts, "$runtimeProviderPolicy.allowedHosts");
+  for (const host of hosts) {
+    if (!/^[a-z0-9.-]+$/u.test(host)) throw new Error("Invalid provider host");
+  }
+  const environmentNames = stringArray(root.serverEnvironmentNames, "serverEnvironmentNames");
+  if (environmentNames.some((name) => name.startsWith("NEXT_PUBLIC_") || name.startsWith("VITE_"))) {
+    throw new Error("Provider environment must remain server-only");
+  }
+  const policies = record(root.policies, "$runtimeProviderPolicy.policies");
+  exactKeys(policies, ["market", "news", "insight", "port", "chokepoint", "weather", "tuning"], "policies");
+  const market = record(policies.market, "policies.market");
+  exactKeys(market, ["attemptTimeoutMs", "maximumAttempts"], "policies.market");
+  literal(integer(market.attemptTimeoutMs, "market.attemptTimeoutMs"), 7_000, "market.attemptTimeoutMs");
+  literal(integer(market.maximumAttempts, "market.maximumAttempts"), 1, "market.maximumAttempts");
+  const port = record(policies.port, "policies.port");
+  exactKeys(port, ["chunkSize", "concurrency", "pageSize", "maximumPages", "attemptTimeoutMs", "maximumAttempts", "backoffMs"], "policies.port");
+  literal(integer(port.chunkSize, "port.chunkSize"), 8, "port.chunkSize");
+  literal(integer(port.concurrency, "port.concurrency"), 3, "port.concurrency");
+  literal(integer(port.pageSize, "port.pageSize"), 1_000, "port.pageSize");
+  literal(integer(port.maximumPages, "port.maximumPages"), 50, "port.maximumPages");
+  literal(integer(port.attemptTimeoutMs, "port.attemptTimeoutMs"), 12_000, "port.attemptTimeoutMs");
+  literal(integer(port.maximumAttempts, "port.maximumAttempts"), 3, "port.maximumAttempts");
+  const backoff = array(port.backoffMs, "port.backoffMs");
+  exactArrayLength(backoff, 2, "port.backoffMs");
+  literal(integer(backoff[0], "port.backoffMs[0]"), 350, "port.backoffMs[0]");
+  literal(integer(backoff[1], "port.backoffMs[1]"), 700, "port.backoffMs[1]");
+  record(policies.news, "policies.news");
+  const insight = record(policies.insight, "policies.insight");
+  const providerOrder = stringArray(insight.providerOrder, "insight.providerOrder");
+  if (providerOrder.join(",") !== "Gemini,Rule fallback") throw new Error("Insight provider order mismatch");
+  literal(integer(insight.totalTimeoutMs, "insight.totalTimeoutMs"), 25_000, "insight.totalTimeoutMs");
+  record(policies.chokepoint, "policies.chokepoint");
+  record(policies.weather, "policies.weather");
+  const tuning = record(policies.tuning, "policies.tuning");
+  literal(integer(tuning.totalTimeoutMs, "tuning.totalTimeoutMs"), 600_000, "tuning.totalTimeoutMs");
+}
+
+export function assertConsumerIntegrationFixturesV1(value: unknown): void {
+  const root = record(value, "$consumerFixtures");
+  exactKeys(
+    root,
+    ["schemaVersion", "generatedAt", "fixtureCatalogSha256", "networkCatalogSeamSha256", "consumers"],
+    "$consumerFixtures",
+  );
+  literal(root.schemaVersion, "move-ai/consumer-integration-fixtures/v1", "$consumerFixtures.schemaVersion");
+  isoTimestamp(root.generatedAt, "$consumerFixtures.generatedAt");
+  for (const field of ["fixtureCatalogSha256", "networkCatalogSeamSha256"] as const) {
+    if (!/^[\da-f]{64}$/u.test(string(root[field], `$consumerFixtures.${field}`))) {
+      throw new Error(`Invalid consumer fixture digest ${field}`);
+    }
+  }
+  const consumers = record(root.consumers, "$consumerFixtures.consumers");
+  exactKeys(consumers, ["dashboard", "modelLab", "globe", "allocation"], "$consumerFixtures.consumers");
+  const expectedCounts = { dashboard: 4, modelLab: 3, globe: 3, allocation: 1 } as const;
+  const methods = new Set([
+    "snapshot", "market", "news", "insight", "tuningHealth", "tuningRun",
+    "portSummary", "chokeSummary", "weather",
+  ]);
+  for (const [consumer, expectedCount] of Object.entries(expectedCounts)) {
+    const resources = array(consumers[consumer], `$consumerFixtures.consumers.${consumer}`);
+    exactArrayLength(resources, expectedCount, `$consumerFixtures.consumers.${consumer}`);
+    resources.forEach((value, index) => {
+      const resource = record(value, `${consumer}[${index}]`);
+      exactKeys(
+        resource,
+        ["method", "fixtureId", "expectedState", "expectedMode", "expectedStatus", "expectedCacheControl", "expectedConsumerState"],
+        `${consumer}[${index}]`,
+      );
+      if (!methods.has(string(resource.method, "method"))) throw new Error("Unknown consumer gateway method");
+      string(resource.fixtureId, "fixtureId");
+      string(resource.expectedState, "expectedState");
+      oneOf(resource.expectedMode, ["fixture", "unavailable"], "expectedMode");
+      integer(resource.expectedStatus, "expectedStatus");
+      string(resource.expectedCacheControl, "expectedCacheControl");
+      oneOf(resource.expectedConsumerState, ["ready", "stale", "unavailable"], "expectedConsumerState");
+    });
+  }
+}
+
 export function assertTuningConfigV1(value: unknown): void {
   const root = record(value, "$tuningConfig");
   exactKeys(
@@ -776,6 +889,10 @@ export function assertGeneratedArtifact(
       return assertNewsPolicyV18(value);
     case "insight-policy-v1":
       return assertInsightPolicyV1(value);
+    case "runtime-provider-policy-v1":
+      return assertRuntimeProviderPolicyV1(value);
+    case "consumer-integration-fixtures-v1":
+      return assertConsumerIntegrationFixturesV1(value);
     case "tuning-config-v1":
       return assertTuningConfigV1(value);
     case "provenance-manifest-v1":

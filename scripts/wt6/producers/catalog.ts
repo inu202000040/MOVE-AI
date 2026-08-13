@@ -2,7 +2,6 @@ import { ROUTE_IDS } from "../../../app/contracts/routes";
 import { sortedRecord, sortCodeUnits } from "../canonical";
 import {
   assertExactCount,
-  nullableString,
   requireBoolean,
   requireNumber,
   requireString,
@@ -83,7 +82,6 @@ export function produceNetworkCatalog(input: {
         id: requireString(location, "location_key"),
         kind,
         entityId: requireString(location, "entity_id"),
-        routeId: nullableString(location, "route_code"),
         longitude: requireNumber(location, "longitude"),
         latitude: requireNumber(location, "latitude"),
       };

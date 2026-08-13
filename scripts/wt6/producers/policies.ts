@@ -99,6 +99,93 @@ export function produceInsightPolicy(generatedAt: string) {
   };
 }
 
+const RUNTIME_PROVIDER_CATEGORIES = [
+  "FX",
+  "BRENT",
+  "BUNKER",
+  "HARPEX",
+  "NEWS",
+  "TRANSLATION",
+  "WEATHER",
+  "MARINE",
+  "VISIBILITY",
+  "INSIGHT",
+] as const;
+
+export function produceRuntimeProviderPolicy(input: {
+  readonly generatedAt: string;
+  readonly providers: readonly TableRecord[];
+}) {
+  const allowedCategories = new Set<string>(RUNTIME_PROVIDER_CATEGORIES);
+  const providers = input.providers
+    .filter((row) => allowedCategories.has(requireString(row, "category")))
+    .filter((row) => requireString(row, "provider") !== "OpenAI Responses")
+    .map((row) => {
+      const category = requireString(row, "category");
+      const provider = requireString(row, "provider");
+      const endpoint = requireString(row, "endpoint");
+      if (provider !== "Rule fallback" && !endpoint.startsWith("https://")) {
+        throw new Error(`Runtime provider ${provider} must use HTTPS`);
+      }
+      return {
+        category,
+        order: requireInteger(row, "order"),
+        provider,
+        execution: requireString(row, "execution"),
+        endpoint,
+        authentication: requireString(row, "auth"),
+        unit: category === "HARPEX" ? "Index" : requireString(row, "unit"),
+        notes: requireString(row, "notes"),
+      };
+    })
+    .sort((left, right) =>
+      sortCodeUnits(left.category, right.category) || left.order - right.order,
+    );
+
+  const insightProviders = providers
+    .filter((provider) => provider.category === "INSIGHT")
+    .map((provider) => provider.provider);
+  if (insightProviders.join(",") !== "Gemini,Rule fallback") {
+    throw new Error("Runtime insight provider allowlist must be Gemini then Rule fallback");
+  }
+
+  const allowedHosts = [...new Set(
+    providers
+      .filter((provider) => provider.endpoint.startsWith("https://"))
+      .map((provider) => new URL(provider.endpoint).hostname),
+  )].sort(sortCodeUnits);
+
+  return {
+    schemaVersion: "move-ai/runtime-provider-policy/v1",
+    generatedAt: input.generatedAt,
+    providers,
+    allowedHosts,
+    serverEnvironmentNames: [
+      "MOVE_AI_DATA_MODE",
+      "GEMINI_API_KEY",
+      "GOOGLE_API_KEY",
+      "GEMINI_INSIGHT_MODEL",
+      "KCCI_ENGINE_URL",
+      "KCCI_ENGINE_TOKEN",
+      "KCCI_MAX_REQUEST_BYTES",
+      "MET_NO_USER_AGENT",
+    ],
+    policies: {
+      market: { attemptTimeoutMs: 7_000, maximumAttempts: 1 },
+      news: { execution: "parallel", primaryWindowDays: 30, retryWindowDays: 90 },
+      insight: { providerOrder: ["Gemini", "Rule fallback"], totalTimeoutMs: 25_000 },
+      port: { chunkSize: 8, concurrency: 3, pageSize: 1_000, maximumPages: 50, attemptTimeoutMs: 12_000, maximumAttempts: 3, backoffMs: [350, 700] },
+      chokepoint: { attemptTimeoutMs: 12_000, maximumAttempts: 1 },
+      weather: {
+        atmosphere: { concurrency: 8, attemptTimeoutMs: 20_000, maximumAttempts: 2, retryStatuses: [429] },
+        marine: { chunkSize: 24, attemptTimeoutMs: 20_000, maximumAttempts: 1 },
+        visibility: { attemptTimeoutMs: 25_000, maximumAttempts: 2, maximumStationDistanceKm: 75, maximumObservationAgeMinutes: 180, futureToleranceMinutes: 15 },
+      },
+      tuning: { totalTimeoutMs: 600_000, maximumAttempts: 1 },
+    },
+  };
+}
+
 export function produceTuningConfig(input: {
   readonly generatedAt: string;
   readonly parameters: readonly TableRecord[];

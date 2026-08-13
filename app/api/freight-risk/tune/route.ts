@@ -5,7 +5,8 @@ import { decodeTuneRequestV1 } from "../../../data/runtime/domains";
 
 export async function GET(request: Request): Promise<Response> {
   try {
-    const result = await fixtureDataGateway.tuningHealth(parseEmptyQuery(new URL(request.url).searchParams), request.signal);
+    parseEmptyQuery(new URL(request.url).searchParams);
+    const result = await fixtureDataGateway.tuningHealth(request.signal);
     return jsonResponse(result, { status: 503, cacheControl: "no-store" });
   } catch (error) {
     return invalidRequestResponse(error);

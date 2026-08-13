@@ -67,6 +67,7 @@ test("market exact query rejects missing, duplicate, extra, wrong version, and r
     "?series=harpex&from=2026-07-01&to=2026-08-31&providerVersion=3&extra=1",
     "?series=harpex&from=2026-07-01&to=2026-08-31&providerVersion=2",
     "?series=harpex&from=2026-09-01&to=2026-08-31&providerVersion=3",
+    "?series=harpex&from=2026-02-31&to=2026-03-01&providerVersion=3",
   ];
   for (const query of invalidUrls) {
     const { response, body } = await call(marketGet, `http://localhost/api/freight-risk/market${query}`);
@@ -145,6 +146,13 @@ test("tuning health and valid run truthfully report deployed engine unavailable"
 
   const invalid = await call(tunePost, "http://localhost/api/freight-risk/tune", { method: "POST", body: JSON.stringify({}) });
   assert.equal(invalid.response.status, 400);
+  const unknownParameter = await call(tunePost, "http://localhost/api/freight-risk/tune", {
+    method: "POST",
+    body: JSON.stringify({ routeCode: "KNEI", modelId: "sarimax", dates, values: dates.map((_, index) => 1_000 + index), trainingWindow: "expanding", evaluationOrigins: 36, parameters: { totallyUnknownParameter: 1 } }),
+  });
+  assert.equal(unknownParameter.response.status, 400);
+  assertEnvelope(unknownParameter.body);
+  assert.equal(unknownParameter.body.error?.code, "INVALID_REQUEST");
 });
 
 test("port route exposes keyed stale fixture, detail boundaries, and exact query rejection", async () => {

@@ -15,6 +15,7 @@ import {
   boolean,
   exactKeys,
   integer,
+  isoDate,
   isoTimestamp,
   nullableFinite,
   nullableString,
@@ -26,6 +27,36 @@ import {
 
 export type DomainDecoder<TData> = (value: unknown) => TData;
 export type StateGuard<TState extends string> = (value: unknown) => value is TState;
+export type StateDataCompatibility<TData, TState extends string> = (
+  state: TState,
+  data: TData,
+  meta: GatewayMetaV1,
+) => void;
+
+function safeSourceUrl(value: unknown): string | null {
+  const sourceUrl = nullableString(value, "$result.meta.sourceUrl");
+  if (sourceUrl === null) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(sourceUrl);
+  } catch {
+    throw new Error("Gateway sourceUrl must be a valid URL");
+  }
+  if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || parsed.username || parsed.password) {
+    throw new Error("Gateway sourceUrl must be a public http(s) URL without credentials");
+  }
+  return sourceUrl;
+}
+
+function safeAsOf(value: unknown): string | null {
+  const asOf = nullableString(value, "$result.meta.asOf");
+  if (asOf === null) return null;
+  try {
+    return isoDate(asOf, "$result.meta.asOf");
+  } catch {
+    return isoTimestamp(asOf, "$result.meta.asOf");
+  }
+}
 
 function decodeMeta(value: unknown): GatewayMetaV1 {
   const meta = record(value, "$result.meta");
@@ -41,8 +72,8 @@ function decodeMeta(value: unknown): GatewayMetaV1 {
   return {
     mode,
     source: string(meta.source, "$result.meta.source"),
-    sourceUrl: nullableString(meta.sourceUrl, "$result.meta.sourceUrl"),
-    asOf: nullableString(meta.asOf, "$result.meta.asOf"),
+    sourceUrl: safeSourceUrl(meta.sourceUrl),
+    asOf: safeAsOf(meta.asOf),
     fetchedAt: isoTimestamp(meta.fetchedAt, "$result.meta.fetchedAt"),
     unit: nullableString(meta.unit, "$result.meta.unit"),
     isEstimate: boolean(meta.isEstimate, "$result.meta.isEstimate"),
@@ -79,6 +110,7 @@ export function parseGatewayResultV1<TData, TState extends string>(
   value: unknown,
   decodeData: DomainDecoder<TData>,
   isState: StateGuard<TState>,
+  assertCompatibility: StateDataCompatibility<TData, TState>,
 ): GatewayResultV1<TData, TState> {
   const root = record(value, "$result");
   exactKeys(root, GATEWAY_ROOT_KEYS, "$result");
@@ -95,10 +127,12 @@ export function parseGatewayResultV1<TData, TState extends string>(
   if (root.data === null || error !== null || meta.mode === "unavailable") {
     throw new Error("Successful result invariant failed");
   }
+  const data = decodeData(root.data);
+  assertCompatibility(root.state, data, meta);
   return {
     schemaVersion: GATEWAY_SCHEMA_VERSION,
     state: root.state,
-    data: decodeData(root.data),
+    data,
     meta,
     error: null,
   };

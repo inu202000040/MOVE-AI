@@ -13,6 +13,7 @@ import { produceMarketReference } from "./producers/market";
 import {
   produceInsightPolicy,
   produceNewsPolicy,
+  produceRuntimeProviderPolicy,
   produceTuningConfig,
 } from "./producers/policies";
 import { produceForecastArtifacts } from "./producers/snapshot";
@@ -190,7 +191,7 @@ export async function generateAll(input: {
 }): Promise<GenerationResult> {
   const generatedAt = input.generatedAt ?? DEFAULT_GENERATION_CLOCK;
   const approvedInputs = await verifyApprovedInputs(input.inputRoot, generatedAt);
-  const referenceManifestSha256 = PACK_SIDECARS[0].sha256;
+  const referenceManifestSha256 = approved("12").sha256;
   const workbookCache = new Map<string, Promise<XlsxWorkbook>>();
   const workbook = (id: string): Promise<XlsxWorkbook> => {
     const source = approved(id);
@@ -275,11 +276,12 @@ export async function generateAll(input: {
     allSeries: readTable(chokeBook, "ALL_SERIES"),
   });
 
-  const [catalogBook, weatherBook, newsBook, tuningBook] = await Promise.all([
+  const [catalogBook, weatherBook, newsBook, tuningBook, runtimeProviderBook] = await Promise.all([
     workbook("01"),
     workbook("09"),
     workbook("10"),
     workbook("15"),
+    workbook("17"),
   ]);
   const networkCatalog = produceNetworkCatalog({
     capturedAt: generatedAt,
@@ -295,6 +297,10 @@ export async function generateAll(input: {
     providers: readTable(newsBook, "PROVIDERS"),
   });
   const insightPolicy = produceInsightPolicy(generatedAt);
+  const runtimeProviderPolicy = produceRuntimeProviderPolicy({
+    generatedAt,
+    providers: readTable(runtimeProviderBook, "NORMALIZED"),
+  });
   const tuningConfig = produceTuningConfig({
     generatedAt,
     parameters: readTable(tuningBook, "RAW"),
@@ -394,6 +400,16 @@ export async function generateAll(input: {
       rowCounts: { routeProfiles: 13 },
       attribution: "Frozen WT6 contract tables",
       usageNote: "No OpenAI runtime or API is permitted.",
+    },
+    {
+      logicalArtifactId: "runtime-provider-policy-v1",
+      fileName: "runtime-provider-policy-v1.json",
+      value: runtimeProviderPolicy,
+      inputs: [provenanceInput("17", ["NORMALIZED"])],
+      parameters: { llm: "Gemini only", outboundScheme: "https", harpexPublicUnit: "Index" },
+      rowCounts: { approvedRuntimeProviders: runtimeProviderPolicy.providers.length },
+      attribution: "Approved runtime provider catalog and frozen WT6 policy tables",
+      usageNote: "Server-only provider allowlist; prohibited LLM rows are not executable or published.",
     },
     {
       logicalArtifactId: "tuning-config-v1",
@@ -516,6 +532,32 @@ export async function generateAll(input: {
         expectedCacheControl: "no-store",
         expectedConsumerState: "unavailable",
       })),
+      {
+        fixtureId: "insight-derived-rule-v1",
+        domain: "insight",
+        normalizedRequest: { route: "KNEI", selectedHorizon: 1 },
+        state: "DERIVED",
+        mode: "fixture",
+        asOf: "2026-08-03",
+        fetchedAt: generatedAt,
+        artifactDigest: digestById.get("insight-policy-v1"),
+        expectedStatus: 200,
+        expectedCacheControl: "no-store",
+        expectedConsumerState: "ready",
+      },
+      ...(["tuning-health", "tuning-run"] as const).map((domain) => ({
+        fixtureId: `${domain}-unavailable-v1`,
+        domain,
+        normalizedRequest: {},
+        state: "UNAVAILABLE",
+        mode: "unavailable",
+        asOf: null,
+        fetchedAt: generatedAt,
+        artifactDigest: null,
+        expectedStatus: 503,
+        expectedCacheControl: "no-store",
+        expectedConsumerState: "unavailable",
+      })),
     ],
   };
   const fixtureDraft: ArtifactDraft = {
@@ -539,6 +581,66 @@ export async function generateAll(input: {
   drafts.push(fixtureDraft);
   const fixtureArtifact = materialize(fixtureDraft);
   materialized.push(fixtureArtifact);
+
+  const fixtureById = new Map(
+    fixtureCatalog.items.map((fixture) => [fixture.fixtureId, fixture] as const),
+  );
+  const consumerResource = (method: string, fixtureId: string) => {
+    const fixture = fixtureById.get(fixtureId);
+    if (!fixture) throw new Error(`Unknown consumer fixture ${fixtureId}`);
+    return {
+      method,
+      fixtureId,
+      expectedState: fixture.state,
+      expectedMode: fixture.mode,
+      expectedStatus: fixture.expectedStatus,
+      expectedCacheControl: fixture.expectedCacheControl,
+      expectedConsumerState: fixture.expectedConsumerState,
+    };
+  };
+  const consumerFixtures = {
+    schemaVersion: "move-ai/consumer-integration-fixtures/v1",
+    generatedAt,
+    fixtureCatalogSha256: fixtureArtifact.sha256,
+    networkCatalogSeamSha256: catalogArtifact.sha256,
+    consumers: {
+      dashboard: [
+        consumerResource("snapshot", "snapshot-ready-v1"),
+        consumerResource("market", "market-harpex-reference-v1"),
+        consumerResource("news", "news-unavailable-v1"),
+        consumerResource("insight", "insight-derived-rule-v1"),
+      ],
+      modelLab: [
+        consumerResource("snapshot", "snapshot-ready-v1"),
+        consumerResource("tuningHealth", "tuning-health-unavailable-v1"),
+        consumerResource("tuningRun", "tuning-run-unavailable-v1"),
+      ],
+      globe: [
+        consumerResource("portSummary", "port-summary-stale-v1"),
+        consumerResource("chokeSummary", "chokepoint-summary-stale-v1"),
+        consumerResource("weather", "weather-unavailable-v1"),
+      ],
+      allocation: [consumerResource("snapshot", "snapshot-ready-v1")],
+    },
+  };
+  const consumerFixtureDraft: ArtifactDraft = {
+    logicalArtifactId: "consumer-integration-fixtures-v1",
+    fileName: "consumer-integration-fixtures-v1.json",
+    value: consumerFixtures,
+    inputs: fixtureDraft.inputs,
+    parameters: {
+      fixtureCatalogSha256: fixtureArtifact.sha256,
+      networkCatalogSeamSha256: catalogArtifact.sha256,
+    },
+    rowCounts: {
+      consumers: Object.keys(consumerFixtures.consumers).length,
+      resources: Object.values(consumerFixtures.consumers).flat().length,
+    },
+    attribution: "MOVE AI consumer seam contract",
+    usageNote: "Consumers share WT6 method decoders and must not invent fallback payloads.",
+  };
+  drafts.push(consumerFixtureDraft);
+  materialized.push(materialize(consumerFixtureDraft));
 
   const draftById = new Map(drafts.map((draft) => [draft.logicalArtifactId, draft]));
   const provenanceManifest = {

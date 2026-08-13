@@ -72,20 +72,27 @@ export function literal<T extends string | number>(
   return expected;
 }
 
-export function oneOf<T extends string>(
+export function oneOf<T extends string | number>(
   value: unknown,
   allowed: readonly T[],
   path: string,
 ): T {
-  if (typeof value !== "string") throw new Error(`${path} must be a string`);
+  if (typeof value !== "string" && typeof value !== "number") {
+    throw new Error(`${path} must be a string or number`);
+  }
   const found = allowed.find((candidate) => candidate === value);
-  if (!found) throw new Error(`${path} contains unknown value ${value}`);
+  if (found === undefined) throw new Error(`${path} contains unknown value ${value}`);
   return found;
 }
 
 export function isoDate(value: unknown, path: string): string {
   const result = string(value, path);
-  if (!/^\d{4}-\d{2}-\d{2}$/u.test(result) || Number.isNaN(Date.parse(`${result}T00:00:00Z`))) {
+  const parsed = new Date(`${result}T00:00:00Z`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/u.test(result) ||
+    Number.isNaN(parsed.valueOf()) ||
+    parsed.toISOString().slice(0, 10) !== result
+  ) {
     throw new Error(`${path} must be an ISO date`);
   }
   return result;
@@ -93,13 +100,22 @@ export function isoDate(value: unknown, path: string): string {
 
 export function isoTimestamp(value: unknown, path: string): string {
   const result = string(value, path);
-  if (
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/u.test(
-      result,
-    ) ||
-    Number.isNaN(Date.parse(result))
-  ) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?(?:Z|[+-]\d{2}:\d{2})$/u.exec(result);
+  if (!match || Number.isNaN(Date.parse(result))) {
     throw new Error(`${path} must be an ISO timestamp with offset`);
+  }
+  const [year, month, day, hour, minute, second, millisecond] = match.slice(1, 8).map((part) => Number(part ?? "0"));
+  const localCalendar = new Date(Date.UTC(year, month - 1, day, hour, minute, second, millisecond));
+  if (
+    localCalendar.getUTCFullYear() !== year
+    || localCalendar.getUTCMonth() !== month - 1
+    || localCalendar.getUTCDate() !== day
+    || localCalendar.getUTCHours() !== hour
+    || localCalendar.getUTCMinutes() !== minute
+    || localCalendar.getUTCSeconds() !== second
+    || localCalendar.getUTCMilliseconds() !== millisecond
+  ) {
+    throw new Error(`${path} must be an ISO timestamp with a valid calendar date`);
   }
   return result;
 }

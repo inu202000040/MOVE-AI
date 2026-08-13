@@ -4,7 +4,8 @@ import { parseEmptyQuery } from "../../data/runtime/queries";
 
 export async function GET(request: Request): Promise<Response> {
   try {
-    const result = await fixtureDataGateway.weather(parseEmptyQuery(new URL(request.url).searchParams), request.signal);
+    parseEmptyQuery(new URL(request.url).searchParams);
+    const result = await fixtureDataGateway.weather(request.signal);
     return jsonResponse(result, { cacheControl: "no-store" });
   } catch (error) {
     return invalidRequestResponse(error);
